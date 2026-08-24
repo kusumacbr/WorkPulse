@@ -1,0 +1,1484 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleType {
+  EMPLOYEE
+  MANAGER
+  HR
+  ADMIN
+}
+
+enum EmployeeStatus {
+  INVITED
+  ACTIVE
+  ON_LEAVE
+  PROBATION
+  PIP
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+  ARCHIVED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum WorkLocation {
+  OFFICE
+  WFH
+  HYBRID
+  CLIENT_LOCATION
+  REMOTE
+  ONSITE
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WorkMode {
+  OFFICE
+  WFH
+  HYBRID
+  CLIENT_LOCATION
+  BUSINESS_TRAVEL
+  FULL_DAY_LEAVE
+  HALF_DAY_LEAVE
+  COMPANY_HOLIDAY
+  WEEKLY_OFF
+  ABSENT
+}
+
+enum WorkdayStatus {
+  OPEN
+  SOD_SUBMITTED
+  EOD_SUBMITTED
+  CHANGES_REQUESTED
+  LOCKED
+  AMENDED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskType {
+  PLANNED
+  SUPPORT
+  MEETING
+  INCIDENT
+  LEARNING
+  ADMINISTRATIVE
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  PARTIALLY_COMPLETED
+  BLOCKED
+  CARRIED_FORWARD
+  CANCELLED
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum GoalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  SOD_REMINDER
+  EOD_REMINDER
+  CHANGES_REQUESTED
+  GOAL_APPROVED
+  WORKDAY_LOCKED
+  BLOCKER_ALERT
+  BLOCKER_ESCALATED
+  LEAVE_PENDING_HR
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  WFH_APPROVED
+  REGULARISATION_APPROVED
+  BIOMETRIC_SYNC_ERROR
+  BADGE_AWARDED
+  PIP_ALERT
+  PROBATION_ALERT
+  ANNOUNCEMENT
+  EXPORT_COMPLETED
+  GENERAL
+}
+
+enum ReviewType {
+  WEEKLY
+  MONTHLY
+  MANAGER_EVALUATION
+}
+
+enum ReviewStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  RESUBMITTED
+  APPROVED
+  ACKNOWLEDGED
+  LOCKED
+  AMENDED
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  PRIVILEGE
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING_MANAGER
+  PENDING_HR
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum WfhStatus {
+  PENDING_MANAGER
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum RegularisationStatus {
+  PENDING_MANAGER
+  APPROVED
+  REJECTED
+}
+
+enum HolidayType {
+  NATIONAL
+  FESTIVAL
+  COMPANY_OPTIONAL
+}
+
+enum PunchType {
+  IN
+  OUT
+}
+
+enum PunchSource {
+  BIOMETRIC
+  WEB_MANUAL
+}
+
+enum BiometricProvider {
+  ESLATE
+  MATRIX
+  ZKTECO
+  ANVIZ
+  GENERIC_WEBHOOK
+  LOCAL_CONNECTOR
+}
+
+enum DeviceStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  DISCONNECTED
+}
+
+enum PunchDirection {
+  IN
+  OUT
+  BREAK_START
+  BREAK_END
+  UNKNOWN
+}
+
+enum VerificationMethod {
+  FINGERPRINT
+  FACE
+  CARD
+  PIN
+  MOBILE
+  MANUAL
+  UNKNOWN
+}
+
+enum IngestionStatus {
+  PROCESSED
+  QUARANTINED
+  DUPLICATE_REJECTED
+  FAILED
+}
+
+enum BlockerSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum BlockerStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  VERIFIED
+  CLOSED
+  DUPLICATE
+  INVALID
+  WITHDRAWN
+}
+
+enum BadgeCategory {
+  PERFORMANCE
+  COLLABORATION
+  INNOVATION
+  LEADERSHIP
+  LEARNING
+  CUSTOMER
+}
+
+enum ProbationDecision {
+  CONFIRM_EMPLOYMENT
+  EXTEND_PROBATION
+  TRAINING_REQUIRED
+  START_PIP
+  TERMINATE_PROBATION
+}
+
+enum PipStatus {
+  DRAFT
+  AWAITING_HR_REVIEW
+  AWAITING_EMPLOYEE_ACK
+  ACTIVE
+  IMPROVING
+  AT_RISK
+  COMPLETED_SUCCESSFULLY
+  EXTENDED
+  UNSUCCESSFUL
+  CANCELLED
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum AnnouncementCategory {
+  GENERAL
+  POLICY
+  BIRTHDAY
+  FESTIVAL
+  HOLIDAY
+  EVENT
+  EMERGENCY
+  COMPANY_NEWS
+}
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum AudienceType {
+  ALL
+  DEPARTMENT
+  TEAM
+  EMPLOYEE
+}
+
+enum ExportJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ExportFormat {
+  CSV
+  XLSX
+  PDF
+}
+
+enum NotificationDeliveryStatus {
+  QUEUED
+  PROCESSING
+  DELIVERED
+  FAILED
+  RETRYING
+  DEAD_LETTER
+}
+
+// ----------------------------------------------------
+// Better Auth Core Models
+// ----------------------------------------------------
+
+model User {
+  id            String      @id @default(cuid())
+  name          String
+  email         String      @unique
+  emailVerified Boolean     @default(false)
+  image         String?
+  status        String      @default("ACTIVE")
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  passkeys      Passkey[]
+  userRoles     UserRole[]
+  employee      Employee?
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@map("user")
+}
+
+model Session {
+  id                   String    @id @default(cuid())
+  expiresAt            DateTime
+  token                String    @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganizationId String?
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
+  @@map("verification")
+}
+
+model Passkey {
+  id           String    @id @default(cuid())
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String    @unique
+  counter      Int       @default(0)
+  deviceType   String?
+  backedUp     Boolean   @default(false)
+  transports   String?
+  createdAt    DateTime  @default(now())
+
+  @@map("passkey")
+}
+
+// ----------------------------------------------------
+// RBAC Roles
+// ----------------------------------------------------
+
+model Role {
+  id          String     @id @default(cuid())
+  name        RoleType   @unique
+  description String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  userRoles   UserRole[]
+
+  @@map("role")
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_role")
+}
+
+// ----------------------------------------------------
+// Organization Hierarchy
+// ----------------------------------------------------
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  domain      String       @default("xorstack.com")
+  logoUrl     String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  departments Department[]
+  employees   Employee[]
+  devices     BiometricDevice[]
+  goalTemplates GoalTemplate[]
+  announcements Announcement[]
+
+  @@map("organization")
+}
+
+model Department {
+  id             String       @id @default(cuid())
+  name           String
+  code           String       @unique
+  organizationId String
+  headEmployeeId String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams          Team[]
+  employees      Employee[]
+
+  @@map("department")
+}
+
+model Team {
+  id             String       @id @default(cuid())
+  name           String
+  code           String       @unique
+  departmentId   String
+  leadEmployeeId String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  department     Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  employees      Employee[]   @relation("PrimaryTeam")
+  projectMembers EmployeeProjectTeam[]
+
+  @@map("team")
+}
+
+model Employee {
+  id                     String           @id @default(cuid())
+  userId                 String           @unique
+  employeeCode           String           @unique
+  organizationId         String
+  departmentId           String
+  teamId                 String?
+  jobTitle               String
+  fullName               String?
+  preferredName          String?
+  workEmail              String           @unique
+  personalEmail          String?
+  secondaryEmail         String?
+  phoneNumber            String?
+  profilePhoto           String?
+  employmentType         EmploymentType   @default(FULL_TIME)
+
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+
+  hireDate               DateTime         @db.Date
+  probationStartDate     DateTime?        @db.Date
+  probationEndDate       DateTime?        @db.Date
+  lastWorkingDate        DateTime?        @db.Date
+  status                 EmployeeStatus   @default(ACTIVE)
+  defaultShift           String           @default("09:00-18:00")
+  timezone               String           @default("UTC")
+  workLocation           WorkLocation     @default(HYBRID)
+  skills                 Json?
+  biometricCode          String?          @unique
+  deletedAt              DateTime?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department             Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  team                   Team?            @relation("PrimaryTeam", fields: [teamId], references: [id], onDelete: SetNull)
+
+  projectTeams           EmployeeProjectTeam[]
+  managerAssignmentsAsManager ManagerAssignment[] @relation("ManagerRelation")
+  managerAssignmentsAsReport  ManagerAssignment[] @relation("ReportRelation")
+
+  workdays               Workday[]
+  dailyTasks             DailyTask[]
+  weeklyGoals            WeeklyGoal[]
+  reviewsAsEmployee      PerformanceReview[] @relation("RevieweeRelation")
+  reviewsAsReviewer      PerformanceReview[] @relation("ReviewerRelation")
+  meetingsAsManager      OneToOneMeeting[]   @relation("MeetingManagerRelation")
+  meetingsAsEmployee     OneToOneMeeting[]   @relation("MeetingEmployeeRelation")
+  leaveBalances          LeaveBalance[]
+  leaveRequests          LeaveRequest[]      @relation("LeaveEmployeeRelation")
+  leaveRequestsAsBackup  LeaveRequest[]      @relation("LeaveBackupRelation")
+  wfhRequests            WfhRequest[]
+  regularisations        AttendanceRegularisation[]
+  punches                BiometricPunch[]
+  biometricMappings      BiometricEmployeeMapping[]
+  biometricTransactions  BiometricPunchTransaction[]
+  blockersReported       Blocker[]           @relation("BlockerReporterRelation")
+  badgesReceived         BadgeAward[]        @relation("BadgeRecipientRelation")
+  badgesIssued           BadgeAward[]        @relation("BadgeIssuerRelation")
+  probationReviews       ProbationReview[]   @relation("ProbationEmployeeRelation")
+  pipRecordsAsEmployee   PipRecord[]         @relation("PipEmployeeRelation")
+  pipRecordsAsManager    PipRecord[]         @relation("PipManagerRelation")
+  skillGoals             SkillGoal[]
+  announcementReceipts   AnnouncementReceipt[]
+  exportJobs             ExportJob[]
+
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([teamId])
+  @@index([status])
+  @@map("employee")
+}
+
+model EmployeeProjectTeam {
+  id         String   @id @default(cuid())
+  employeeId String
+  teamId     String
+  assignedAt DateTime @default(now())
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, teamId])
+  @@map("employee_project_team")
+}
+
+model ManagerAssignment {
+  id          String           @id @default(cuid())
+  managerId   String
+  reportId    String
+  isDirect    Boolean          @default(true)
+  isPrimary   Boolean          @default(true)
+  isSecondary Boolean          @default(false)
+  startDate   DateTime         @default(now()) @db.Date
+  endDate     DateTime?        @db.Date
+  status      AssignmentStatus @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  manager     Employee         @relation("ManagerRelation", fields: [managerId], references: [id], onDelete: Cascade)
+  report      Employee         @relation("ReportRelation", fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([managerId, reportId, startDate])
+  @@index([managerId, status])
+  @@index([reportId, status])
+  @@map("manager_assignment")
+}
+
+// ----------------------------------------------------
+// Workday & Daily Lifecycle
+// ----------------------------------------------------
+
+model Workday {
+  id                    String        @id @default(cuid())
+  employeeId            String
+  workDate              DateTime      @db.Date
+  workMode              WorkMode      @default(OFFICE)
+  shift                 String        @default("09:00-18:00")
+  plannedHours          Float         @default(8.0)
+  checkInTime           DateTime?
+  checkOutTime          DateTime?
+  calculatedWorkedHours Float?
+  sodSubmittedAt        DateTime?
+  eodSubmittedAt        DateTime?
+  status                WorkdayStatus @default(OPEN)
+
+  achievements          String?       @db.Text
+  issues                String?       @db.Text
+  supportNeeded         String?       @db.Text
+  nextDayFocus          String?       @db.Text
+
+  managerComment        String?       @db.Text
+  requestedChanges      Json?
+  correctionWindowUntil DateTime?
+  lockedAt              DateTime?
+  lockedById            String?
+  lockReason            String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  employee              Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  dailyTasks            DailyTask[]
+  amendments            WorkdayAmendment[]
+  regularisations       AttendanceRegularisation[]
+
+  @@unique([employeeId, workDate])
+  @@index([employeeId, status])
+  @@index([workDate])
+  @@map("workday")
+}
+
+model WorkdayAmendment {
+  id            String   @id @default(cuid())
+  workdayId     String
+  amendedById   String
+  amendedAt     DateTime @default(now())
+  reason        String   @db.Text
+  priorSnapshot Json
+  newSnapshot   Json
+
+  workday       Workday  @relation(fields: [workdayId], references: [id], onDelete: Cascade)
+
+  @@index([workdayId])
+  @@map("workday_amendment")
+}
+
+// ----------------------------------------------------
+// Daily Tasks (SOD & EOD)
+// ----------------------------------------------------
+
+model DailyTask {
+  id                     String       @id @default(cuid())
+  workdayId              String
+  employeeId             String
+  title                  String
+  description            String?      @db.Text
+  project                String
+  priority               TaskPriority @default(MEDIUM)
+  taskType               TaskType     @default(PLANNED)
+  expectedOutput         String?      @db.Text
+  estimatedMinutes       Int          @default(60)
+  dueDate                DateTime?    @db.Date
+  weeklyGoalId           String?
+  externalTicketUrl      String?
+  dependencies           String?      @db.Text
+  isConfidential         Boolean      @default(false)
+  attachments            Json?
+
+  status                 TaskStatus   @default(NOT_STARTED)
+  completionPercentage   Int          @default(0)
+  workCompleted          String?      @db.Text
+  actualMinutes          Int?
+  remainingWork          String?      @db.Text
+  delayReason            String?      @db.Text
+  blockerReference       String?      @db.Text
+  evidenceUrl            String?
+  nextAction             String?      @db.Text
+  carriedForwardToTaskId String?
+  sortOrder              Int          @default(0)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  workday                Workday      @relation(fields: [workdayId], references: [id], onDelete: Cascade)
+  employee               Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  weeklyGoal             WeeklyGoal?  @relation(fields: [weeklyGoalId], references: [id], onDelete: SetNull)
+  blockers               Blocker[]
+
+  @@index([workdayId])
+  @@index([employeeId])
+  @@index([weeklyGoalId])
+  @@map("daily_task")
+}
+
+// ----------------------------------------------------
+// Blockers & Escalation History
+// ----------------------------------------------------
+
+model Blocker {
+  id                  String           @id @default(cuid())
+  taskId              String?
+  employeeId          String
+  description         String           @db.Text
+  category            String           @default("TECHNICAL")
+  severity            BlockerSeverity  @default(MEDIUM)
+  responsibleTeam     String           @default("Engineering")
+  supportRequired     String           @db.Text
+  reportedAt          DateTime         @default(now())
+  targetResolutionAt  DateTime?
+  status              BlockerStatus    @default(OPEN)
+  resolutionSummary   String?          @db.Text
+  resolvedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  task                DailyTask?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  employee            Employee         @relation("BlockerReporterRelation", fields: [employeeId], references: [id], onDelete: Cascade)
+  escalations         BlockerEscalation[]
+
+  @@index([employeeId, status])
+  @@index([severity, status])
+  @@map("blocker")
+}
+
+model BlockerEscalation {
+  id              String   @id @default(cuid())
+  blockerId       String
+  escalatedToRole String
+  escalatedAt     DateTime @default(now())
+  reason          String   @db.Text
+  acknowledgedAt  DateTime?
+
+  blocker         Blocker  @relation(fields: [blockerId], references: [id], onDelete: Cascade)
+
+  @@index([blockerId])
+  @@map("blocker_escalation")
+}
+
+// ----------------------------------------------------
+// Weekly Goals & Templates
+// ----------------------------------------------------
+
+model WeeklyGoal {
+  id                      String       @id @default(cuid())
+  employeeId              String
+  title                   String
+  description             String?      @db.Text
+  category                String
+  measurableOutcome       String       @db.Text
+  targetValue             Float?
+  targetUnit              String?
+  currentValue            Float?       @default(0)
+  weight                  Int          @default(20)
+  priority                GoalPriority @default(MEDIUM)
+  startDate               DateTime     @db.Date
+  endDate                 DateTime     @db.Date
+  status                  GoalStatus   @default(IN_PROGRESS)
+  relatedProject          String?
+  evidenceRequired        Boolean      @default(false)
+  managerApprovalRequired Boolean      @default(false)
+  progressPercentage      Int          @default(0)
+  approvedById            String?
+  approvedAt              DateTime?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  employee                Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  dailyTasks              DailyTask[]
+
+  @@index([employeeId])
+  @@index([startDate, endDate])
+  @@map("weekly_goal")
+}
+
+model GoalTemplate {
+  id             String             @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?            @db.Text
+  departmentId   String?
+  designation    String?
+  teamId         String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items          GoalTemplateItem[]
+
+  @@map("goal_template")
+}
+
+model GoalTemplateItem {
+  id                String       @id @default(cuid())
+  templateId        String
+  title             String
+  description       String?      @db.Text
+  category          String
+  measurableOutcome String       @db.Text
+  targetValue       Float?
+  targetUnit        String?
+  defaultWeight     Int          @default(20)
+  evidenceRequired  Boolean      @default(false)
+
+  template          GoalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("goal_template_item")
+}
+
+// ----------------------------------------------------
+// Performance Reviews (Weekly & Monthly)
+// ----------------------------------------------------
+
+model PerformanceReview {
+  id                      String           @id @default(cuid())
+  employeeId              String
+  reviewerId              String
+  reviewType              ReviewType       @default(WEEKLY)
+  periodStart             DateTime         @db.Date
+  periodEnd               DateTime         @db.Date
+  status                  ReviewStatus     @default(DRAFT)
+
+  selfSummary             String?          @db.Text
+  selfAchievements        String?          @db.Text
+  selfMissedCommitments   String?          @db.Text
+  selfBlockers            String?          @db.Text
+  selfRatings             Json?
+  selfSubmittedAt         DateTime?
+
+  managerFeedback         String?          @db.Text
+  improvementActions      String?          @db.Text
+  managerRatings          Json?
+  scoringWeightsSnapshot  Json?
+  calculatedScore         Float?
+  finalScore              Float?
+  scoreOverrideReason     String?          @db.Text
+  approvedAt              DateTime?
+
+  employeeComment         String?          @db.Text
+  acknowledgedAt          DateTime?
+
+  lockedAt                DateTime?
+  lockedById              String?
+  amendmentCount          Int              @default(0)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+
+  employee                Employee         @relation("RevieweeRelation", fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer                Employee         @relation("ReviewerRelation", fields: [reviewerId], references: [id], onDelete: Cascade)
+  amendments              ReviewAmendment[]
+
+  @@unique([employeeId, reviewType, periodStart, periodEnd])
+  @@index([employeeId, status])
+  @@index([reviewerId, status])
+  @@map("performance_review")
+}
+
+model ReviewAmendment {
+  id            String            @id @default(cuid())
+  reviewId      String
+  amendedById   String
+  amendedAt     DateTime          @default(now())
+  reason        String            @db.Text
+  priorSnapshot Json
+  newSnapshot   Json
+
+  review        PerformanceReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_amendment")
+}
+
+// ----------------------------------------------------
+// 1-on-1 Meeting Checkpoints
+// ----------------------------------------------------
+
+model OneToOneMeeting {
+  id                     String              @id @default(cuid())
+  managerId              String
+  employeeId             String
+  scheduledAt            DateTime
+  durationMinutes        Int                 @default(30)
+  status                 String              @default("SCHEDULED")
+  agenda                 String?             @db.Text
+  discussionNotes        String?             @db.Text
+  employeeConcerns       String?             @db.Text
+  achievements           String?             @db.Text
+  developmentTopics      String?             @db.Text
+  sharedNotes            String?             @db.Text
+  privateManagerNotes    String?             @db.Text
+  employeeAcknowledgedAt DateTime?
+  followUpDate           DateTime?           @db.Date
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  manager                Employee            @relation("MeetingManagerRelation", fields: [managerId], references: [id], onDelete: Cascade)
+  employee               Employee            @relation("MeetingEmployeeRelation", fields: [employeeId], references: [id], onDelete: Cascade)
+  actionItems            OneToOneActionItem[]
+  calendarEvents         ExternalCalendarEvent[]
+
+  @@index([managerId])
+  @@index([employeeId])
+  @@map("one_to_one_meeting")
+}
+
+model OneToOneActionItem {
+  id          String          @id @default(cuid())
+  meetingId   String
+  title       String
+  ownerId     String
+  dueDate     DateTime?       @db.Date
+  status      String          @default("OPEN")
+  createdAt   DateTime        @default(now())
+
+  meeting     OneToOneMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("one_to_one_action_item")
+}
+
+// ----------------------------------------------------
+// Appreciation Badges & Recognition
+// ----------------------------------------------------
+
+model BadgeDefinition {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String        @db.Text
+  iconName    String        @default("Award")
+  category    BadgeCategory @default(PERFORMANCE)
+  points      Int           @default(10)
+  isSystem    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+
+  awards      BadgeAward[]
+
+  @@map("badge_definition")
+}
+
+model BadgeAward {
+  id                   String          @id @default(cuid())
+  badgeDefinitionId    String
+  recipientEmployeeId  String
+  issuerEmployeeId     String
+  reason               String          @db.Text
+  relatedTaskId        String?
+  relatedGoalId        String?
+  points               Int             @default(10)
+  visibility           String          @default("PUBLIC")
+  awardedAt            DateTime        @default(now())
+
+  badgeDefinition      BadgeDefinition @relation(fields: [badgeDefinitionId], references: [id], onDelete: Cascade)
+  recipient            Employee        @relation("BadgeRecipientRelation", fields: [recipientEmployeeId], references: [id], onDelete: Cascade)
+  issuer               Employee        @relation("BadgeIssuerRelation", fields: [issuerEmployeeId], references: [id], onDelete: Cascade)
+
+  @@index([recipientEmployeeId])
+  @@index([issuerEmployeeId])
+  @@map("badge_award")
+}
+
+// ----------------------------------------------------
+// Probation Reviews
+// ----------------------------------------------------
+
+model ProbationReview {
+  id                   String            @id @default(cuid())
+  employeeId           String
+  checkpointDay        Int               @default(90)
+  managerRecommendation ProbationDecision @default(CONFIRM_EMPLOYMENT)
+  managerComments      String            @db.Text
+  workQualityScore     Int               @default(4)
+  taskCompletionScore  Int               @default(4)
+  attendanceScore      Int               @default(4)
+  communicationScore   Int               @default(4)
+  collaborationScore   Int               @default(4)
+  learningScore        Int               @default(4)
+  technicalScore       Int               @default(4)
+  conductScore         Int               @default(4)
+
+  hrDecision           ProbationDecision?
+  hrComments           String?           @db.Text
+  adminConfirmed       Boolean           @default(false)
+  adminComments        String?           @db.Text
+  status               String            @default("PENDING_HR")
+  reviewedAt           DateTime          @default(now())
+
+  employee             Employee          @relation("ProbationEmployeeRelation", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("probation_review")
+}
+
+// ----------------------------------------------------
+// Performance Improvement Plans (PIP)
+// ----------------------------------------------------
+
+model PipRecord {
+  id                     String          @id @default(cuid())
+  employeeId             String
+  managerId              String
+  reason                 String          @db.Text
+  performanceConcerns    String          @db.Text
+  measurableGoals        String          @db.Text
+  supportOffered         String          @db.Text
+  startDate              DateTime        @db.Date
+  endDate                DateTime        @db.Date
+  checkInFrequency       String          @default("WEEKLY")
+  status                 PipStatus       @default(DRAFT)
+  employeeAcknowledgedAt DateTime?
+  finalOutcome           String?         @db.Text
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  employee               Employee        @relation("PipEmployeeRelation", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager                Employee        @relation("PipManagerRelation", fields: [managerId], references: [id], onDelete: Cascade)
+  checkpoints            PipCheckpoint[]
+
+  @@index([employeeId, status])
+  @@index([managerId])
+  @@map("pip_record")
+}
+
+model PipCheckpoint {
+  id              String    @id @default(cuid())
+  pipId           String
+  checkpointDate  DateTime  @db.Date
+  notes           String    @db.Text
+  isImproving     Boolean   @default(true)
+  supportProvided String?   @db.Text
+  createdAt       DateTime  @default(now())
+
+  pip             PipRecord @relation(fields: [pipId], references: [id], onDelete: Cascade)
+
+  @@index([pipId])
+  @@map("pip_checkpoint")
+}
+
+// ----------------------------------------------------
+// Skill Development Goals
+// ----------------------------------------------------
+
+model SkillGoal {
+  id                String     @id @default(cuid())
+  employeeId        String
+  skillName         String
+  currentLevel      SkillLevel @default(BEGINNER)
+  targetLevel       SkillLevel @default(INTERMEDIATE)
+  learningActivity  String     @db.Text
+  certificationName String?
+  targetDate        DateTime   @db.Date
+  evidenceUrl       String?
+  status            String     @default("IN_PROGRESS")
+  verifiedById      String?
+  verifiedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  employee          Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("skill_goal")
+}
+
+// ----------------------------------------------------
+// HR Announcements & Read Receipts
+// ----------------------------------------------------
+
+model Announcement {
+  id                      String               @id @default(cuid())
+  organizationId          String
+  title                   String
+  body                    String               @db.Text
+  category                AnnouncementCategory @default(GENERAL)
+  priority                AnnouncementPriority @default(NORMAL)
+  audienceType            AudienceType         @default(ALL)
+  audienceTargetId        String?
+  publishDate             DateTime             @default(now())
+  expiryDate              DateTime?            @db.Date
+  attachmentUrl           String?
+  acknowledgementRequired Boolean              @default(false)
+  channels                Json?
+  authorId                String
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  organization            Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  receipts                AnnouncementReceipt[]
+
+  @@index([organizationId, priority])
+  @@index([publishDate])
+  @@map("announcement")
+}
+
+model AnnouncementReceipt {
+  id             String       @id @default(cuid())
+  announcementId String
+  employeeId     String
+  readAt         DateTime     @default(now())
+  acknowledgedAt DateTime?
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, employeeId])
+  @@index([employeeId])
+  @@map("announcement_receipt")
+}
+
+// ----------------------------------------------------
+// External Calendar Events
+// ----------------------------------------------------
+
+model ExternalCalendarEvent {
+  id               String           @id @default(cuid())
+  provider         String           // "GOOGLE_CALENDAR", "MICROSOFT_OUTLOOK"
+  externalEventId  String
+  meetingId        String?
+  title            String
+  startTime        DateTime
+  endTime          DateTime
+  syncStatus       String           @default("SYNCED") // SYNCED, FAILED, DISCONNECTED
+  lastSyncedAt     DateTime         @default(now())
+
+  meeting          OneToOneMeeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([externalEventId])
+  @@map("external_calendar_event")
+}
+
+// ----------------------------------------------------
+// Asynchronous Export Jobs (RBAC-Scoped)
+// ----------------------------------------------------
+
+model ExportJob {
+  id             String          @id @default(cuid())
+  requesterId    String
+  reportType     String          // "DAILY_WORK", "PERFORMANCE", "ATTENDANCE_LEAVE", "BLOCKERS", "BADGES"
+  filters        Json?
+  format         ExportFormat    @default(CSV)
+  status         ExportJobStatus @default(QUEUED)
+  downloadToken  String?         @unique
+  tokenExpiresAt DateTime?
+  totalRows      Int             @default(0)
+  fileSizeBytes  Int             @default(0)
+  createdAt      DateTime        @default(now())
+  completedAt    DateTime?
+
+  requester      Employee        @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, status])
+  @@map("export_job")
+}
+
+// ----------------------------------------------------
+// Leave Management & Balances
+// ----------------------------------------------------
+
+model LeaveBalance {
+  id              String    @id @default(cuid())
+  employeeId      String
+  year            Int
+  leaveType       LeaveType @default(CASUAL)
+  annualAllotment Float     @default(12.0)
+  usedDays        Float     @default(0.0)
+  pendingDays     Float     @default(0.0)
+  remainingDays   Float     @default(12.0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year, leaveType])
+  @@index([employeeId])
+  @@map("leave_balance")
+}
+
+model LeaveRequest {
+  id                String      @id @default(cuid())
+  employeeId        String
+  leaveType         LeaveType   @default(CASUAL)
+  startDate         DateTime    @db.Date
+  endDate           DateTime    @db.Date
+  isHalfDay         Boolean     @default(false)
+  halfDayType       String?
+  daysCount         Float       @default(1.0)
+  reason            String      @db.Text
+  attachmentUrl     String?
+  handoverNotes     String?     @db.Text
+  backupEmployeeId  String?
+
+  managerApproverId String?
+  managerApprovedAt DateTime?
+  managerComment    String?     @db.Text
+  hrApproverId      String?
+  hrApprovedAt      DateTime?
+  hrComment         String?     @db.Text
+  status            LeaveStatus @default(PENDING_MANAGER)
+  rejectionReason   String?     @db.Text
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  employee          Employee    @relation("LeaveEmployeeRelation", fields: [employeeId], references: [id], onDelete: Cascade)
+  backupEmployee    Employee?   @relation("LeaveBackupRelation", fields: [backupEmployeeId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, status])
+  @@index([startDate, endDate])
+  @@map("leave_request")
+}
+
+// ----------------------------------------------------
+// Work From Home (WFH)
+// ----------------------------------------------------
+
+model WfhRequest {
+  id                  String    @id @default(cuid())
+  employeeId          String
+  startDate           DateTime  @db.Date
+  endDate             DateTime  @db.Date
+  daysCount           Float     @default(1.0)
+  isSelfMarked        Boolean   @default(false)
+  reason              String    @db.Text
+  availabilityHours   String    @default("09:00-18:00")
+  contactMethod       String    @default("Slack & Google Meet")
+  plannedDeliverables String    @db.Text
+  managerApproverId   String?
+  managerApprovedAt   DateTime?
+  status              WfhStatus @default(PENDING_MANAGER)
+  rejectionReason     String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, status])
+  @@index([startDate, endDate])
+  @@map("wfh_request")
+}
+
+// ----------------------------------------------------
+// Attendance Regularisation & Biometrics
+// ----------------------------------------------------
+
+model AttendanceRegularisation {
+  id                    String               @id @default(cuid())
+  employeeId            String
+  workdayId             String
+  proposedCheckIn       DateTime
+  proposedCheckOut      DateTime
+  regularisationReason  String               @db.Text
+  evidenceUrl           String?
+  managerApproverId     String?
+  managerApprovedAt     DateTime?
+  status                RegularisationStatus @default(PENDING_MANAGER)
+  rejectionReason       String?              @db.Text
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  employee              Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workday               Workday              @relation(fields: [workdayId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, status])
+  @@index([workdayId])
+  @@map("attendance_regularisation")
+}
+
+model BiometricPunch {
+  id         String      @id @default(cuid())
+  employeeId String
+  punchTime  DateTime
+  punchType  PunchType   @default(IN)
+  source     PunchSource @default(BIOMETRIC)
+  deviceId   String?
+  createdAt  DateTime    @default(now())
+
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, punchTime])
+  @@map("biometric_punch")
+}
+
+// ----------------------------------------------------
+// Biometric Hardware Devices & Integration
+// ----------------------------------------------------
+
+model BiometricDevice {
+  id                String            @id @default(cuid())
+  organizationId    String
+  name              String
+  locationId        String?
+  locationName      String            @default("HQ Office")
+  provider          BiometricProvider @default(GENERIC_WEBHOOK)
+  serialNumber      String            @unique
+  model             String            @default("Standard Biometric Terminal")
+  timezone          String            @default("Asia/Kolkata")
+  apiKeyHash        String
+  apiSecretHash     String
+  status            DeviceStatus      @default(ACTIVE)
+  lastHeartbeatAt   DateTime?
+  lastPunchAt       DateTime?
+  syncFailureCount  Int               @default(0)
+  firmwareVersion   String?
+  ipAddress         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mappings          BiometricEmployeeMapping[]
+  transactions      BiometricPunchTransaction[]
+
+  @@index([organizationId, status])
+  @@map("biometric_device")
+}
+
+model BiometricEmployeeMapping {
+  id                 String            @id @default(cuid())
+  organizationId     String
+  provider           BiometricProvider @default(GENERIC_WEBHOOK)
+  deviceId           String?
+  deviceEmployeeCode String
+  employeeId         String
+  effectiveFrom      DateTime          @default(now()) @db.Date
+  effectiveTo        DateTime?         @db.Date
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  device             BiometricDevice?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  employee           Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, deviceEmployeeCode, effectiveFrom])
+  @@index([deviceEmployeeCode])
+  @@index([employeeId])
+  @@map("biometric_employee_mapping")
+}
+
+model BiometricPunchTransaction {
+  id                  String             @id @default(cuid())
+  organizationId      String
+  locationId          String?
+  deviceId            String
+  provider            BiometricProvider  @default(GENERIC_WEBHOOK)
+  vendorTransactionId String?
+  deviceEmployeeCode  String
+  mappedEmployeeId    String?
+  occurredAt          DateTime
+  originalTimezone    String             @default("Asia/Kolkata")
+  direction           PunchDirection     @default(UNKNOWN)
+  verificationMethod  VerificationMethod @default(UNKNOWN)
+  rawPayloadRedacted  Json?
+  ingestionStatus     IngestionStatus    @default(PROCESSED)
+  duplicateKey        String             @unique
+  quarantineReason    String?            @db.Text
+  resolvedById        String?
+  resolvedAt          DateTime?
+  createdAt           DateTime           @default(now())
+
+  device              BiometricDevice    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  mappedEmployee      Employee?          @relation(fields: [mappedEmployeeId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, ingestionStatus])
+  @@index([deviceId, occurredAt])
+  @@index([mappedEmployeeId])
+  @@map("biometric_punch_transaction")
+}
+
+// ----------------------------------------------------
+// Holidays & Shifts
+// ----------------------------------------------------
+
+model Holiday {
+  id          String      @id @default(cuid())
+  name        String
+  date        DateTime    @db.Date
+  holidayType HolidayType @default(NATIONAL)
+  description String?     @db.Text
+  year        Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([date, name])
+  @@index([year, date])
+  @@map("holiday")
+}
+
+model Shift {
+  id                     String   @id @default(cuid())
+  name                   String   @unique
+  startTime              String   @default("09:00")
+  endTime                String   @default("18:00")
+  crossesMidnight        Boolean  @default(false)
+  gracePeriodMinutes     Int      @default(15)
+  halfDayThresholdHours  Float    @default(4.0)
+  fullDayThresholdHours  Float    @default(8.0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("shift")
+}
+
+// ----------------------------------------------------
+// In-App Notifications
+// ----------------------------------------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  actorId   String?
+  type      NotificationType @default(GENERAL)
+  title     String
+  message   String           @db.Text
+  linkUrl   String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notification")
+}
+
+// ----------------------------------------------------
+// Audit Logging System
+// ----------------------------------------------------
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  actorId       String?
+  action        String
+  entity        String
+  entityId      String
+  timestamp     DateTime  @default(now())
+  ipAddress     String?
+  userAgent     String?
+  correlationId String?
+  reason        String?
+  beforeState   Json?
+  afterState    Json?
+  createdAt     DateTime  @default(now())
+
+  actor         User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entity, entityId])
+  @@index([correlationId])
+  @@index([timestamp])
+  @@map("audit_log")
+}

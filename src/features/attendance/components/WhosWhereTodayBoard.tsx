@@ -1,0 +1,218 @@
+"use client";
+
+import React, { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { WhosWhereEmployee } from "@/server/services/attendance-service";
+import {
+  Building2,
+  Search,
+} from "lucide-react";
+
+interface WhosWhereTodayBoardProps {
+  initialEmployees?: WhosWhereEmployee[];
+}
+
+export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<string>("ALL");
+
+  const defaultEmployees: WhosWhereEmployee[] = initialEmployees || [
+    {
+      employeeId: "emp-sarah",
+      employeeName: "Sarah Dev",
+      department: "Engineering",
+      jobTitle: "Senior Backend Engineer",
+      workMode: "OFFICE",
+      locationBadge: "HQ - Floor 3",
+      firstCheckIn: "09:12 AM",
+    },
+    {
+      employeeId: "emp-john",
+      employeeName: "John UI",
+      department: "Engineering",
+      jobTitle: "Frontend Engineer",
+      workMode: "WFH",
+      locationBadge: "Remote (Bangalore)",
+      firstCheckIn: "09:00 AM",
+    },
+    {
+      employeeId: "emp-alex",
+      employeeName: "Alex Lead",
+      department: "Engineering",
+      jobTitle: "Engineering Lead",
+      workMode: "OFFICE",
+      locationBadge: "HQ - Floor 3",
+      firstCheckIn: "08:55 AM",
+    },
+    {
+      employeeId: "emp-priya",
+      employeeName: "Priya QA",
+      department: "Engineering",
+      jobTitle: "QA Lead",
+      workMode: "FULL_DAY_LEAVE",
+      locationBadge: "Casual Leave",
+      firstCheckIn: null,
+    },
+    {
+      employeeId: "emp-david",
+      employeeName: "David DevOps",
+      department: "Operations",
+      jobTitle: "DevOps Engineer",
+      workMode: "OFFICE",
+      locationBadge: "HQ - Server Room",
+      firstCheckIn: "09:05 AM",
+    },
+    {
+      employeeId: "emp-rachel",
+      employeeName: "Rachel HR",
+      department: "People & HR",
+      jobTitle: "HR Lead",
+      workMode: "OFFICE",
+      locationBadge: "HQ - Floor 2",
+      firstCheckIn: "09:15 AM",
+    },
+  ];
+
+  const inOfficeCount = defaultEmployees.filter((e) => e.workMode === "OFFICE").length;
+  const wfhCount = defaultEmployees.filter((e) => e.workMode === "WFH").length;
+  const onLeaveCount = defaultEmployees.filter((e) => e.workMode === "FULL_DAY_LEAVE" || e.workMode === "HALF_DAY_LEAVE").length;
+
+  const filteredEmployees = defaultEmployees.filter((emp) => {
+    const matchesSearch =
+      emp.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.jobTitle.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+    if (filterMode === "ALL") return true;
+    if (filterMode === "OFFICE") return emp.workMode === "OFFICE";
+    if (filterMode === "WFH") return emp.workMode === "WFH";
+    if (filterMode === "LEAVE") return emp.workMode === "FULL_DAY_LEAVE" || emp.workMode === "HALF_DAY_LEAVE";
+    return true;
+  });
+
+  const getWorkModeBadge = (mode: string) => {
+    switch (mode) {
+      case "OFFICE":
+        return <Badge variant="brand" className="text-[10px]">In Office</Badge>;
+      case "WFH":
+        return <Badge variant="secondary" className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30">WFH</Badge>;
+      case "FULL_DAY_LEAVE":
+      case "HALF_DAY_LEAVE":
+        return <Badge variant="destructive" className="text-[10px]">On Leave</Badge>;
+      case "BUSINESS_TRAVEL":
+      case "CLIENT_LOCATION":
+        return <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-600 border-amber-500/30">Travel / Client</Badge>;
+      default:
+        return <Badge variant="secondary" className="text-[10px]">{mode}</Badge>;
+    }
+  };
+
+  return (
+    <Card className="border-border bg-card/60 backdrop-blur-sm shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-[var(--brand-primary)]" />
+              Who's Where Today
+            </CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Company-wide presence board derived from real-time workdays & approved requests.
+            </CardDescription>
+          </div>
+
+          {/* Quick Summary Pill Counters */}
+          <div className="flex items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterMode("OFFICE")}
+              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                filterMode === "OFFICE"
+                  ? "bg-[var(--brand-primary)] text-foreground border-[var(--brand-primary)]"
+                  : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              🏢 {inOfficeCount} In Office
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode("WFH")}
+              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                filterMode === "WFH"
+                  ? "bg-[var(--brand-primary)] text-foreground border-[var(--brand-primary)]"
+                  : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              🏠 {wfhCount} WFH
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode("LEAVE")}
+              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                filterMode === "LEAVE"
+                  ? "bg-[var(--brand-primary)] text-foreground border-[var(--brand-primary)]"
+                  : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              🌴 {onLeaveCount} On Leave
+            </button>
+            {filterMode !== "ALL" && (
+              <button
+                type="button"
+                onClick={() => setFilterMode("ALL")}
+                className="text-[11px] text-muted-foreground hover:underline ml-1"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="h-4 w-4 absolute left-3 top-2.5 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, department, or job title..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 text-xs"
+          />
+        </div>
+
+        {/* Directory Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredEmployees.map((emp) => (
+            <div
+              key={emp.employeeId}
+              className="p-3.5 rounded-xl border border-border bg-card/70 flex items-center justify-between gap-3 hover:border-border/80 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-[var(--brand-primary)]/15 border border-[var(--brand-primary)]/30 flex items-center justify-center text-[var(--brand-primary)] font-bold text-xs shrink-0">
+                  {emp.employeeName.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="overflow-hidden">
+                  <span className="text-xs font-bold text-foreground block truncate">
+                    {emp.employeeName}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block truncate">
+                    {emp.jobTitle} · {emp.department}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {emp.locationBadge} {emp.firstCheckIn && `· In: ${emp.firstCheckIn}`}
+                  </span>
+                </div>
+              </div>
+
+              <div>{getWorkModeBadge(emp.workMode)}</div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
