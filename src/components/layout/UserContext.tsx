@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import { RoleType } from "@/lib/authorization/types";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export interface UserContextValue {
   userName: string;
@@ -14,7 +15,7 @@ export interface UserContextValue {
 }
 
 const UserContext = createContext<UserContextValue>({
-  userName: "Sarah Dev",
+  userName: "Sara Dev",
   userEmail: "employee.test@xorstack.com",
   roles: ["EMPLOYEE"],
   primaryRole: "EMPLOYEE",
@@ -30,7 +31,107 @@ export function UserProvider({
   user: UserContextValue;
   children: React.ReactNode;
 }) {
-  return <UserContext.Provider value={user}>{children}</UserContext.Provider>;
+  const { allEmployees, departments } = useWorkpulseSharedStore();
+
+  const dynamicUser: UserContextValue = useMemo(() => {
+    const emailLower = (user.userEmail || "").toLowerCase();
+    const nameLower = (user.userName || "").toLowerCase();
+
+    // 1. Direct email or ID match
+    let matched = allEmployees.find(
+      (e) =>
+        e.email.toLowerCase() === emailLower ||
+        e.id === user.userEmail ||
+        (emailLower === "employee.test@xorstack.com" && e.id === "emp-sarah")
+    );
+
+    // 2. Name match if still not found
+    if (!matched) {
+      matched = allEmployees.find(
+        (e) => e.name.toLowerCase() === nameLower
+      );
+    }
+
+    const isLead =
+      emailLower === "lead.test@xorstack.com" ||
+      emailLower.includes("alex.lead") ||
+      nameLower.includes("alex lead") ||
+      user.roles.includes("MANAGER") ||
+      departments.some(
+        (d) =>
+          d.teamLead.email.toLowerCase() === emailLower ||
+          (emailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex") ||
+          d.teamLead.name.toLowerCase() === nameLower
+      );
+
+    const isHR =
+      emailLower === "hr.test@xorstack.com" ||
+      emailLower.includes("hr.rachel") ||
+      nameLower.includes("rachel") ||
+      user.roles.includes("HR");
+
+    const isAdmin =
+      emailLower === "director.test@xorstack.com" ||
+      emailLower.includes("admin") ||
+      nameLower.includes("david") ||
+      user.roles.includes("ADMIN");
+
+    const effectivePrimaryRole: RoleType = isAdmin
+      ? "ADMIN"
+      : isHR
+      ? "HR"
+      : isLead
+      ? "MANAGER"
+      : user.primaryRole || "EMPLOYEE";
+
+    const effectiveRoles: RoleType[] =
+      effectivePrimaryRole === "ADMIN"
+        ? ["ADMIN", "MANAGER", "HR", "EMPLOYEE"]
+        : effectivePrimaryRole === "HR"
+        ? ["HR", "EMPLOYEE"]
+        : effectivePrimaryRole === "MANAGER"
+        ? ["MANAGER", "EMPLOYEE"]
+        : ["EMPLOYEE"];
+
+    if (matched) {
+      return {
+        ...user,
+        userName: matched.name,
+        roles: effectiveRoles,
+        primaryRole: effectivePrimaryRole,
+        designation: matched.designation,
+        department: matched.departmentName,
+        team: `${matched.departmentName} Pod`,
+      };
+    }
+
+    const matchedLead = departments.find(
+      (d) =>
+        d.teamLead.email.toLowerCase() === emailLower ||
+        d.teamLead.id === user.userEmail ||
+        (emailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex") ||
+        d.teamLead.name.toLowerCase() === nameLower
+    );
+    if (matchedLead) {
+      return {
+        ...user,
+        userName: matchedLead.teamLead.name,
+        roles: effectiveRoles,
+        primaryRole: effectivePrimaryRole,
+        designation: matchedLead.teamLead.designation,
+        department: matchedLead.name,
+        team: `${matchedLead.name} Pod`,
+      };
+    }
+
+    return {
+      ...user,
+      roles: effectiveRoles,
+      primaryRole: effectivePrimaryRole,
+    };
+  }, [user, allEmployees, departments]);
+
+  return <UserContext.Provider value={dynamicUser}>{children}</UserContext.Provider>;
 }
 
 export function useCurrentUser() {

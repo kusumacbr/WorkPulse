@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import {
   UserCheck,
   Clock,
@@ -81,20 +82,46 @@ const INITIAL_CANDIDATES: ProbationCandidate[] = [
 ];
 
 export function ProbationManagementDeck() {
+  const { allEmployees, updateEmployee } = useWorkpulseSharedStore();
   const [candidates, setCandidates] = useState<ProbationCandidate[]>(INITIAL_CANDIDATES);
-  const [confirmedCount, setConfirmedCount] = useState(14);
+  const [confirmedCount, setConfirmedCount] = useState<number>(14);
+
+  useEffect(() => {
+    try {
+      const c = localStorage.getItem("workpulse_probation_candidates");
+      if (c) setCandidates(JSON.parse(c));
+      const cnt = localStorage.getItem("workpulse_probation_confirmed_count");
+      if (cnt) setConfirmedCount(JSON.parse(cnt));
+    } catch {
+      // safe fallback
+    }
+  }, []);
 
   const handleConfirm = (id: string) => {
-    setCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "CONFIRMED" } : c))
-    );
+    const updated = candidates.map((c) => (c.id === id ? { ...c, status: "CONFIRMED" as const } : c));
+    setCandidates(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("workpulse_probation_candidates", JSON.stringify(updated));
+      localStorage.setItem("workpulse_probation_confirmed_count", JSON.stringify(confirmedCount + 1));
+    }
+    const candidate = candidates.find((c) => c.id === id);
+    if (candidate) {
+      const matchedEmp = allEmployees.find(
+        (e) => e.name.toLowerCase() === candidate.employeeName.toLowerCase()
+      );
+      if (matchedEmp) {
+        updateEmployee(matchedEmp.id, { status: "Full-Time" });
+      }
+    }
     setConfirmedCount((c) => c + 1);
   };
 
   const handleExtend = (id: string) => {
-    setCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "EXTENDED" } : c))
-    );
+    const updated = candidates.map((c) => (c.id === id ? { ...c, status: "EXTENDED" as const } : c));
+    setCandidates(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("workpulse_probation_candidates", JSON.stringify(updated));
+    }
   };
 
   return (
@@ -128,6 +155,12 @@ export function ProbationManagementDeck() {
       <div className="space-y-4">
         {candidates.map((cand) => {
           const isPending = cand.status === "PENDING_HR_DECISION";
+          const matchedEmp = allEmployees.find(
+            (e) => e.name.toLowerCase() === cand.employeeName.toLowerCase() || (cand.id === "prob-1" && e.id === "emp-rohit")
+          );
+          const employeeName = matchedEmp ? matchedEmp.name : cand.employeeName;
+          const designation = matchedEmp ? matchedEmp.designation : cand.designation;
+          const department = matchedEmp ? matchedEmp.departmentName : cand.department;
 
           return (
             <Interactive3DCard
@@ -137,22 +170,21 @@ export function ProbationManagementDeck() {
                   ? "border-emerald-500/30 bg-emerald-500/5"
                   : cand.status === "EXTENDED"
                   ? "border-amber-500/30 bg-amber-500/5"
-                  : "border-border/80 hover:border-purple-500/40"
+                  : ""
               }`}
             >
-              <div className="space-y-5">
-                {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="flex items-start gap-3.5">
-                    <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-purple-500 to-cyan-400 p-[1px] shrink-0">
-                      <div className="h-full w-full rounded-xl bg-[#0b0f19] flex items-center justify-center text-purple-300 font-bold text-xs">
-                        {cand.employeeName.slice(0, 2).toUpperCase()}
+              <div className="space-y-4">
+                {/* Candidate Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 p-[1px]">
+                      <div className="h-full w-full rounded-full bg-[#0b0f19] flex items-center justify-center text-purple-300 font-bold text-xs">
+                        {employeeName.slice(0, 2).toUpperCase()}
                       </div>
                     </div>
-
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-foreground">{cand.employeeName}</h4>
+                        <h4 className="text-sm font-bold text-foreground">{employeeName}</h4>
                         <Badge
                           variant="brand"
                           className="text-[10px] uppercase font-bold bg-purple-500/15 border-purple-500/30 text-purple-300"
@@ -171,7 +203,7 @@ export function ProbationManagementDeck() {
                         )}
                       </div>
                       <span className="text-[11px] text-muted-foreground block">
-                        {cand.designation} · {cand.department}
+                        {designation} · {department}
                       </span>
                     </div>
                   </div>

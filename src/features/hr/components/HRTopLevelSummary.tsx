@@ -167,7 +167,7 @@ export function HRTopLevelSummary({
               <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-pink-400" />
             </div>
             <div className="text-xs font-bold text-foreground truncate">
-              Alex B&apos;day · Sarah 2y Anniv
+              Alex B&apos;day · Sara 2y Anniv
             </div>
             <div className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Gift className="h-3 w-3 text-pink-400 shrink-0" />

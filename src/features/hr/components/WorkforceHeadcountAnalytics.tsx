@@ -17,12 +17,12 @@ interface DeptDistribution {
 }
 
 const DEPARTMENTS: DeptDistribution[] = [
-  { name: "Development", count: 18, pct: 37.5, color: "bg-cyan-400", leadName: "Alex Lead" },
-  { name: "Devops", count: 8, pct: 16.7, color: "bg-emerald-400", leadName: "Marcus Vance" },
-  { name: "Data processing", count: 7, pct: 14.6, color: "bg-purple-400", leadName: "Vikram Rao" },
-  { name: "R & D", count: 6, pct: 12.5, color: "bg-pink-400", leadName: "Dr. Maya Chen" },
-  { name: "Service Providers (ConfigTap)", count: 5, pct: 10.4, color: "bg-amber-400", leadName: "Suresh Menon" },
-  { name: "SAP Services", count: 4, pct: 8.3, color: "bg-blue-400", leadName: "Rajeshwar Rao" },
+  { name: "Development", count: 2, pct: 25.0, color: "bg-cyan-400", leadName: "Alex Lead" },
+  { name: "Devops", count: 2, pct: 18.0, color: "bg-emerald-400", leadName: "Marcus Vance" },
+  { name: "Data processing", count: 2, pct: 18.0, color: "bg-purple-400", leadName: "Vikram Rao" },
+  { name: "R & D", count: 2, pct: 18.0, color: "bg-pink-400", leadName: "David Director" },
+  { name: "Service Providers (ConfigTap)", count: 2, pct: 15.0, color: "bg-amber-400", leadName: "Alex Lead" },
+  { name: "Human Resources", count: 1, pct: 6.0, color: "bg-pink-400", leadName: "Rachel HR" },
 ];
 
 export function WorkforceHeadcountAnalytics() {
@@ -38,10 +38,10 @@ export function WorkforceHeadcountAnalytics() {
                 <Building2 className="h-4 w-4 text-cyan-400" />
                 Department Headcount Distribution
               </h4>
-              <p className="text-xs text-muted-foreground">48 total employees across 6 Xorstack practices</p>
+              <p className="text-xs text-muted-foreground">12 active employees across 6 Xorstack practices</p>
             </div>
             <Badge variant="outline" className="text-xs font-mono font-bold text-cyan-400 border-cyan-500/30">
-              48 Total
+              12 Total
             </Badge>
           </div>
 

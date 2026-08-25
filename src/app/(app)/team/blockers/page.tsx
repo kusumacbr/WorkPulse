@@ -12,7 +12,7 @@ export default function TeamBlockersPage() {
     {
       id: "blk-1",
       title: "Cross-department OAuth token refresh sync latency",
-      employeeName: "Sarah Dev",
+      employeeName: "Sara Dev",
       department: "Development Pod",
       severity: "CRITICAL",
       impact: "Affects edge biometric token validation during office rush hour",

@@ -407,10 +407,10 @@ export class ReviewService {
     openBlockersCount: number;
   }> {
     const teamMembers = [
-      { id: "emp-sarah", name: "Sarah Dev", title: "Senior Backend Engineer", statusToday: "SOD_SUBMITTED", missingUpdates: 0 },
-      { id: "emp-john", name: "John UI", title: "Frontend Engineer", statusToday: "EOD_SUBMITTED", missingUpdates: 0 },
+      { id: "emp-sarah", name: "Sara Dev", title: "Senior Backend Engineer", statusToday: "SOD_SUBMITTED", missingUpdates: 0 },
+      { id: "emp-rohit", name: "Rohit Sharma", title: "Frontend Engineer (UI/UX)", statusToday: "EOD_SUBMITTED", missingUpdates: 0 },
       { id: "emp-priya", name: "Priya QA", title: "QA Lead", statusToday: "OPEN", missingUpdates: 1 },
-      { id: "emp-david", name: "David DevOps", title: "DevOps Engineer", statusToday: "SOD_SUBMITTED", missingUpdates: 0 },
+      { id: "emp-karthik", name: "Karthik Raja", title: "DevOps & Cloud Engineer", statusToday: "SOD_SUBMITTED", missingUpdates: 0 },
     ];
 
     const dates = ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"];

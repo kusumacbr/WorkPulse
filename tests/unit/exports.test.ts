@@ -53,7 +53,7 @@ describe("Asynchronous Exports & Row-Level Security (Phase 6)", () => {
 
       expect(sarahJob.status).toBe("COMPLETED");
       expect(sarahJob.totalRows).toBe(1);
-      expect(sarahJob.dataSnippet).toContain("Sarah Dev");
+      expect(sarahJob.dataSnippet).toContain("Sara Dev");
       expect(sarahJob.dataSnippet).not.toContain("John UI");
 
       // 2. Manager Alex requests export -> contains direct reports
@@ -66,8 +66,8 @@ describe("Asynchronous Exports & Row-Level Security (Phase 6)", () => {
       });
 
       expect(alexJob.totalRows).toBe(2);
-      expect(alexJob.dataSnippet).toContain("Sarah Dev");
-      expect(alexJob.dataSnippet).toContain("John UI");
+      expect(alexJob.dataSnippet).toContain("Sara Dev");
+      expect(alexJob.dataSnippet).toContain("Rohit Sharma");
 
       // 3. Admin requests export -> contains all organization records
       const adminJob = await ExportService.requestExport({
@@ -79,7 +79,7 @@ describe("Asynchronous Exports & Row-Level Security (Phase 6)", () => {
       });
 
       expect(adminJob.totalRows).toBe(4);
-      expect(adminJob.dataSnippet).toContain("Sarah Dev");
+      expect(adminJob.dataSnippet).toContain("Sara Dev");
       expect(adminJob.dataSnippet).toContain("Alex Lead");
       expect(adminJob.dataSnippet).toContain("Priya QA");
     });

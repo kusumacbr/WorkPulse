@@ -241,7 +241,7 @@ export class AttendanceService {
     const employees: WhosWhereEmployee[] = [
       {
         employeeId: "emp-sarah",
-        employeeName: "Sarah Dev",
+        employeeName: "Sara Dev",
         department: "Engineering",
         jobTitle: "Senior Backend Engineer",
         workMode: "OFFICE",
@@ -249,21 +249,21 @@ export class AttendanceService {
         firstCheckIn: "09:12 AM",
       },
       {
-        employeeId: "emp-john",
-        employeeName: "John UI",
-        department: "Engineering",
-        jobTitle: "Frontend Engineer",
+        employeeId: "emp-rohit",
+        employeeName: "Rohit Sharma",
+        department: "Development",
+        jobTitle: "Frontend Engineer (UI/UX)",
         workMode: "WFH",
         locationBadge: "Remote (Bangalore)",
         firstCheckIn: "09:00 AM",
       },
       {
-        employeeId: "emp-alex",
+        employeeId: "lead-alex",
         employeeName: "Alex Lead",
-        department: "Engineering",
-        jobTitle: "Engineering Lead",
+        department: "Development",
+        jobTitle: "Engineering Lead · Development",
         workMode: "OFFICE",
-        locationBadge: "HQ - Floor 3",
+        locationBadge: "HQ - Floor 4",
         firstCheckIn: "08:55 AM",
       },
       {

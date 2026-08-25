@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ interface TeamMemberRecord {
 const TEAM_MEMBERS: TeamMemberRecord[] = [
   {
     id: "emp-sarah",
-    name: "Sarah Dev",
+    name: "Sara Dev",
     designation: "Senior Backend Engineer",
     avatar: "SD",
     workMode: "OFFICE",
@@ -64,22 +64,22 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
         estimatedMinutes: 180,
         completionPercentage: 80,
         status: "IN_PROGRESS",
-        expectedOutput: "Complete SOD section with carryover deck and morning lock action",
+        expectedOutput: "Zero carryover leak across sprint boundaries",
       },
       {
         id: "st-2",
-        title: "Conduct technical code review on Stage-2 Leave & HR approval PRs",
-        project: "Core Platform",
-        priority: "MEDIUM",
-        estimatedMinutes: 90,
+        title: "Enforce manager assignment RBAC policies on profile editing endpoints",
+        project: "Security & Auth",
+        priority: "HIGH",
+        estimatedMinutes: 120,
         completionPercentage: 100,
         status: "COMPLETED",
-        expectedOutput: "Provide sign-off and merge authorization layer changes",
+        expectedOutput: "Manager can only edit assigned pod members",
       },
     ],
-    eodAchievements: "Merged authorization enhancements and reviewed 3 critical PRs.",
+    eodAchievements: "Refactored role checks and completed RBAC verification test suites.",
     eodBlockers: "None",
-    eodTomorrowFocus: "Finalize EOD wrap-up testing suite.",
+    eodTomorrowFocus: "Connect biometric edge events with live attendance pipeline.",
   },
   {
     id: "emp-rohit",
@@ -207,35 +207,89 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     eodTomorrowFocus: "Review test coverage reports with Priya QA.",
   },
   {
-    id: "emp-john",
-    name: "John UI",
-    designation: "Frontend Engineer",
-    avatar: "JU",
-    workMode: "HYBRID",
-    sodStatus: "PENDING",
-    sodTime: "--",
-    eodStatus: "PENDING",
-    overallProgress: 20,
+    id: "emp-sneha",
+    name: "Sneha Kapoor",
+    designation: "Data Analytics Engineer",
+    avatar: "SK",
+    workMode: "OFFICE",
+    sodStatus: "SUBMITTED",
+    sodTime: "10:08 AM",
+    eodStatus: "IN_PROGRESS",
+    overallProgress: 75,
     plannedTasks: [
       {
-        id: "jt-1",
-        title: "Update color palette contrast in Sidebar navigation items",
-        project: "Frontend & UI",
-        priority: "LOW",
-        estimatedMinutes: 90,
-        completionPercentage: 20,
+        id: "sk-1",
+        title: "Build automated telemetry ingestion pipelines for biometric attendance logs",
+        project: "Data Lake",
+        priority: "HIGH",
+        estimatedMinutes: 240,
+        completionPercentage: 75,
         status: "IN_PROGRESS",
-        expectedOutput: "WCAG AAA pass on dark mode items",
+        expectedOutput: "Sub-second analytical queries on 1M+ attendance events",
       },
     ],
   },
 ];
 
 export function TeamMemberSODInspector() {
-  const { updateLeadFeedback } = useWorkpulseSharedStore();
-  const [selectedMember, setSelectedMember] = useState<TeamMemberRecord>(TEAM_MEMBERS[0]!);
+  const { allEmployees, updateLeadFeedback } = useWorkpulseSharedStore();
+
+  const teamMembers: TeamMemberRecord[] = useMemo(() => {
+    if (allEmployees.length > 0) {
+      return allEmployees.map((emp) => ({
+        id: emp.id,
+        name: emp.name,
+        designation: emp.designation,
+        avatar:
+          emp.avatar ||
+          emp.name
+            .split(" ")
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase(),
+        workMode: emp.workMode || "OFFICE",
+        sodStatus: emp.sodStatus || "PENDING",
+        sodTime: emp.sodTime || "--",
+        eodStatus: emp.eodStatus || "PENDING",
+        eodTime: emp.eodTime,
+        overallProgress: emp.overallProgress || 0,
+        plannedTasks:
+          emp.plannedTasks && emp.plannedTasks.length > 0
+            ? emp.plannedTasks
+            : [
+                {
+                  id: `task-${emp.id}-1`,
+                  title: `Execute assigned deliverables for ${emp.designation}`,
+                  project: "Core Pod Sprint",
+                  priority: "HIGH" as const,
+                  estimatedMinutes: 180,
+                  completionPercentage: emp.overallProgress || 0,
+                  status:
+                    emp.overallProgress === 100
+                      ? ("COMPLETED" as const)
+                      : emp.sodStatus === "SUBMITTED"
+                      ? ("IN_PROGRESS" as const)
+                      : ("NOT_STARTED" as const),
+                  expectedOutput: "Delivery per sprint acceptance criteria",
+                },
+              ],
+        eodAchievements: emp.eodAchievements,
+        eodBlockers: emp.eodBlockers,
+        eodTomorrowFocus: emp.eodTomorrowFocus,
+      }));
+    }
+    return TEAM_MEMBERS;
+  }, [allEmployees]);
+
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("emp-sarah");
+  const selectedMember =
+    teamMembers.find((m) => m.id === selectedMemberId) ||
+    teamMembers[0] ||
+    TEAM_MEMBERS[0]!;
+
   const [leadComment, setLeadComment] = useState<string>(
-    "Outstanding work on the SOD state machine and role streamlining today, Sarah. Code review comments were addressed cleanly and test coverage remained 100%."
+    "Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments were addressed cleanly and test coverage remained 100%."
   );
   const [selectedRating, setSelectedRating] = useState<number>(5);
   const [leadActionItem, setLeadActionItem] = useState<string>(
@@ -246,10 +300,10 @@ export function TeamMemberSODInspector() {
   const [lastSubmitted, setLastSubmitted] = useState<{ memberName: string; rating: number } | null>(null);
 
   const handleSelectMember = (member: TeamMemberRecord) => {
-    setSelectedMember(member);
+    setSelectedMemberId(member.id);
     setLastSubmitted(null);
     if (member.id === "emp-sarah") {
-      setLeadComment("Outstanding work on the SOD state machine and role streamlining today, Sarah. Code review comments were addressed cleanly and test coverage remained 100%.");
+      setLeadComment("Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments were addressed cleanly and test coverage remained 100%.");
       setSelectedRating(5);
       setLeadActionItem("Prepare demo recording of the SOD rollover flow for tomorrow's pod sync.");
     } else if (member.id === "emp-priya") {
@@ -304,10 +358,10 @@ export function TeamMemberSODInspector() {
     }, 4000);
   };
 
-  const totalMembers = TEAM_MEMBERS.length;
-  const sodSubmittedCount = TEAM_MEMBERS.filter((m) => m.sodStatus === "SUBMITTED").length;
+  const totalMembers = teamMembers.length;
+  const sodSubmittedCount = teamMembers.filter((m) => m.sodStatus === "SUBMITTED").length;
   const avgProgress = Math.round(
-    TEAM_MEMBERS.reduce((acc, m) => acc + m.overallProgress, 0) / totalMembers
+    teamMembers.reduce((acc, m) => acc + m.overallProgress, 0) / (totalMembers || 1)
   );
 
   return (
@@ -328,7 +382,7 @@ export function TeamMemberSODInspector() {
             <span className="text-xl font-extrabold text-foreground">{sodSubmittedCount} of {totalMembers} Members</span>
           </div>
           <Badge variant="brand" className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
-            {Math.round((sodSubmittedCount / totalMembers) * 100)}% Locked
+            {Math.round((sodSubmittedCount / (totalMembers || 1)) * 100)}% Locked
           </Badge>
         </div>
 
@@ -359,13 +413,13 @@ export function TeamMemberSODInspector() {
         <div className="lg:col-span-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Platform Pod Direct Reports ({totalMembers})
+              Pod Direct Reports ({totalMembers})
             </h4>
             <span className="text-[10px] text-muted-foreground">Select to evaluate</span>
           </div>
 
           <div className="space-y-2">
-            {TEAM_MEMBERS.map((member) => {
+            {teamMembers.map((member) => {
               const isSelected = selectedMember.id === member.id;
               const hasSubmittedSOD = member.sodStatus === "SUBMITTED";
 

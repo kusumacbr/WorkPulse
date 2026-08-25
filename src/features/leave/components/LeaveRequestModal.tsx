@@ -29,10 +29,12 @@ export function LeaveRequestModal({
   onSuccess,
   remainingBalance = 12.0,
 }: LeaveRequestModalProps) {
-  const { addLeaveRequest } = useWorkpulseSharedStore();
+  const { addLeaveRequest, allEmployees } = useWorkpulseSharedStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const defaultBackupId = allEmployees.find(e => e.id === "emp-rohit")?.id || allEmployees[0]?.id || "emp-rohit";
 
   const form = useForm<LeaveRequestCreateInput>({
     resolver: zodResolver(leaveRequestCreateSchema),
@@ -43,7 +45,7 @@ export function LeaveRequestModal({
       isHalfDay: false,
       reason: "",
       handoverNotes: "",
-      backupEmployeeId: "emp-john",
+      backupEmployeeId: defaultBackupId,
     },
   });
 
@@ -51,6 +53,9 @@ export function LeaveRequestModal({
     try {
       setIsSubmitting(true);
       setSubmitError(null);
+
+      const backupEmp = allEmployees.find((e) => e.id === values.backupEmployeeId);
+      const backupName = backupEmp ? `${backupEmp.name} (${backupEmp.designation})` : "Rohit Sharma (Frontend)";
 
       // 1. Immediately add to reactive store for instant Stage-1 Lead queue display
       addLeaveRequest({
@@ -60,7 +65,7 @@ export function LeaveRequestModal({
         daysCount: values.isHalfDay ? 0.5 : 1.0,
         reason: values.reason,
         handoverNotes: values.handoverNotes || undefined,
-        backupPersonName: values.backupEmployeeId === "emp-priya" ? "Priya QA" : "John UI",
+        backupPersonName: backupName,
       });
 
       // 2. Persist to backend REST API
@@ -72,7 +77,7 @@ export function LeaveRequestModal({
           daysCount: values.isHalfDay ? 0.5 : 1.0,
           reason: values.reason,
           handoverNotes: values.handoverNotes || undefined,
-          backupPersonName: values.backupEmployeeId === "emp-priya" ? "Priya QA" : "John UI",
+          backupPersonName: backupName,
         });
       } catch (err) {
         console.warn("Backend leave sync completed in store:", err);
@@ -164,9 +169,11 @@ export function LeaveRequestModal({
                   {...form.register("backupEmployeeId")}
                   className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs font-medium"
                 >
-                  <option value="emp-john">John UI (Frontend)</option>
-                  <option value="emp-priya">Priya QA (QA Lead)</option>
-                  <option value="emp-david">David DevOps (DevOps)</option>
+                  {allEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.designation})
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

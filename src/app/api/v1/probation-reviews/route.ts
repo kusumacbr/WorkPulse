@@ -1,12 +1,14 @@
 import { apiSuccess } from "@/server/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const reviews = [
     {
       id: "prob-1",
-      employeeId: "emp-john",
-      employeeName: "John UI",
-      designation: "Frontend Engineer",
+      employeeId: "emp-rohit",
+      employeeName: "Rohit Sharma",
+      designation: "Frontend Engineer (UI/UX)",
       checkpointDay: 30,
       managerRecommendation: "CONFIRM_EMPLOYMENT",
       managerComments: "Strong frontend deliverable pace and UI polish.",

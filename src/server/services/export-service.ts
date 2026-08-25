@@ -90,16 +90,16 @@ export class ExportService {
     let csvData = "WorkDate,EmployeeCode,FullName,WorkMode,HoursWorked,Status\n";
 
     if (job.requesterRole === "EMPLOYEE") {
-      csvData += `2026-08-20,EMP-101,Sarah Dev,OFFICE,8.5,LOCKED\n`;
+      csvData += `2026-08-20,EMP-101,Sara Dev,OFFICE,8.5,LOCKED\n`;
       rowsCount = 1;
     } else if (job.requesterRole === "MANAGER") {
-      csvData += `2026-08-20,EMP-101,Sarah Dev,OFFICE,8.5,LOCKED\n`;
-      csvData += `2026-08-20,EMP-102,John UI,WFH,8.0,LOCKED\n`;
+      csvData += `2026-08-20,EMP-101,Sara Dev,OFFICE,8.5,LOCKED\n`;
+      csvData += `2026-08-20,EMP-102,Rohit Sharma,OFFICE,8.0,LOCKED\n`;
       rowsCount = 2;
     } else {
       // HR / Admin: Organization wide
-      csvData += `2026-08-20,EMP-101,Sarah Dev,OFFICE,8.5,LOCKED\n`;
-      csvData += `2026-08-20,EMP-102,John UI,WFH,8.0,LOCKED\n`;
+      csvData += `2026-08-20,EMP-101,Sara Dev,OFFICE,8.5,LOCKED\n`;
+      csvData += `2026-08-20,EMP-102,Rohit Sharma,OFFICE,8.0,LOCKED\n`;
       csvData += `2026-08-20,EMP-103,Alex Lead,OFFICE,9.0,LOCKED\n`;
       csvData += `2026-08-20,EMP-104,Priya QA,OFFICE,8.5,LOCKED\n`;
       rowsCount = 4;

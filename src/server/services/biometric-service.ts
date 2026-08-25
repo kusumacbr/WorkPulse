@@ -70,7 +70,7 @@ const inMemoryDevices = new Map<string, BiometricDeviceRecord>();
 const inMemoryMappings = new Map<string, BiometricEmployeeMappingRecord>();
 const inMemoryTransactions = new Map<string, BiometricPunchTransactionRecord>();
 
-// Pre-populate sample mappings for Sarah (code "BIO-101"), John ("BIO-102"), Alex ("BIO-103")
+// Pre-populate sample mappings for Sara (code "BIO-101"), John ("BIO-102"), Alex ("BIO-103")
 const initialMappings: BiometricEmployeeMappingRecord[] = [
   { id: "map-1", organizationId: "org-xorstack", provider: "GENERIC_WEBHOOK", deviceEmployeeCode: "BIO-101", employeeId: "emp-sarah", effectiveFrom: "2026-01-01" },
   { id: "map-2", organizationId: "org-xorstack", provider: "GENERIC_WEBHOOK", deviceEmployeeCode: "BIO-102", employeeId: "emp-john", effectiveFrom: "2026-01-01" },
@@ -299,6 +299,27 @@ export class BiometricService {
 
       inMemoryTransactions.set(duplicateKey, txRecord);
       results.push(txRecord);
+
+      // Persist to Supabase public.biometric_punches table
+      if (status === "PROCESSED" && mappedEmployeeId) {
+        try {
+          const { createAdminClient } = await import("@/lib/supabase/admin");
+          const supabase = createAdminClient();
+          if (supabase) {
+            await supabase.from("biometric_punches").insert({
+              employee_id: mappedEmployeeId,
+              punch_time: punch.occurredAt,
+              punch_type: direction === "OUT" ? "OUT" : "IN",
+              terminal_id: punch.deviceId,
+              method: verificationMethod,
+              status: "VERIFIED",
+              raw_payload: punch.rawPayloadRedacted || {},
+            });
+          }
+        } catch {
+          // Graceful fallback
+        }
+      }
 
       // Update Device Last Punch
       const device = inMemoryDevices.get(punch.deviceId);

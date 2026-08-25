@@ -1,12 +1,11 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { AuditService } from "@/lib/audit/audit-service";
 import { RoleType } from "@/lib/authorization/types";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import {
   Users,
   Search,
@@ -32,108 +31,49 @@ interface AdminUserRecord {
   lastActiveAt: string;
 }
 
-const INITIAL_ADMIN_USERS: AdminUserRecord[] = [
-  {
-    id: "emp-david",
-    userId: "user-david",
-    name: "David Admin",
-    email: "admin@xorstack.com",
-    department: "Executive & IT",
-    designation: "IT SuperAdmin & SecOps Lead",
-    roles: ["ADMIN", "EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "None (Executive Root)",
-    passkeyRegistered: true,
-    lastActiveAt: "Just now",
-  },
-  {
-    id: "emp-rachel",
-    userId: "user-rachel",
-    name: "Rachel Green",
-    email: "hr.rachel@xorstack.com",
-    department: "People Operations",
-    designation: "People Operations Lead",
-    roles: ["HR", "EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "Victoria Director",
-    managerId: "emp-victoria",
-    passkeyRegistered: true,
-    lastActiveAt: "10m ago",
-  },
-  {
-    id: "emp-victoria",
-    userId: "user-victoria",
-    name: "Victoria Director",
-    email: "victoria.director@xorstack.com",
-    department: "Executive & IT",
-    designation: "Director of Operations",
-    roles: ["MANAGER", "EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "David Admin",
-    managerId: "emp-david",
-    passkeyRegistered: true,
-    lastActiveAt: "25m ago",
-  },
-  {
-    id: "emp-alex",
-    userId: "user-alex",
-    name: "Alex Lead",
-    email: "lead.alex@xorstack.com",
-    department: "Development",
-    designation: "VP of Engineering & Team Lead",
-    roles: ["MANAGER", "EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "Victoria Director",
-    managerId: "emp-victoria",
-    passkeyRegistered: true,
-    lastActiveAt: "4m ago",
-  },
-  {
-    id: "emp-maya",
-    userId: "user-maya",
-    name: "Dr. Maya Chen",
-    email: "maya.rd@xorstack.com",
-    department: "R & D",
-    designation: "Principal AI Scientist & Lead",
-    roles: ["MANAGER", "EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "Alex Lead",
-    managerId: "emp-alex",
-    passkeyRegistered: true,
-    lastActiveAt: "1h ago",
-  },
-  {
-    id: "emp-sarah",
-    userId: "user-sarah",
-    name: "Sarah Dev",
-    email: "dev.sarah@xorstack.com",
-    department: "Development",
-    designation: "Senior Full-Stack Engineer",
-    roles: ["EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "Alex Lead",
-    managerId: "emp-alex",
-    passkeyRegistered: true,
-    lastActiveAt: "2m ago",
-  },
-  {
-    id: "emp-farhan",
-    userId: "user-farhan",
-    name: "Farhan Ali",
-    email: "farhan.ai@xorstack.com",
-    department: "R & D",
-    designation: "AI Research Engineer",
-    roles: ["EMPLOYEE"],
-    status: "ACTIVE",
-    managerName: "Dr. Maya Chen",
-    managerId: "emp-maya",
-    passkeyRegistered: false,
-    lastActiveAt: "Yesterday",
-  },
-];
-
 export function AdminUserIdentityDeck() {
-  const [users, setUsers] = useState<AdminUserRecord[]>(INITIAL_ADMIN_USERS);
+  const { allEmployees, departments } = useWorkpulseSharedStore();
+  const [roleOverrides, setRoleOverrides] = useState<Record<string, RoleType[]>>({});
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<string, "ACTIVE" | "SUSPENDED" | "INVITED" | "ARCHIVED">
+  >({});
+  const [managerOverrides, setManagerOverrides] = useState<
+    Record<string, { id: string; name: string }>
+  >({});
+  const isHydratedRef = React.useRef(false);
+
+  useEffect(() => {
+    try {
+      const r = localStorage.getItem("workpulse_admin_role_overrides");
+      if (r) setRoleOverrides(JSON.parse(r));
+      const s = localStorage.getItem("workpulse_admin_status_overrides");
+      if (s) setStatusOverrides(JSON.parse(s));
+      const m = localStorage.getItem("workpulse_admin_manager_overrides");
+      if (m) setManagerOverrides(JSON.parse(m));
+    } catch {
+      // safe fallback
+    }
+    isHydratedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (isHydratedRef.current && typeof window !== "undefined") {
+      localStorage.setItem("workpulse_admin_role_overrides", JSON.stringify(roleOverrides));
+    }
+  }, [roleOverrides]);
+
+  useEffect(() => {
+    if (isHydratedRef.current && typeof window !== "undefined") {
+      localStorage.setItem("workpulse_admin_status_overrides", JSON.stringify(statusOverrides));
+    }
+  }, [statusOverrides]);
+
+  useEffect(() => {
+    if (isHydratedRef.current && typeof window !== "undefined") {
+      localStorage.setItem("workpulse_admin_manager_overrides", JSON.stringify(managerOverrides));
+    }
+  }, [managerOverrides]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -145,13 +85,67 @@ export function AdminUserIdentityDeck() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  // Dynamically derive users list from live shared store
+  const users: AdminUserRecord[] = useMemo(() => {
+    const list: AdminUserRecord[] = [];
+
+    // 1. Add all employees from live store
+    allEmployees.forEach((emp) => {
+      const defaultRoles: RoleType[] =
+        emp.email === "director.test@xorstack.com" || emp.id === "admin-david"
+          ? ["ADMIN", "EMPLOYEE"]
+          : emp.email === "hr.test@xorstack.com" || emp.id === "hr-rachel"
+          ? ["HR", "EMPLOYEE"]
+          : emp.id.startsWith("lead-") || emp.designation.includes("Lead")
+          ? ["MANAGER", "EMPLOYEE"]
+          : ["EMPLOYEE"];
+
+      list.push({
+        id: emp.id,
+        userId: `user-${emp.id.replace("emp-", "").replace("lead-", "").replace("hr-", "").replace("admin-", "")}`,
+        name: emp.name,
+        email: emp.email,
+        department: emp.departmentName,
+        designation: emp.designation,
+        roles: roleOverrides[emp.id] || defaultRoles,
+        status: statusOverrides[emp.id] || (emp.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE"),
+        managerName: managerOverrides[emp.id]?.name || emp.teamLeadName || "David Director",
+        managerId: managerOverrides[emp.id]?.id || emp.teamLeadId || "admin-david",
+        passkeyRegistered: emp.workMode === "OFFICE",
+        lastActiveAt: "Just now",
+      });
+    });
+
+    // 2. Add any department team leads not yet in list
+    departments.forEach((dept) => {
+      if (!list.some((u) => u.id === dept.teamLead.id || u.email === dept.teamLead.email)) {
+        list.push({
+          id: dept.teamLead.id,
+          userId: `user-${dept.teamLead.id.replace("lead-", "")}`,
+          name: dept.teamLead.name,
+          email: dept.teamLead.email,
+          department: dept.name,
+          designation: dept.teamLead.designation,
+          roles: roleOverrides[dept.teamLead.id] || ["MANAGER", "EMPLOYEE"],
+          status: statusOverrides[dept.teamLead.id] || "ACTIVE",
+          managerName: managerOverrides[dept.teamLead.id]?.name || "David Director",
+          managerId: managerOverrides[dept.teamLead.id]?.id || "admin-david",
+          passkeyRegistered: true,
+          lastActiveAt: "5m ago",
+        });
+      }
+    });
+
+    return list;
+  }, [allEmployees, departments, roleOverrides, statusOverrides, managerOverrides]);
+
+
   // Toggle user role
   const handleToggleRole = async (user: AdminUserRecord, role: RoleType) => {
     const hasRole = user.roles.includes(role);
     let newRoles: RoleType[];
 
     if (hasRole) {
-      // Must retain at least EMPLOYEE
       if (role === "EMPLOYEE") {
         showToast("Cannot remove base EMPLOYEE role.");
         return;
@@ -161,9 +155,7 @@ export function AdminUserIdentityDeck() {
       newRoles = [...user.roles, role];
     }
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, roles: newRoles } : u))
-    );
+    setRoleOverrides((prev) => ({ ...prev, [user.id]: newRoles }));
 
     // Record audit log
     await AuditService.record({
@@ -195,9 +187,7 @@ export function AdminUserIdentityDeck() {
   // Toggle Account Suspension
   const handleToggleSuspension = async (user: AdminUserRecord) => {
     const newStatus = user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
-    );
+    setStatusOverrides((prev) => ({ ...prev, [user.id]: newStatus }));
 
     await AuditService.record({
       actorId: "user-david",
@@ -217,13 +207,10 @@ export function AdminUserIdentityDeck() {
     const mgr = users.find((u) => u.id === selectedManagerId);
     const newManagerName = mgr ? mgr.name : "None (Unassigned)";
 
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === user.id
-          ? { ...u, managerName: newManagerName, managerId: selectedManagerId || undefined }
-          : u
-      )
-    );
+    setManagerOverrides((prev) => ({
+      ...prev,
+      [user.id]: { id: selectedManagerId, name: newManagerName },
+    }));
 
     await AuditService.record({
       actorId: "user-david",

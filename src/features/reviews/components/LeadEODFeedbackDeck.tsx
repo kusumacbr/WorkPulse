@@ -80,7 +80,7 @@ const DAILY_FEEDBACKS: DailyFeedbackItem[] = [
     tasksCompleted: "2 of 2 Planned Deliverables (100%)",
     hoursLogged: 8.5,
     leadFeedbackTime: "05:45 PM",
-    leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sarah. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
+    leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
     leadRating: 5,
     leadSentiment: "EXCELLENT",
     leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's pod sync.",
@@ -132,7 +132,7 @@ const WEEKLY_REVIEWS: WeeklySprintReviewItem[] = [
     period: "Aug 17 – Aug 23, 2026",
     leadScore: 89.0,
     status: "APPROVED",
-    leadFeedbackSummary: "Sarah delivered exceptional value on core employee state machines, high-visibility sliders, and role dashboards. Her PR turnaround and collaboration with QA were best in class.",
+    leadFeedbackSummary: "Sara delivered exceptional value on core employee state machines, high-visibility sliders, and role dashboards. Her PR turnaround and collaboration with QA were best in class.",
     leadRatings: {
       quality: 4.8,
       timeliness: 4.7,
@@ -191,7 +191,7 @@ const MONTHLY_CALIBRATIONS: MonthlyCalibrationItem[] = [
     eodTotalReviewed: 20,
     sprintsCount: 4,
     leadPromotionReadiness: "High — Ready for Lead / Staff Engineer Assessment",
-    leadQuarterlyNarrative: "Sarah has consistently demonstrated top-tier engineering architecture, 100% test discipline, and proactive technical leadership throughout August. Her daily EOD submissions reflect consistent execution with zero missed deadlines. Her collaboration with QA and HR systems has significantly accelerated our Q3 release roadmap.",
+    leadQuarterlyNarrative: "Sara has consistently demonstrated top-tier engineering architecture, 100% test discipline, and proactive technical leadership throughout August. Her daily EOD submissions reflect consistent execution with zero missed deadlines. Her collaboration with QA and HR systems has significantly accelerated our Q3 release roadmap.",
     coreCompetenciesAverage: 4.8,
     keyMilestonesAcknowledged: [
       "Built Core Workday Lifecycle Engine with 100% test pass rate",

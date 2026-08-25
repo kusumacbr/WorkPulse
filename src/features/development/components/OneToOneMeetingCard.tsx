@@ -18,10 +18,10 @@ import {
 export function OneToOneMeetingCard() {
   const [activeTab, setActiveTab] = useState<"shared" | "actions" | "private">("shared");
   const [sharedNotes, setSharedNotes] = useState(
-    "Discussed Q3 technical milestones. Sarah proposed improving our database connection pooling and reducing biometric ingestion latency. Agreed on targeting 99.9% uptime."
+    "Discussed Q3 technical milestones. Sara proposed improving our database connection pooling and reducing biometric ingestion latency. Agreed on targeting 99.9% uptime."
   );
   const [privateNotes, setPrivateNotes] = useState(
-    "Sarah is demonstrating strong leadership potential. Recommended for Tech Lead track at Q4 review if probation goals are confirmed."
+    "Sara is demonstrating strong leadership potential. Recommended for Tech Lead track at Q4 review if probation goals are confirmed."
   );
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -36,7 +36,7 @@ export function OneToOneMeetingCard() {
                 Bi-Weekly 1-on-1 Sync
               </Badge>
               <span className="text-xs text-muted-foreground font-semibold">
-                Alex Lead & Sarah Dev
+                Alex Lead & Sara Dev
               </span>
             </div>
             <CardTitle className="text-sm font-bold text-foreground">
@@ -122,7 +122,7 @@ export function OneToOneMeetingCard() {
               <div className="p-3 flex items-center justify-between">
                 <div>
                   <span className="font-bold text-foreground block">1. Research pg_stat_activity index locking</span>
-                  <span className="text-[11px] text-muted-foreground">Owner: Sarah Dev · Due: Aug 25, 2026</span>
+                  <span className="text-[11px] text-muted-foreground">Owner: Sara Dev · Due: Aug 25, 2026</span>
                 </div>
                 <Badge variant="outline" className="text-[10px]">Open</Badge>
               </div>

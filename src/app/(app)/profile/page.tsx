@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useCurrentUser } from "@/components/layout/UserContext";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { Badge } from "@/components/ui/badge";
@@ -22,16 +23,30 @@ import {
 
 export default function ProfilePage() {
   const user = useCurrentUser();
+  const { allEmployees, updateEmployee } = useWorkpulseSharedStore();
+
+  const matchedEmp = allEmployees.find(
+    (e) =>
+      e.email.toLowerCase() === user.userEmail.toLowerCase() ||
+      e.name.toLowerCase() === user.userName.toLowerCase() ||
+      (user.userEmail === "employee.test@xorstack.com" && e.id === "emp-sarah")
+  );
 
   const [isEditing, setIsEditing] = useState(false);
-  const [preferredName, setPreferredName] = useState(user.userName || "Sarah Dev");
-  const [phoneNumber, setPhoneNumber] = useState("+91 98450 12345");
+  const [preferredName, setPreferredName] = useState(user.userName || "Sara Dev");
+  const [phoneNumber, setPhoneNumber] = useState(matchedEmp?.phoneNumber || "+91 98450 12345");
   const [emergencyPhone, setEmergencyPhone] = useState("+91 98450 99999");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const handleSave = () => {
     setIsEditing(false);
-    setToastMsg("Profile information updated successfully!");
+    if (matchedEmp) {
+      updateEmployee(matchedEmp.id, {
+        name: preferredName,
+        phoneNumber: phoneNumber,
+      });
+    }
+    setToastMsg("Profile information updated and synchronized across all dashboards! ✓");
     setTimeout(() => setToastMsg(null), 3000);
   };
 

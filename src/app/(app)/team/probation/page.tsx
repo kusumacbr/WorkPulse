@@ -9,9 +9,9 @@ import { UserCheck } from "lucide-react";
 export default function TeamProbationPage() {
   const probationMembers = [
     {
-      id: "emp-john",
-      name: "John UI",
-      designation: "Frontend Engineer",
+      id: "emp-rohit",
+      name: "Rohit Sharma",
+      designation: "Frontend Engineer (UI/UX)",
       checkpoint: "Day 30",
       workQualityScore: 5.0,
       attendanceScore: 5.0,

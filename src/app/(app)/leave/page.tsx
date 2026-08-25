@@ -32,12 +32,30 @@ export default function LeavePage() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
 
-  const { leaveRequests, wfhRequests } = useWorkpulseSharedStore();
+  const { allEmployees, leaveRequests, wfhRequests } = useWorkpulseSharedStore();
 
-  const myLeaveRequests = leaveRequests.filter((r) => r.employeeId === "emp-sarah" || r.employeeName === user.userName);
-  const myWfhRequests = wfhRequests.filter((r) => r.employeeId === "emp-sarah" || r.employeeName === user.userName);
+  const matchedEmp = allEmployees.find(
+    (e) =>
+      e.email.toLowerCase() === user.userEmail.toLowerCase() ||
+      e.name.toLowerCase() === user.userName.toLowerCase()
+  ) || allEmployees[0];
 
-  const remainingBalance = myLeaveRequests.length > 0 ? myLeaveRequests[0]!.remainingBalance : 11.0;
+  const myLeaveRequests = leaveRequests.filter(
+    (r) =>
+      (matchedEmp && r.employeeId === matchedEmp.id) ||
+      r.employeeName === user.userName ||
+      r.employeeId === "emp-sarah"
+  );
+  const myWfhRequests = wfhRequests.filter(
+    (r) =>
+      (matchedEmp && r.employeeId === matchedEmp.id) ||
+      r.employeeName === user.userName ||
+      r.employeeId === "emp-sarah"
+  );
+
+  const remainingBalance =
+    matchedEmp?.remainingLeaveBalance ??
+    (myLeaveRequests.length > 0 ? myLeaveRequests[0]!.remainingBalance : 12.0);
 
   return (
     <PageTransition>

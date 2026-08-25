@@ -3,6 +3,8 @@ import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { assertAuthorized } from "@/lib/authorization/authorize";
 import { PERMISSIONS } from "@/lib/authorization/permissions";
 
+export const dynamic = "force-dynamic";
+
 interface ProbationRecord {
   id: string;
   employeeName: string;
@@ -38,29 +40,29 @@ let globalProbationRecords: ProbationRecord[] = [
   {
     id: "pr-2",
     employeeName: "Ananya Sen",
-    department: "Quality Assurance",
-    designation: "Automation QA Lead",
+    department: "Service Providers (ConfigTap)",
+    designation: "Automation & Embedded QA Engineer",
     joiningDate: "2026-06-20",
     confirmationDueDate: "2026-09-20",
     stage: "60_DAYS",
     leadRecommendation: "CONFIRM",
-    leadNotes: "Engineered automated Playwright biometric regression suites.",
-    leadName: "Dr. Maya Chen",
+    leadNotes: "Engineered automated ECU and CAN conformity test suites.",
+    leadName: "Alex Lead",
     okrScore: 94.0,
     shiftPunctuality: 99.1,
     status: "PENDING_HR_DECISION",
   },
   {
     id: "pr-3",
-    employeeName: "Elena Rostova",
-    department: "Devops",
-    designation: "DevOps & Cloud Engineer",
+    employeeName: "Sneha Kapoor",
+    department: "Data processing",
+    designation: "Data Analytics Engineer",
     joiningDate: "2026-08-10",
     confirmationDueDate: "2026-09-10",
     stage: "30_DAYS",
     leadRecommendation: "UNDER_REVIEW",
-    leadNotes: "30-day initial checkpoint on CI/CD pipelines.",
-    leadName: "Marcus Vance",
+    leadNotes: "30-day initial checkpoint on real-time data ingestion pipelines.",
+    leadName: "Vikram Rao",
     okrScore: 86.0,
     shiftPunctuality: 97.5,
     status: "PENDING_HR_DECISION",

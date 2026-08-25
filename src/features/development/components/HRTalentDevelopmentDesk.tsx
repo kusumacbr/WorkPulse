@@ -33,9 +33,9 @@ interface PipCase {
 const INITIAL_PIP_CASES: PipCase[] = [
   {
     id: "pip-1",
-    employeeName: "John UI",
+    employeeName: "Rohit Sharma",
     departmentName: "Development",
-    designation: "Frontend Engineer",
+    designation: "Frontend Engineer (UI/UX)",
     leadName: "Alex Lead",
     startDate: "2026-08-01",
     targetEndDate: "2026-08-31",
@@ -119,7 +119,7 @@ export function HRTalentDevelopmentDesk() {
         <MetricTile3D
           title="Active PIP Governance"
           value="1 Formal Plan"
-          subtitle="John UI (Dev Pod) · Week 3 on-track"
+          subtitle="Rohit Sharma (Dev Pod) · Week 3 on-track"
           icon={AlertTriangle}
           change="75% Milestones Green"
           changePositive={true}
@@ -410,7 +410,7 @@ export function HRTalentDevelopmentDesk() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div className="p-4 rounded-xl bg-card/60 border border-rose-500/30 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-foreground">Sarah Dev awarded Priya QA</span>
+                <span className="font-bold text-foreground">Sara Dev awarded Priya QA</span>
                 <Badge variant="brand" className="text-[9px] bg-rose-500/15 text-rose-300 border-rose-500/30">
                   Problem Solver 🌟
                 </Badge>

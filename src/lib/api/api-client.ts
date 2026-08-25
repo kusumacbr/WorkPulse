@@ -329,4 +329,43 @@ export const WorkpulseApi = {
       );
     },
   },
+
+  // 9. Employee Enterprise Roster & CRUD
+  employees: {
+    list: (params?: { departmentId?: string; search?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.departmentId) q.append("departmentId", params.departmentId);
+      if (params?.search) q.append("search", params.search);
+      return request<{ employees: any[]; total: number }>(`/api/v1/employees?${q.toString()}`);
+    },
+    get: (id: string) => request<{ employee: any }>(`/api/v1/employees/${id}`),
+    create: (data: {
+      name: string;
+      email: string;
+      designation: string;
+      departmentId?: string;
+      departmentName?: string;
+      workMode?: string;
+      status?: string;
+      employmentType?: string;
+      remainingLeaveBalance?: number;
+      joiningDate?: string;
+      phoneNumber?: string;
+      location?: string;
+      workLocation?: string;
+    }) =>
+      request<{ employee: any; message: string }>(`/api/v1/employees`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: any) =>
+      request<{ employee: any; message: string }>(`/api/v1/employees/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ employee: any; message: string }>(`/api/v1/employees/${id}`, {
+        method: "DELETE",
+      }),
+  },
 };

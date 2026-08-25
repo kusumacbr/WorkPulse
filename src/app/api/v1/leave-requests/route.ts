@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const { actor } = await getSessionActor(req);
   const searchParams = req.nextUrl.searchParams;
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
       reason: body.reason,
       status: "PENDING_TL_STAGE_1" as const,
       createdAt: new Date().toISOString(),
-      backupPersonName: body.backupPersonName || "John UI",
+      backupPersonName: body.backupPersonName || "Rohit Sharma",
       handoverNotes: body.handoverNotes || "PR review handled by team",
     };
 

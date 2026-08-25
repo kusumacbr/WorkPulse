@@ -1,9 +1,8 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import {
   Cake,
   Sparkles,
@@ -36,7 +35,7 @@ const INITIAL_MILESTONES: MilestoneItem[] = [
   },
   {
     id: "ms-2",
-    name: "Sarah Dev",
+    name: "Sara Dev",
     role: "Senior Backend Engineer",
     department: "Engineering",
     type: "ANNIVERSARY",
@@ -67,13 +66,74 @@ const INITIAL_MILESTONES: MilestoneItem[] = [
 ];
 
 export function PeopleMilestonesDeck() {
-  const [milestones, setMilestones] = useState<MilestoneItem[]>(INITIAL_MILESTONES);
+  const { allEmployees } = useWorkpulseSharedStore();
+  const [celebratedIds, setCelebratedIds] = useState<Record<string, boolean>>({ "ms-3": true });
   const [sentToast, setSentToast] = useState<string | null>(null);
 
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem("workpulse_milestones_celebrated");
+      if (s) setCelebratedIds(JSON.parse(s));
+    } catch {
+      // safe fallback
+    }
+  }, []);
+
+  const dynamicMilestones: MilestoneItem[] = useMemo(() => {
+    const list: MilestoneItem[] = INITIAL_MILESTONES.map((m) => {
+      const matchedEmp = allEmployees.find(
+        (e) =>
+          (m.id === "ms-1" && (e.id === "lead-alex" || e.name.toLowerCase() === "alex lead")) ||
+          (m.id === "ms-2" && (e.id === "emp-sarah" || e.name.toLowerCase() === "sarah dev" || e.name.toLowerCase() === "sara dev")) ||
+          (m.id === "ms-3" && (e.id === "emp-rohit" || e.name.toLowerCase() === "rohit sharma")) ||
+          (m.id === "ms-4" && (e.id === "emp-ananya" || e.name.toLowerCase() === "ananya sen")) ||
+          e.name.toLowerCase() === m.name.toLowerCase()
+      );
+
+      if (matchedEmp) {
+        return {
+          ...m,
+          name: matchedEmp.name,
+          role: matchedEmp.designation,
+          department: matchedEmp.departmentName,
+          highlightText: m.type === "ANNIVERSARY"
+            ? `Work Anniversary celebration with Xorstack! 🚀`
+            : m.type === "BIRTHDAY"
+            ? `Happy Birthday ${matchedEmp.name}! 🎂`
+            : m.highlightText,
+        };
+      }
+      return m;
+    });
+
+    // Include newly onboarded employees from allEmployees
+    allEmployees.forEach((emp) => {
+      if (!list.some((m) => m.name.toLowerCase() === emp.name.toLowerCase())) {
+        list.push({
+          id: `joiner-${emp.id}`,
+          name: emp.name,
+          role: emp.designation,
+          department: emp.departmentName || "Engineering",
+          type: "NEW_JOINER",
+          eventDate: `Joined ${emp.joiningDate || "Recently"}`,
+          highlightText: "Welcome to Xorstack! Technical onboarding in progress",
+          celebrated: !!celebratedIds[`joiner-${emp.id}`],
+        });
+      }
+    });
+
+    return list.map((m) => ({
+      ...m,
+      celebrated: celebratedIds[m.id] !== undefined ? celebratedIds[m.id]! : m.celebrated,
+    }));
+  }, [allEmployees, celebratedIds]);
+
   const handleSendCelebration = (item: MilestoneItem) => {
-    setMilestones((prev) =>
-      prev.map((m) => (m.id === item.id ? { ...m, celebrated: true } : m))
-    );
+    const updated = { ...celebratedIds, [item.id]: true };
+    setCelebratedIds(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("workpulse_milestones_celebrated", JSON.stringify(updated));
+    }
     setSentToast(`Celebration broadcast sent for ${item.name}! 🎉`);
     setTimeout(() => setSentToast(null), 3500);
   };
@@ -107,7 +167,7 @@ export function PeopleMilestonesDeck() {
           </div>
 
           <div className="space-y-3">
-            {milestones.filter(m => m.type === "BIRTHDAY" || m.type === "ANNIVERSARY").map((item) => (
+            {dynamicMilestones.filter(m => m.type === "BIRTHDAY" || m.type === "ANNIVERSARY").map((item) => (
               <div
                 key={item.id}
                 className="p-4 rounded-xl bg-card/60 border border-border/70 hover:border-pink-500/40 space-y-3 transition-all"
@@ -194,47 +254,28 @@ export function PeopleMilestonesDeck() {
           </div>
 
           <div className="space-y-3 text-xs">
-            <div className="p-4 rounded-xl bg-card/60 border border-border/70 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong className="text-foreground block text-xs">Rohit Sharma (Frontend Intern)</strong>
-                  <span className="text-[11px] text-muted-foreground">Joined Aug 01 · UI/UX Pod (Bangalore HQ)</span>
+            {dynamicMilestones.filter(m => m.type === "NEW_JOINER").map((item) => (
+              <div key={item.id} className="p-4 rounded-xl bg-card/60 border border-border/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <strong className="text-foreground block text-xs">{item.name} ({item.role})</strong>
+                    <span className="text-[11px] text-muted-foreground">{item.eventDate} · {item.department}</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30">
+                    Day 20 / 30
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30">
-                  Day 20 / 30
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Onboarding Progress:</span>
-                  <strong className="text-foreground">85% Complete</strong>
-                </div>
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 w-[85%]" />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-card/60 border border-border/70 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong className="text-foreground block text-xs">Ananya Sen (QA Engineer)</strong>
-                  <span className="text-[11px] text-muted-foreground">Joined Jul 20 · Automation Pod (Remote)</span>
-                </div>
-                <Badge variant="outline" className="text-[10px] font-mono text-cyan-400 border-cyan-500/30">
-                  Day 30 / 30
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Onboarding Progress:</span>
-                  <strong className="text-emerald-400 font-bold">100% Ready for Checkpoint</strong>
-                </div>
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 w-full" />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{item.highlightText}</span>
+                    <strong className="text-foreground">85% Complete</strong>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 w-[85%]" />
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </Interactive3DCard>
       </div>

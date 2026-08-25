@@ -6,7 +6,7 @@ export async function GET(_req: NextRequest) {
     {
       id: "rev-monthly-aug26",
       employeeId: "emp-sarah",
-      employeeName: "Sarah Dev",
+      employeeName: "Sara Dev",
       department: "Engineering",
       period: "August 2026",
       periodStart: "2026-08-01",

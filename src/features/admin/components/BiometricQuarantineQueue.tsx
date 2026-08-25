@@ -12,11 +12,14 @@ import {
   X,
 } from "lucide-react";
 
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+
 interface BiometricQuarantineQueueProps {
   initialQuarantine?: BiometricPunchTransactionRecord[];
 }
 
 export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarantineQueueProps) {
+  const { allEmployees } = useWorkpulseSharedStore();
   const [quarantineList, setQuarantineList] = useState<BiometricPunchTransactionRecord[]>(
     initialQuarantine || [
       {
@@ -38,7 +41,7 @@ export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarant
   );
 
   const [resolvingTx, setResolvingTx] = useState<BiometricPunchTransactionRecord | null>(null);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("emp-priya");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(allEmployees[0]?.id || "emp-priya");
   const [savePermanentMapping, setSavePermanentMapping] = useState(true);
 
   const handleResolve = () => {
@@ -147,10 +150,11 @@ export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarant
                   onChange={(e) => setSelectedEmployeeId(e.target.value)}
                   className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs font-medium"
                 >
-                  <option value="emp-priya">Priya QA (QA Lead - emp-priya)</option>
-                  <option value="emp-david">David DevOps (DevOps - emp-david)</option>
-                  <option value="emp-sarah">Sarah Dev (Senior Backend - emp-sarah)</option>
-                  <option value="emp-john">John UI (Frontend - emp-john)</option>
+                  {allEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.designation} - {emp.id})
+                    </option>
+                  ))}
                 </select>
               </div>
 

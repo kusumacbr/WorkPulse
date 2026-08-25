@@ -1,10 +1,9 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { WhosWhereEmployee } from "@/server/services/attendance-service";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import {
   Building2,
   Search,
@@ -15,65 +14,46 @@ interface WhosWhereTodayBoardProps {
 }
 
 export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardProps) {
+  const { departments, allEmployees } = useWorkpulseSharedStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<string>("ALL");
 
-  const defaultEmployees: WhosWhereEmployee[] = initialEmployees || [
-    {
-      employeeId: "emp-sarah",
-      employeeName: "Sarah Dev",
-      department: "Engineering",
-      jobTitle: "Senior Backend Engineer",
-      workMode: "OFFICE",
-      locationBadge: "HQ - Floor 3",
-      firstCheckIn: "09:12 AM",
-    },
-    {
-      employeeId: "emp-john",
-      employeeName: "John UI",
-      department: "Engineering",
-      jobTitle: "Frontend Engineer",
-      workMode: "WFH",
-      locationBadge: "Remote (Bangalore)",
-      firstCheckIn: "09:00 AM",
-    },
-    {
-      employeeId: "emp-alex",
-      employeeName: "Alex Lead",
-      department: "Engineering",
-      jobTitle: "Engineering Lead",
-      workMode: "OFFICE",
-      locationBadge: "HQ - Floor 3",
-      firstCheckIn: "08:55 AM",
-    },
-    {
-      employeeId: "emp-priya",
-      employeeName: "Priya QA",
-      department: "Engineering",
-      jobTitle: "QA Lead",
-      workMode: "FULL_DAY_LEAVE",
-      locationBadge: "Casual Leave",
-      firstCheckIn: null,
-    },
-    {
-      employeeId: "emp-david",
-      employeeName: "David DevOps",
-      department: "Operations",
-      jobTitle: "DevOps Engineer",
-      workMode: "OFFICE",
-      locationBadge: "HQ - Server Room",
-      firstCheckIn: "09:05 AM",
-    },
-    {
-      employeeId: "emp-rachel",
-      employeeName: "Rachel HR",
-      department: "People & HR",
-      jobTitle: "HR Lead",
-      workMode: "OFFICE",
-      locationBadge: "HQ - Floor 2",
-      firstCheckIn: "09:15 AM",
-    },
-  ];
+  const defaultEmployees: WhosWhereEmployee[] = useMemo(() => {
+    const list: WhosWhereEmployee[] = [];
+
+    departments.forEach((dept) => {
+      // Lead
+      list.push({
+        employeeId: dept.teamLead.id,
+        employeeName: dept.teamLead.name,
+        department: dept.name,
+        jobTitle: dept.teamLead.designation,
+        workMode: "OFFICE",
+        locationBadge: "HQ - Floor 3",
+        firstCheckIn: "08:55 AM",
+      });
+
+      // Employees
+      dept.employees.forEach((emp) => {
+        list.push({
+          employeeId: emp.id,
+          employeeName: emp.name,
+          department: dept.name,
+          jobTitle: emp.designation,
+          workMode: emp.workMode || "OFFICE",
+          locationBadge:
+            emp.workLocation ||
+            (emp.workMode === "WFH" ? "Remote (India)" : "HQ - Floor 0"),
+          firstCheckIn:
+            emp.sodStatus === "SUBMITTED"
+              ? emp.sodTime || "09:30 AM"
+              : null,
+        });
+      });
+    });
+
+    return list;
+  }, [initialEmployees, departments, allEmployees]);
 
   const inOfficeCount = defaultEmployees.filter((e) => e.workMode === "OFFICE").length;
   const wfhCount = defaultEmployees.filter((e) => e.workMode === "WFH").length;

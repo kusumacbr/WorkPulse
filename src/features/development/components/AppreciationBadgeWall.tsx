@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BadgeAwardRecord } from "@/server/services/coaching-service";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import {
   Award,
   Clock,
@@ -33,6 +34,7 @@ const starterBadgesList = [
 ];
 
 export function AppreciationBadgeWall() {
+  const { allEmployees } = useWorkpulseSharedStore();
   const [awards, setAwards] = useState<BadgeAwardRecord[]>([
     {
       id: "award-1",
@@ -60,7 +62,7 @@ export function AppreciationBadgeWall() {
 
   const [showAwardModal, setShowAwardModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState("badge-1");
-  const [recipient, setRecipient] = useState("emp-sarah");
+  const [recipient, setRecipient] = useState(allEmployees[0]?.id || "emp-sarah");
   const [reason, setReason] = useState("");
 
   const handleIssueAward = () => {
@@ -137,29 +139,36 @@ export function AppreciationBadgeWall() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 divide-y divide-border">
-          {awards.map((award) => (
-            <div key={award.id} className="p-4 flex items-start gap-3">
-              <div className="h-9 w-9 rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] flex items-center justify-center shrink-0">
-                <Award className="h-5 w-5" />
-              </div>
+          {awards.map((award) => {
+            const recipientEmp = allEmployees.find((e) => e.id === award.recipientEmployeeId);
+            const recipientName = recipientEmp ? recipientEmp.name : award.recipientEmployeeId;
+            const issuerEmp = allEmployees.find((e) => e.id === award.issuerEmployeeId);
+            const issuerName = issuerEmp ? issuerEmp.name : award.issuerEmployeeId;
 
-              <div className="space-y-1 text-xs">
-                <div>
-                  <span className="font-bold text-foreground">{award.recipientEmployeeId}</span>
-                  <span className="text-muted-foreground"> was awarded </span>
-                  <Badge variant="brand" className="text-[10px] font-bold">
-                    {award.badgeName}
-                  </Badge>
-                  <span className="text-muted-foreground"> by {award.issuerEmployeeId}</span>
+            return (
+              <div key={award.id} className="p-4 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] flex items-center justify-center shrink-0">
+                  <Award className="h-5 w-5" />
                 </div>
 
-                <p className="text-muted-foreground italic">"{award.reason}"</p>
-                <span className="text-[10px] text-muted-foreground block">
-                  {new Date(award.awardedAt).toLocaleDateString()} · +{award.points} Points
-                </span>
+                <div className="space-y-1 text-xs">
+                  <div>
+                    <span className="font-bold text-foreground">{recipientName}</span>
+                    <span className="text-muted-foreground"> was awarded </span>
+                    <Badge variant="brand" className="text-[10px] font-bold">
+                      {award.badgeName}
+                    </Badge>
+                    <span className="text-muted-foreground"> by {issuerName}</span>
+                  </div>
+
+                  <p className="text-muted-foreground italic">"{award.reason}"</p>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {new Date(award.awardedAt).toLocaleDateString()} · +{award.points} Points
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -200,10 +209,11 @@ export function AppreciationBadgeWall() {
                   onChange={(e) => setRecipient(e.target.value)}
                   className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs font-medium"
                 >
-                  <option value="emp-sarah">Sarah Dev (Senior Backend - emp-sarah)</option>
-                  <option value="emp-john">John UI (Frontend - emp-john)</option>
-                  <option value="emp-priya">Priya QA (QA Lead - emp-priya)</option>
-                  <option value="emp-david">David DevOps (DevOps - emp-david)</option>
+                  {allEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.designation} - {emp.id})
+                    </option>
+                  ))}
                 </select>
               </div>
 

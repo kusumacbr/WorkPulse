@@ -45,9 +45,9 @@ interface WfhPatternRecord {
 const INITIAL_ANOMALIES: AttendanceAnomalyPattern[] = [
   {
     id: "anom-1",
-    employeeName: "Farhan Ali",
-    department: "R & D",
-    designation: "AI Research Engineer",
+    employeeName: "Rohit Sharma",
+    department: "Development",
+    designation: "Frontend Engineer (UI/UX)",
     lateArrivalsCount: 4,
     missingPunchesCount: 2,
     unresolvedRegularizationsCount: 1,
@@ -56,9 +56,9 @@ const INITIAL_ANOMALIES: AttendanceAnomalyPattern[] = [
   },
   {
     id: "anom-2",
-    employeeName: "Deepak Joshi",
-    department: "SAP Services",
-    designation: "SAP S/4HANA Consultant",
+    employeeName: "Ananya Sen",
+    department: "Service Providers (ConfigTap)",
+    designation: "Automation & Embedded QA Engineer",
     lateArrivalsCount: 3,
     missingPunchesCount: 1,
     unresolvedRegularizationsCount: 0,
@@ -81,23 +81,23 @@ const INITIAL_ANOMALIES: AttendanceAnomalyPattern[] = [
 const INITIAL_WFH_PATTERNS: WfhPatternRecord[] = [
   {
     id: "wfh-pat-1",
-    employeeName: "Elena Rostova",
-    department: "Devops",
-    designation: "DevOps & Cloud Engineer",
+    employeeName: "Priya QA",
+    department: "R & D",
+    designation: "QA & Automation Lead",
     wfhDaysThisMonth: 6,
     fridayWfhFrequency: "Every Friday (4 of 4)",
-    patternNotes: "Recurring remote pattern on Fridays for cloud infra release sprints.",
+    patternNotes: "Recurring remote pattern on Fridays for regression release sprints.",
     leadRecommendation: "Supportive dialogue: confirm home workspace setup meets zero-trust VPN SLAs.",
   },
   {
     id: "wfh-pat-2",
-    employeeName: "Anil Kumble",
-    department: "Data processing",
-    designation: "Data Quality Lead",
+    employeeName: "Karthik Raja",
+    department: "Devops",
+    designation: "DevOps & Cloud Engineer",
     wfhDaysThisMonth: 5,
     fridayWfhFrequency: "Mondays & Fridays",
-    patternNotes: "Extended weekend boundary pattern.",
-    leadRecommendation: "Check in during 1-on-1 to align pod core hours with on-site batch processing.",
+    patternNotes: "Extended weekend boundary pattern for cloud deployments.",
+    leadRecommendation: "Check in during 1-on-1 to align pod core hours with on-site cloud deployments.",
   },
 ];
 

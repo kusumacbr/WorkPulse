@@ -18,7 +18,7 @@ export default function BadgesPage() {
     {
       id: "awd-1",
       badgeName: "Problem Solver",
-      recipientName: "Sarah Dev",
+      recipientName: "Sara Dev",
       senderName: "Alex Lead",
       reason: "Exceptional architecture of the biometric offline queue with zero punch loss",
       date: "August 20, 2026",
@@ -27,7 +27,7 @@ export default function BadgesPage() {
     {
       id: "awd-2",
       badgeName: "Quality Champion",
-      recipientName: "John UI",
+      recipientName: "Rohit Sharma",
       senderName: "Alex Lead",
       reason: "Flawless glassmorphic UI overhaul with full accessibility support",
       date: "August 18, 2026",

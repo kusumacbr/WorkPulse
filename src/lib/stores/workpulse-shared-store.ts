@@ -1,10 +1,8 @@
-"use client";
-
-import { useState, useEffect } from "react";
-
 // ==========================================
 // 1. OFFICIAL XORSTACK DEPARTMENT & ORG ROSTER
 // ==========================================
+
+import { realtimeEventBus } from "@/server/realtime/event-bus";
 
 export interface OrgEmployee {
   id: string;
@@ -17,6 +15,13 @@ export interface OrgEmployee {
   teamLeadName: string;
   avatar: string;
   workMode: "OFFICE" | "WFH" | "HYBRID";
+  status?: "Full-Time" | "Probation" | "Notice Period" | "ACTIVE" | "PROBATION" | "RESIGNED" | "ARCHIVED" | string;
+  employmentType?: "Full-Time" | "Probation" | "Contract" | "Intern" | string;
+  joiningDate?: string;
+  hireDate?: string;
+  phoneNumber?: string;
+  workLocation?: string;
+  location?: string;
   sodStatus: "SUBMITTED" | "PENDING";
   sodTime?: string;
   eodStatus: "SUBMITTED" | "IN_PROGRESS" | "PENDING";
@@ -70,7 +75,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
     teamLead: {
       id: "lead-alex",
       name: "Alex Lead",
-      email: "lead.dev@xorstack.com",
+      email: "lead.test@xorstack.com",
       designation: "Engineering Lead · Development",
       avatar: "AL",
     },
@@ -142,7 +147,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
             estimatedMinutes: 240,
             completionPercentage: 70,
             status: "IN_PROGRESS",
-            expectedOutput: "Smooth page transition component across all 10 views",
+            expectedOutput: "Smooth page transition component across all views",
           },
           {
             id: "rt-2",
@@ -159,35 +164,6 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         eodBlockers: "None",
         eodTomorrowFocus: "Optimize mobile viewport responsiveness.",
       },
-      {
-        id: "emp-john",
-        name: "John UI",
-        email: "john.ui@xorstack.com",
-        designation: "Frontend Engineer",
-        departmentId: "dept-development",
-        departmentName: "Development",
-        teamLeadId: "lead-alex",
-        teamLeadName: "Alex Lead",
-        avatar: "JU",
-        workMode: "HYBRID",
-        sodStatus: "PENDING",
-        sodTime: "--",
-        eodStatus: "PENDING",
-        overallProgress: 30,
-        remainingLeaveBalance: 12.0,
-        plannedTasks: [
-          {
-            id: "jt-1",
-            title: "Update color palette contrast in Sidebar navigation items",
-            project: "Frontend & UI",
-            priority: "LOW",
-            estimatedMinutes: 90,
-            completionPercentage: 30,
-            status: "IN_PROGRESS",
-            expectedOutput: "WCAG AAA pass on dark mode items",
-          },
-        ],
-      },
     ],
   },
 
@@ -198,7 +174,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
     shortName: "DevOps",
     iconType: "devops",
     description:
-      "Bridging the gap between development and operations, DevOps fosters a culture of collaboration and automation, accelerating software delivery and ensuring reliability. It emphasizes continuous integration and deployment, ensuring seamless transitions from development to production.",
+      "Bridging the gap between development and operations, DevOps fosters a culture of collaboration and automation, accelerating software delivery and ensuring reliability.",
     badgeColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     accentColor: "text-emerald-400",
     teamLead: {
@@ -241,37 +217,6 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         eodBlockers: "None",
         eodTomorrowFocus: "Production cluster failover testing.",
       },
-      {
-        id: "emp-elena",
-        name: "Elena Rostova",
-        email: "elena.rostova@xorstack.com",
-        designation: "Infrastructure Security Architect",
-        departmentId: "dept-devops",
-        departmentName: "Devops",
-        teamLeadId: "lead-marcus",
-        teamLeadName: "Marcus Vance",
-        avatar: "ER",
-        workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:04 AM",
-        eodStatus: "SUBMITTED",
-        overallProgress: 100,
-        remainingLeaveBalance: 12.0,
-        plannedTasks: [
-          {
-            id: "er-1",
-            title: "Audit Kubernetes ingress TLS cert rotation policies",
-            project: "Infrastructure",
-            priority: "HIGH",
-            estimatedMinutes: 180,
-            completionPercentage: 100,
-            status: "COMPLETED",
-            expectedOutput: "Automated Let's Encrypt renewal with zero downtime",
-          },
-        ],
-        eodAchievements: "TLS rotation verified on all staging pods.",
-        eodBlockers: "None",
-      },
     ],
   },
 
@@ -282,7 +227,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
     shortName: "Data",
     iconType: "data",
     description:
-      "Data processing transforms raw data into meaningful insights, leveraging algorithms and computational tools. It encompasses the collection, cleaning, and analysis of data, enabling businesses to derive actionable intelligence and make informed decisions.",
+      "Data processing transforms raw data into meaningful insights, leveraging algorithms and computational tools.",
     badgeColor: "bg-purple-500/15 text-purple-300 border-purple-500/30",
     accentColor: "text-purple-400",
     teamLead: {
@@ -324,36 +269,6 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         eodAchievements: "Ingestion pipeline latency reduced to 120ms.",
         eodBlockers: "None",
       },
-      {
-        id: "emp-arjun",
-        name: "Arjun Nair",
-        email: "arjun.nair@xorstack.com",
-        designation: "ETL Pipeline Engineer",
-        departmentId: "dept-data-processing",
-        departmentName: "Data processing",
-        teamLeadId: "lead-vikram",
-        teamLeadName: "Vikram Rao",
-        avatar: "AN",
-        workMode: "WFH",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:00 AM",
-        eodStatus: "SUBMITTED",
-        overallProgress: 100,
-        remainingLeaveBalance: 11.0,
-        plannedTasks: [
-          {
-            id: "an-1",
-            title: "Execute daily Apache Spark data aggregation batch",
-            project: "Analytics",
-            priority: "MEDIUM",
-            estimatedMinutes: 120,
-            completionPercentage: 100,
-            status: "COMPLETED",
-            expectedOutput: "EOD summaries computed for executive dashboard",
-          },
-        ],
-        eodAchievements: "All ETL batches completed without schema errors.",
-      },
     ],
   },
 
@@ -364,15 +279,15 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
     shortName: "R&D",
     iconType: "rd",
     description:
-      "R&D drives innovation by exploring novel ideas and technologies. It's the heart of breakthroughs, where experimentation meets application, ensuring that products and services remain cutting-edge and relevant.",
+      "R&D drives innovation by exploring novel ideas and technologies, ensuring that products and services remain cutting-edge and relevant.",
     badgeColor: "bg-pink-500/15 text-pink-300 border-pink-500/30",
     accentColor: "text-pink-400",
     teamLead: {
-      id: "lead-maya",
-      name: "Dr. Maya Chen",
-      email: "lead.rd@xorstack.com",
-      designation: "Principal Scientist & R&D Lead",
-      avatar: "MC",
+      id: "admin-david",
+      name: "David Director",
+      email: "director.test@xorstack.com",
+      designation: "VP of Engineering & SuperAdmin",
+      avatar: "DD",
     },
     employees: [
       {
@@ -382,8 +297,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         designation: "QA & Test Automation Lead Engineer",
         departmentId: "dept-rd",
         departmentName: "R & D",
-        teamLeadId: "lead-maya",
-        teamLeadName: "Dr. Maya Chen",
+        teamLeadId: "admin-david",
+        teamLeadName: "David Director",
         avatar: "PQ",
         workMode: "WFH",
         sodStatus: "SUBMITTED",
@@ -418,36 +333,6 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         eodBlockers: "None",
         eodTomorrowFocus: "Prepare automated performance benchmarks.",
       },
-      {
-        id: "emp-farhan",
-        name: "Farhan Ali",
-        email: "farhan.ali@xorstack.com",
-        designation: "Applied AI Research Engineer",
-        departmentId: "dept-rd",
-        departmentName: "R & D",
-        teamLeadId: "lead-maya",
-        teamLeadName: "Dr. Maya Chen",
-        avatar: "FA",
-        workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:14 AM",
-        eodStatus: "IN_PROGRESS",
-        overallProgress: 80,
-        remainingLeaveBalance: 12.0,
-        plannedTasks: [
-          {
-            id: "fa-1",
-            title: "Train lightweight transformer model for automated SOD goal suggestions",
-            project: "AI Lab",
-            priority: "HIGH",
-            estimatedMinutes: 240,
-            completionPercentage: 80,
-            status: "IN_PROGRESS",
-            expectedOutput: "Model weights quantized to ONNX runtime under 50MB",
-          },
-        ],
-        eodAchievements: "Quantized weights achieved 94.2% semantic accuracy.",
-      },
     ],
   },
 
@@ -461,11 +346,11 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
     badgeColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     accentColor: "text-amber-400",
     teamLead: {
-      id: "lead-suresh",
-      name: "Suresh Menon",
-      email: "lead.configtap@xorstack.com",
-      designation: "ConfigTap & Autosar Solutions Lead",
-      avatar: "SM",
+      id: "lead-alex",
+      name: "Alex Lead",
+      email: "lead.test@xorstack.com",
+      designation: "Engineering Lead · Development",
+      avatar: "AL",
     },
     employees: [
       {
@@ -475,8 +360,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         designation: "Automation & Embedded QA Engineer",
         departmentId: "dept-configtap",
         departmentName: "Service Providers (ConfigTap)",
-        teamLeadId: "lead-suresh",
-        teamLeadName: "Suresh Menon",
+        teamLeadId: "lead-alex",
+        teamLeadName: "Alex Lead",
         avatar: "AS",
         workMode: "OFFICE",
         sodStatus: "SUBMITTED",
@@ -498,116 +383,55 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         ],
         eodAchievements: "Diagnostic conformity verified for ECU build v4.2.",
       },
-      {
-        id: "emp-nikhil",
-        name: "Nikhil Verma",
-        email: "nikhil.verma@xorstack.com",
-        designation: "3DExperience CAD/PLM Engineer",
-        departmentId: "dept-configtap",
-        departmentName: "Service Providers (ConfigTap)",
-        teamLeadId: "lead-suresh",
-        teamLeadName: "Suresh Menon",
-        avatar: "NV",
-        workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:07 AM",
-        eodStatus: "SUBMITTED",
-        overallProgress: 100,
-        remainingLeaveBalance: 11.0,
-        plannedTasks: [
-          {
-            id: "nv-1",
-            title: "Configure Dassault 3DExperience server data migration scripts",
-            project: "Enterprise PLM",
-            priority: "MEDIUM",
-            estimatedMinutes: 150,
-            completionPercentage: 100,
-            status: "COMPLETED",
-            expectedOutput: "Zero data corruption across 50,000 CAD assemblies",
-          },
-        ],
-        eodAchievements: "50,000 assemblies imported successfully.",
-      },
     ],
   },
 
-  // 6. SAP Services
+  // 6. Human Resources
   {
-    id: "dept-sap",
-    name: "SAP Services",
-    shortName: "SAP",
-    iconType: "sap",
-    description:
-      "Strategic partner for end-to-end SAP implementation, custom solutions, and digital enterprise transformation.",
-    badgeColor: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-    accentColor: "text-blue-400",
+    id: "dept-hr",
+    name: "Human Resources",
+    shortName: "HR",
+    iconType: "dev",
+    description: "Human Resources and People Operations driving culture, recruitment, benefits, and employee growth.",
+    badgeColor: "bg-pink-500/15 text-pink-300 border-pink-500/30",
+    accentColor: "text-pink-400",
     teamLead: {
-      id: "lead-rajeshwar",
-      name: "Rajeshwar Rao",
-      email: "lead.sap@xorstack.com",
-      designation: "SAP Enterprise Practice Lead",
-      avatar: "RR",
+      id: "hr-rachel",
+      name: "Rachel HR",
+      email: "hr.test@xorstack.com",
+      designation: "Head of People Operations",
+      avatar: "RH",
     },
     employees: [
       {
-        id: "emp-meera",
-        name: "Meera Iyer",
-        email: "meera.iyer@xorstack.com",
-        designation: "SAP S/4HANA Cloud Consultant",
-        departmentId: "dept-sap",
-        departmentName: "SAP Services",
-        teamLeadId: "lead-rajeshwar",
-        teamLeadName: "Rajeshwar Rao",
-        avatar: "MI",
+        id: "hr-rachel",
+        name: "Rachel HR",
+        email: "hr.test@xorstack.com",
+        designation: "Head of People Operations",
+        departmentId: "dept-hr",
+        departmentName: "Human Resources",
+        teamLeadId: "admin-david",
+        teamLeadName: "David Director",
+        avatar: "RH",
         workMode: "OFFICE",
         sodStatus: "SUBMITTED",
-        sodTime: "10:02 AM",
+        sodTime: "09:50 AM",
         eodStatus: "IN_PROGRESS",
         overallProgress: 90,
-        remainingLeaveBalance: 12.0,
+        remainingLeaveBalance: 15.0,
         plannedTasks: [
           {
-            id: "mi-1",
-            title: "Implement SAP S/4HANA custom BAPI integration for financial audit journal",
-            project: "Enterprise ERP",
+            id: "hr-1",
+            title: "Execute Stage-2 Leave authorizations & Attendance audit muster",
+            project: "People Operations",
             priority: "HIGH",
-            estimatedMinutes: 200,
+            estimatedMinutes: 180,
             completionPercentage: 90,
             status: "IN_PROGRESS",
-            expectedOutput: "Automated general ledger reconciliation workflow",
+            expectedOutput: "All pending Stage-2 leaves authorized with balance deduction",
           },
         ],
-        eodAchievements: "Reconciliation workflow passing integration tests in sandbox.",
-      },
-      {
-        id: "emp-deepak",
-        name: "Deepak Joshi",
-        email: "deepak.joshi@xorstack.com",
-        designation: "SAP ABAP & Fiori Specialist",
-        departmentId: "dept-sap",
-        departmentName: "SAP Services",
-        teamLeadId: "lead-rajeshwar",
-        teamLeadName: "Rajeshwar Rao",
-        avatar: "DJ",
-        workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:11 AM",
-        eodStatus: "SUBMITTED",
-        overallProgress: 100,
-        remainingLeaveBalance: 11.0,
-        plannedTasks: [
-          {
-            id: "dj-1",
-            title: "Develop SAP Fiori responsive launchpad app for inventory tracking",
-            project: "Supply Chain",
-            priority: "MEDIUM",
-            estimatedMinutes: 160,
-            completionPercentage: 100,
-            status: "COMPLETED",
-            expectedOutput: "OData service connected with sub-second response times",
-          },
-        ],
-        eodAchievements: "Fiori UI components deployed to SAP BTP Cloud Foundry.",
+        eodAchievements: "Processed sprint leave queues and published company announcements.",
       },
     ],
   },
@@ -652,7 +476,7 @@ const DEFAULT_FEEDBACKS: SharedEODFeedback[] = [
     tasksCompleted: "2 of 2 Planned Deliverables (100%)",
     hoursLogged: 8.5,
     leadFeedbackTime: "05:45 PM",
-    leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sarah. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
+    leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
     leadRating: 5,
     leadSentiment: "EXCELLENT",
     leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's pod sync.",
@@ -788,7 +612,7 @@ const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [
     daysCount: 1.0,
     reason: "Family festival celebration and personal commitments",
     handoverNotes: "Sprint deliverables completed. Alex Lead briefed on PR reviews.",
-    backupPersonName: "John UI (Frontend)",
+    backupPersonName: "Rohit Sharma (Frontend)",
     remainingBalance: 11.0,
     tlApproverName: "Alex Lead (Engineering Lead · Development)",
     tlApprovedAt: "Today at 10:15 AM",
@@ -809,11 +633,11 @@ const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [
     daysCount: 3.0,
     reason: "Out-of-town travel for family wedding",
     handoverNotes: "Automated regression suite scheduled to run in CI/CD pipeline.",
-    backupPersonName: "Farhan Ali (Applied AI)",
+    backupPersonName: "Ananya Sen (ConfigTap)",
     remainingBalance: 9.0,
-    tlApproverName: "Dr. Maya Chen (R&D Lead)",
+    tlApproverName: "David Director (VP of Eng & SuperAdmin)",
     tlApprovedAt: "Yesterday at 04:30 PM",
-    tlComment: "Approved by R&D Lead. Regression test coverage is verified. Forwarded to HR.",
+    tlComment: "Approved by Executive Lead David Director. Regression test coverage is verified. Forwarded to HR.",
     status: "FORWARDED_TO_HR",
     createdAt: "2026-08-19T14:00:00Z",
   },
@@ -848,7 +672,7 @@ const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [
     daysCount: 1.0,
     reason: "Personal family commitment",
     handoverNotes: "Marcus Vance briefed on deployment on-call rotation.",
-    backupPersonName: "Elena Rostova (DevOps)",
+    backupPersonName: "Marcus Vance (DevOps)",
     remainingBalance: 11.5,
     tlApproverName: "Marcus Vance (DevOps Lead)",
     tlApprovedAt: "Today at 10:00 AM",
@@ -858,19 +682,19 @@ const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [
   },
   {
     id: "leave-req-105",
-    employeeId: "emp-meera",
-    employeeName: "Meera Iyer",
-    departmentId: "dept-sap",
-    departmentName: "SAP Services",
-    designation: "SAP S/4HANA Cloud Consultant",
+    employeeId: "emp-ananya",
+    employeeName: "Ananya Sen",
+    departmentId: "dept-configtap",
+    departmentName: "Service Providers (ConfigTap)",
+    designation: "Automation & Embedded QA Engineer",
     leaveType: "CASUAL",
     startDate: "2026-09-01",
     endDate: "2026-09-01",
     daysCount: 1.0,
-    reason: "Academic certification examination",
-    handoverNotes: "SAP sandbox BAPI tests completed.",
-    backupPersonName: "Deepak Joshi (SAP)",
-    remainingBalance: 12.0,
+    reason: "Embedded ECU certification exam",
+    handoverNotes: "Autosar CAN conformity test suite completed.",
+    backupPersonName: "Priya QA (QA Lead)",
+    remainingBalance: 10.0,
     status: "PENDING_TL_STAGE_1",
     createdAt: "2026-08-20T11:30:00Z",
   },
@@ -936,8 +760,38 @@ const DEFAULT_WFH_REQUESTS: SharedWfhRequest[] = [
   },
 ];
 
-// Global in-memory shared state
-const globalDepartments: OrgDepartment[] = JSON.parse(JSON.stringify(XORSTACK_DEPARTMENTS));
+// Storage keys for browser persistence across page reloads & refreshes
+const STORAGE_KEYS = {
+  DEPARTMENTS: "workpulse_departments_v5_supabase",
+  FEEDBACKS: "workpulse_feedbacks_v5_supabase",
+  LEAVE: "workpulse_leave_v5_supabase",
+  WFH: "workpulse_wfh_v5_supabase",
+};
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined" || !window.localStorage) return fallback;
+  try {
+    const saved = window.localStorage.getItem(key);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.warn(`[WorkpulseStore] Error loading ${key} from localStorage:`, e);
+  }
+  return fallback;
+}
+
+function saveToStorage<T>(key: string, value: T): void {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn(`[WorkpulseStore] Error saving ${key} to localStorage:`, e);
+  }
+}
+
+// Global in-memory shared state (defaults on initial SSR and initial client mount)
+let globalDepartments: OrgDepartment[] = JSON.parse(JSON.stringify(XORSTACK_DEPARTMENTS));
 let globalFeedbacks: SharedEODFeedback[] = [...DEFAULT_FEEDBACKS];
 let globalLeaveRequests: SharedLeaveRequest[] = [...DEFAULT_LEAVE_REQUESTS];
 let globalWfhRequests: SharedWfhRequest[] = [...DEFAULT_WFH_REQUESTS];
@@ -945,33 +799,584 @@ let globalWfhRequests: SharedWfhRequest[] = [...DEFAULT_WFH_REQUESTS];
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
+export function subscribeToSharedStore(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 function notify() {
+  saveToStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
+  saveToStorage(STORAGE_KEYS.FEEDBACKS, globalFeedbacks);
+  saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+  saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
   listeners.forEach((l) => l());
 }
 
+async function syncEmployeeToSupabase(emp: OrgEmployee) {
+  if (typeof window === "undefined") return;
+  try {
+    // 1. Direct client upsert
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    await supabase.from("employees").upsert({
+      id: emp.id,
+      name: emp.name,
+      email: emp.email,
+      role_title: emp.designation,
+      department: emp.departmentName,
+      department_id: emp.departmentId,
+      work_mode: emp.workMode,
+      status: emp.status || "ACTIVE",
+      employment_type: emp.employmentType || "Full-Time",
+      manager_id: emp.teamLeadId,
+      manager_name: emp.teamLeadName,
+      phone_number: emp.phoneNumber,
+      location: emp.workLocation || emp.location || "Bangalore HQ",
+      leave_balance: emp.remainingLeaveBalance,
+    });
+
+    // 2. Server API fallback for service_role admin execution
+    await fetch(`/api/v1/employees/${emp.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: emp.name,
+        email: emp.email,
+        designation: emp.designation,
+        departmentId: emp.departmentId,
+        departmentName: emp.departmentName,
+        workMode: emp.workMode,
+        status: emp.status,
+        employmentType: emp.employmentType,
+        phoneNumber: emp.phoneNumber,
+        workLocation: emp.workLocation || emp.location,
+        remainingLeaveBalance: emp.remainingLeaveBalance,
+      }),
+    }).catch(() => {});
+  } catch {
+    // Graceful offline fallback
+  }
+}
+
+async function deleteEmployeeFromSupabase(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    // 1. Trigger server-side Admin endpoint with service_role privileges
+    await fetch(`/api/v1/employees/${id}`, {
+      method: "DELETE",
+    });
+
+    // 2. Direct client fallback
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    await supabase.from("employees").delete().eq("id", id);
+  } catch {
+    // Graceful offline fallback
+  }
+}
+
+async function syncLeaveRequestToSupabase(req: SharedLeaveRequest) {
+  if (typeof window === "undefined") return;
+  try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    await supabase.from("leave_requests").upsert({
+      id: req.id,
+      employee_id: req.employeeId,
+      employee_name: req.employeeName,
+      department_name: req.departmentName,
+      department_id: req.departmentId,
+      designation: req.designation,
+      leave_type: req.leaveType,
+      start_date: req.startDate,
+      end_date: req.endDate,
+      days_count: req.daysCount,
+      reason: req.reason,
+      handover_notes: req.handoverNotes,
+      backup_person_name: req.backupPersonName,
+      remaining_balance: req.remainingBalance,
+      status: req.status,
+      tl_approver_name: req.tlApproverName,
+      tl_approved_at: req.tlApprovedAt ? new Date().toISOString() : null,
+      tl_comment: req.tlComment,
+      hr_approver_name: req.hrApproverName,
+      hr_approved_at: req.hrApprovedAt ? new Date().toISOString() : null,
+      hr_comment: req.hrComment,
+      rejection_reason: req.rejectionReason,
+    });
+  } catch {
+    // Graceful offline fallback
+  }
+}
+
+async function syncWfhRequestToSupabase(req: SharedWfhRequest) {
+  if (typeof window === "undefined") return;
+  try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    await supabase.from("wfh_requests").upsert({
+      id: req.id,
+      employee_id: req.employeeId,
+      employee_name: req.employeeName,
+      department_name: req.departmentName,
+      department_id: req.departmentId,
+      designation: req.designation,
+      start_date: req.startDate,
+      end_date: req.endDate,
+      days_count: req.daysCount,
+      reason: req.reason,
+      availability_hours: req.availabilityHours,
+      contact_method: req.contactMethod,
+      planned_deliverables: req.plannedDeliverables,
+      status: req.status,
+      tl_approver_name: req.tlApproverName,
+      tl_approved_at: req.tlApprovedAt ? new Date().toISOString() : null,
+      tl_comment: req.tlComment,
+      hr_approver_name: req.hrApproverName,
+      hr_approved_at: req.hrApprovedAt ? new Date().toISOString() : null,
+      hr_comment: req.hrComment,
+      rejection_reason: req.rejectionReason,
+    });
+  } catch {
+    // Graceful offline fallback
+  }
+}
+
+async function syncBiometricPunchToSupabase(punch: {
+  employeeId: string;
+  employeeName?: string;
+  punchType: "IN" | "OUT";
+  terminalId?: string;
+  location?: string;
+  method?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    await supabase.from("biometric_punches").insert({
+      employee_id: punch.employeeId,
+      employee_name: punch.employeeName || "Employee",
+      punch_type: punch.punchType,
+      terminal_id: punch.terminalId || "HQ-GATE-01",
+      location: punch.location || "Bangalore HQ",
+      method: punch.method || "BIOMETRIC",
+      status: "VERIFIED",
+    });
+  } catch {
+    // Graceful offline fallback
+  }
+}
+
 export const WorkpulseSharedStore = {
+  // Virtual Biometric Punch Action
+  virtualPunch: (employeeId: string, punchType: "IN" | "OUT") => {
+    syncBiometricPunchToSupabase({
+      employeeId: employeeId || "emp-sarah",
+      employeeName: employeeId === "emp-rohit" ? "Rohit Sharma" : "Sarah Dev",
+      punchType,
+      location: "Bangalore HQ (Floor 4, Pod B)",
+      method: "VIRTUAL_SIMULATOR",
+    });
+    notify();
+  },
+
+  // Hydration & Storage Management
+  hydrateFromStorage: () => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      // Clear legacy storage keys with outdated mock data
+      [
+        "workpulse_departments",
+        "workpulse_departments_v1",
+        "workpulse_departments_v2",
+        "workpulse_departments_v3",
+        "workpulse_departments_v4",
+      ].forEach((k) => window.localStorage.removeItem(k));
+    }
+    globalDepartments = loadFromStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
+    globalFeedbacks = loadFromStorage(STORAGE_KEYS.FEEDBACKS, globalFeedbacks);
+    globalLeaveRequests = loadFromStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+    globalWfhRequests = loadFromStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+    listeners.forEach((l) => l());
+  },
+
+  syncWithSupabase: async () => {
+    if (typeof window === "undefined") return;
+    try {
+      // 1. Sync Employees
+      const res = await fetch("/api/v1/employees");
+      if (res.ok) {
+        const json = await res.json();
+        const employees = json.data?.employees || json.employees;
+        if (Array.isArray(employees) && employees.length > 0) {
+          WorkpulseSharedStore.setEmployeesFromSupabase(employees);
+        }
+      }
+
+      // 2. Sync Leave & WFH Requests & Feedbacks directly from Supabase
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      const [lrRes, wfhRes, fbRes] = await Promise.all([
+        supabase.from("leave_requests").select("*").order("created_at", { ascending: false }),
+        supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }),
+        supabase.from("feedbacks").select("*").order("created_at", { ascending: false }),
+      ]);
+
+      if (lrRes.data && lrRes.data.length > 0) {
+        const mappedLeaves: SharedLeaveRequest[] = lrRes.data.map((r) => ({
+          id: r.id,
+          employeeId: r.employee_id,
+          employeeName: r.employee_name,
+          departmentId: r.department_id || "dept-development",
+          departmentName: r.department_name || "Development",
+          designation: r.designation || "Engineer",
+          leaveType: r.leave_type || "CASUAL",
+          startDate: r.start_date,
+          endDate: r.end_date,
+          daysCount: Number(r.days_count) || 1,
+          reason: r.reason,
+          handoverNotes: r.handover_notes,
+          backupPersonName: r.backup_person_name,
+          remainingBalance: Number(r.remaining_balance) || 11.0,
+          status: r.status,
+          tlApproverName: r.tl_approver_name,
+          tlApprovedAt: r.tl_approved_at,
+          tlComment: r.tl_comment,
+          hrApproverName: r.hr_approver_name,
+          hrApprovedAt: r.hr_approved_at,
+          hrComment: r.hr_comment,
+          rejectionReason: r.rejection_reason,
+          createdAt: r.created_at,
+        }));
+        globalLeaveRequests = mappedLeaves;
+      }
+
+      if (wfhRes.data && wfhRes.data.length > 0) {
+        const mappedWfh: SharedWfhRequest[] = wfhRes.data.map((r) => ({
+          id: r.id,
+          employeeId: r.employee_id,
+          employeeName: r.employee_name,
+          departmentId: r.department_id || "dept-development",
+          departmentName: r.department_name || "Development",
+          designation: r.designation || "Engineer",
+          startDate: r.start_date,
+          endDate: r.end_date,
+          daysCount: Number(r.days_count) || 1,
+          reason: r.reason,
+          availabilityHours: r.availability_hours || "10:00 AM – 07:00 PM",
+          contactMethod: r.contact_method || "Slack & Zoom",
+          plannedDeliverables: r.planned_deliverables,
+          status: r.status,
+          tlApproverName: r.tl_approver_name,
+          tlApprovedAt: r.tl_approved_at,
+          tlComment: r.tl_comment,
+          hrApproverName: r.hr_approver_name,
+          hrApprovedAt: r.hr_approved_at,
+          hrComment: r.hr_comment,
+          rejectionReason: r.rejection_reason,
+          createdAt: r.created_at,
+        }));
+        globalWfhRequests = mappedWfh;
+      }
+
+      if (fbRes.data && fbRes.data.length > 0) {
+        const mappedFb: SharedEODFeedback[] = fbRes.data.map((f) => ({
+          id: f.id,
+          employeeId: f.employee_id,
+          employeeName: f.employee_name,
+          departmentName: "Development",
+          date: f.date || "Today",
+          dayName: "Today",
+          employeeEodSummary: f.notes || "Completed assigned sprint deliverables.",
+          tasksCompleted: "Planned deliverables completed",
+          hoursLogged: 8.0,
+          leadFeedbackTime: f.created_at ? new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Today",
+          leadFeedbackNote: f.notes,
+          leadRating: Number(f.rating) || 5.0,
+          leadSentiment: f.sentiment || "EXCELLENT",
+          leadActionItem: f.action_item,
+          isToday: true,
+        }));
+        globalFeedbacks = mappedFb;
+      }
+
+      notify();
+    } catch {
+      // Graceful offline fallback
+    }
+  },
+
+  setEmployeesFromSupabase: (supaEmployees: any[]) => {
+    if (!Array.isArray(supaEmployees) || supaEmployees.length === 0) return;
+
+    const allMapped: OrgEmployee[] = supaEmployees.map((se) => {
+      const name = se.name || "Employee";
+      const avatar = name
+        .split(" ")
+        .map((w: string) => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
+      const deptName = se.departmentName || se.department || "Development";
+      const deptId =
+        se.departmentId ||
+        se.department_id ||
+        (deptName.toLowerCase().includes("devops")
+          ? "dept-devops"
+          : deptName.toLowerCase().includes("data")
+          ? "dept-data-processing"
+          : deptName.toLowerCase().includes("r & d") || deptName.toLowerCase().includes("rd")
+          ? "dept-rd"
+          : deptName.toLowerCase().includes("configtap") || deptName.toLowerCase().includes("service")
+          ? "dept-configtap"
+          : deptName.toLowerCase().includes("hr") || deptName.toLowerCase().includes("human")
+          ? "dept-hr"
+          : "dept-development");
+
+      const teamLeadId =
+        se.teamLeadId ||
+        se.manager_id ||
+        (deptId === "dept-devops"
+          ? "lead-marcus"
+          : deptId === "dept-data-processing"
+          ? "lead-vikram"
+          : deptId === "dept-rd"
+          ? "admin-david"
+          : deptId === "dept-configtap"
+          ? "lead-alex"
+          : deptId === "dept-hr"
+          ? "admin-david"
+          : "lead-alex");
+
+      const teamLeadName =
+        se.teamLeadName ||
+        se.manager_name ||
+        (teamLeadId === "lead-marcus"
+          ? "Marcus Vance"
+          : teamLeadId === "lead-vikram"
+          ? "Vikram Rao"
+          : teamLeadId === "admin-david"
+          ? "David Director"
+          : "Alex Lead");
+
+      return {
+        id: se.id,
+        name,
+        email: se.email,
+        designation: se.designation || se.role_title || "Engineer",
+        departmentId: deptId,
+        departmentName: deptName,
+        teamLeadId,
+        teamLeadName,
+        avatar,
+        workMode: se.workMode || se.work_mode || "OFFICE",
+        status: se.status || "ACTIVE",
+        employmentType: se.employmentType || se.employment_type || "Full-Time",
+        sodStatus: se.sodStatus || "SUBMITTED",
+        sodTime: se.sodTime || "10:15 AM",
+        eodStatus: se.eodStatus || "IN_PROGRESS",
+        overallProgress: se.overallProgress || 80,
+        remainingLeaveBalance: Number(se.remainingLeaveBalance ?? se.leave_balance) || 12.0,
+        phoneNumber: se.phoneNumber || se.phone_number || "+91 98450 11223",
+        location: se.location || se.workLocation || "Bangalore HQ",
+        workLocation: se.workLocation || se.location || "Bangalore HQ",
+        joiningDate: se.joiningDate || se.joining_date || "2025-06-01",
+        plannedTasks: se.plannedTasks || [],
+      };
+    });
+
+    // Populate each department cleanly with its direct members
+    globalDepartments = XORSTACK_DEPARTMENTS.map((baseDept) => {
+      const deptEmployees = allMapped.filter(
+        (emp) =>
+          emp.departmentId === baseDept.id ||
+          emp.departmentName.toLowerCase() === baseDept.name.toLowerCase()
+      );
+      return {
+        ...baseDept,
+        employees: deptEmployees,
+      };
+    });
+
+    notify();
+  },
+
+  addOrUpdateEmployeeFromSupabase: (emp: any) => {
+    const empId = emp.id;
+    const empName = emp.name;
+    const empEmail = emp.email;
+    const empDesignation = emp.designation || emp.role_title || "Engineer";
+    const empDeptName = emp.departmentName || emp.department || "Development";
+    const empWorkMode = emp.workMode || emp.work_mode || "OFFICE";
+    const empStatus = emp.status || "ACTIVE";
+    const empLeaveBalance = emp.remainingLeaveBalance ?? emp.leave_balance ?? 12.0;
+
+    let found = false;
+    globalDepartments = globalDepartments.map((dept) => {
+      if (dept.name.toLowerCase() === empDeptName.toLowerCase() || dept.id === emp.departmentId || dept.id === emp.department_id) {
+        const existingEmp = dept.employees.find((e) => e.id === empId || e.email.toLowerCase() === empEmail.toLowerCase());
+        if (existingEmp) {
+          found = true;
+          return {
+            ...dept,
+            employees: dept.employees.map((e) =>
+              e.id === existingEmp.id
+                ? {
+                    ...e,
+                    name: empName,
+                    email: empEmail,
+                    designation: empDesignation,
+                    workMode: empWorkMode,
+                    status: empStatus,
+                    remainingLeaveBalance: empLeaveBalance,
+                  }
+                : e
+            ),
+          };
+        } else if (!dept.employees.some((e) => e.id === empId)) {
+          found = true;
+          return {
+            ...dept,
+            employees: [
+              {
+                id: empId,
+                name: empName,
+                email: empEmail,
+                designation: empDesignation,
+                departmentId: dept.id,
+                departmentName: dept.name,
+                teamLeadId: dept.teamLead.id,
+                teamLeadName: dept.teamLead.name,
+                avatar: empName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
+                workMode: empWorkMode,
+                status: empStatus,
+                sodStatus: "SUBMITTED",
+                eodStatus: "IN_PROGRESS",
+                overallProgress: 80,
+                remainingLeaveBalance: empLeaveBalance,
+                plannedTasks: [],
+              },
+              ...dept.employees,
+            ],
+          };
+        }
+      }
+      return dept;
+    });
+
+    if (!found && globalDepartments.length > 0) {
+      const targetDept = globalDepartments[0]!;
+      if (!targetDept.employees.some((e) => e.id === empId)) {
+        targetDept.employees.unshift({
+          id: empId,
+          name: empName,
+          email: empEmail,
+          designation: empDesignation,
+          departmentId: targetDept.id,
+          departmentName: targetDept.name,
+          teamLeadId: targetDept.teamLead.id,
+          teamLeadName: targetDept.teamLead.name,
+          avatar: empName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
+          workMode: empWorkMode,
+          status: empStatus,
+          sodStatus: "SUBMITTED",
+          eodStatus: "IN_PROGRESS",
+          overallProgress: 80,
+          remainingLeaveBalance: empLeaveBalance,
+          plannedTasks: [],
+        });
+      }
+    }
+  },
+  resetToDefaults: () => {
+    globalDepartments = JSON.parse(JSON.stringify(XORSTACK_DEPARTMENTS));
+    globalFeedbacks = [...DEFAULT_FEEDBACKS];
+    globalLeaveRequests = [...DEFAULT_LEAVE_REQUESTS];
+    globalWfhRequests = [...DEFAULT_WFH_REQUESTS];
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
+      window.localStorage.removeItem(STORAGE_KEYS.FEEDBACKS);
+      window.localStorage.removeItem(STORAGE_KEYS.LEAVE);
+      window.localStorage.removeItem(STORAGE_KEYS.WFH);
+    }
+    notify();
+  },
+
   // Departments & Org CRUD
   getDepartments: () => globalDepartments,
-  getAllEmployees: () => globalDepartments.flatMap((d) => d.employees),
+  getAllEmployees: () => {
+    const seen = new Set<string>();
+    const list: OrgEmployee[] = [];
+    for (const dept of globalDepartments) {
+      for (const emp of dept.employees) {
+        if (!seen.has(emp.id)) {
+          seen.add(emp.id);
+          list.push(emp);
+        }
+      }
+    }
+    return list;
+  },
   getDepartmentById: (id: string) => globalDepartments.find((d) => d.id === id),
+  getEmployeeById: (id: string): OrgEmployee | undefined => {
+    for (const dept of globalDepartments) {
+      const emp = dept.employees.find((e) => e.id === id);
+      if (emp) return emp;
+      if (dept.teamLead.id === id) {
+        return {
+          id: dept.teamLead.id,
+          name: dept.teamLead.name,
+          email: dept.teamLead.email,
+          designation: dept.teamLead.designation,
+          departmentId: dept.id,
+          departmentName: dept.name,
+          teamLeadId: "exec-root",
+          teamLeadName: "Executive Leadership",
+          avatar: dept.teamLead.avatar,
+          workMode: "OFFICE",
+          status: "Full-Time",
+          sodStatus: "SUBMITTED",
+          eodStatus: "SUBMITTED",
+          overallProgress: 100,
+          remainingLeaveBalance: 14.5,
+          plannedTasks: [],
+        };
+      }
+    }
+    return undefined;
+  },
 
   addEmployee: (employee: {
+    id?: string;
     name: string;
     email: string;
     designation: string;
-    departmentId: string;
+    departmentId?: string;
+    departmentName?: string;
     workMode?: "OFFICE" | "WFH" | "HYBRID";
     remainingLeaveBalance?: number;
-    employmentType?: "Full-Time" | "Probation" | "Contract" | "Intern";
+    employmentType?: "Full-Time" | "Probation" | "Contract" | "Intern" | string;
+    status?: "Full-Time" | "Probation" | "Notice Period" | "ACTIVE" | "PROBATION" | string;
     joiningDate?: string;
     phoneNumber?: string;
     location?: string;
+    workLocation?: string;
   }) => {
-    const dept = globalDepartments.find((d) => d.id === employee.departmentId) || globalDepartments[0];
+    const targetDeptId = employee.departmentId || globalDepartments[0]?.id;
+    const dept =
+      globalDepartments.find(
+        (d) =>
+          d.id === targetDeptId ||
+          d.name.toLowerCase() === employee.departmentName?.toLowerCase()
+      ) || globalDepartments[0];
     if (!dept) return;
 
     const newEmp: OrgEmployee = {
-      id: `emp-${Date.now()}`,
+      id: employee.id || `emp-${Date.now()}`,
       name: employee.name,
       email: employee.email,
       designation: employee.designation,
@@ -979,13 +1384,24 @@ export const WorkpulseSharedStore = {
       departmentName: dept.name,
       teamLeadId: dept.teamLead.id,
       teamLeadName: dept.teamLead.name,
-      avatar: employee.name
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase() || "EP",
+      avatar:
+        employee.name
+          .split(" ")
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase() || "EP",
       workMode: employee.workMode || "OFFICE",
+      status:
+        employee.status ||
+        (employee.employmentType === "Probation" ? "Probation" : "Full-Time"),
+      employmentType: employee.employmentType || "Full-Time",
+      joiningDate: employee.joiningDate || new Date().toISOString().split("T")[0],
+      phoneNumber: employee.phoneNumber || "+91 98450 11223",
+      workLocation:
+        employee.workLocation ||
+        employee.location ||
+        (employee.workMode === "WFH" ? "Remote (India)" : "Bangalore HQ (Floor 0)"),
       sodStatus: "PENDING",
       sodTime: "--",
       eodStatus: "PENDING",
@@ -994,78 +1410,190 @@ export const WorkpulseSharedStore = {
       plannedTasks: [],
     };
 
-    dept.employees.unshift(newEmp);
+    // Immutably clone globalDepartments so all consumers & useMemo hooks detect reference change
+    globalDepartments = globalDepartments.map((d) =>
+      d.id === dept.id
+        ? { ...d, employees: [newEmp, ...d.employees] }
+        : { ...d, employees: [...d.employees] }
+    );
+
     notify();
+    try {
+      syncEmployeeToSupabase(newEmp);
+      realtimeEventBus.emit("employee:created", newEmp);
+    } catch {
+      // safe fallback
+    }
     return newEmp;
   },
 
   updateEmployee: (
     id: string,
-    updates: {
-      name?: string;
-      email?: string;
-      designation?: string;
-      departmentId?: string;
-      workMode?: "OFFICE" | "WFH" | "HYBRID";
-      remainingLeaveBalance?: number;
-    }
+    updates: Partial<OrgEmployee>
   ): OrgEmployee | undefined => {
-    for (const dept of globalDepartments) {
-      const idx = dept.employees.findIndex((e) => e.id === id);
-      if (idx >= 0 && dept.employees[idx]) {
-        const existing = dept.employees[idx]!;
-        if (updates.departmentId && updates.departmentId !== dept.id) {
-          const targetDept = globalDepartments.find((d) => d.id === updates.departmentId);
-          if (targetDept) {
-            const removed = dept.employees.splice(idx, 1)[0];
-            if (removed) {
-              const updatedEmp: OrgEmployee = {
-                ...removed,
-                name: updates.name ?? removed.name,
-                email: updates.email ?? removed.email,
-                designation: updates.designation ?? removed.designation,
-                workMode: updates.workMode ?? removed.workMode,
-                remainingLeaveBalance: updates.remainingLeaveBalance ?? removed.remainingLeaveBalance,
-                departmentId: targetDept.id,
-                departmentName: targetDept.name,
-                teamLeadId: targetDept.teamLead.id,
-                teamLeadName: targetDept.teamLead.name,
-              };
-              targetDept.employees.unshift(updatedEmp);
-              notify();
-              return updatedEmp;
-            }
-          }
-        } else {
-          const updatedEmp: OrgEmployee = {
-            ...existing,
-            name: updates.name ?? existing.name,
-            email: updates.email ?? existing.email,
-            designation: updates.designation ?? existing.designation,
-            workMode: updates.workMode ?? existing.workMode,
-            remainingLeaveBalance: updates.remainingLeaveBalance ?? existing.remainingLeaveBalance,
+    let updatedEmployee: OrgEmployee | undefined = undefined;
+    const currentDept = globalDepartments.find((d) =>
+      d.employees.some((e) => e.id === id)
+    );
+    if (!currentDept) return undefined;
+
+    const existing = currentDept.employees.find((e) => e.id === id);
+    if (!existing) return undefined;
+
+    const targetDeptId = updates.departmentId || currentDept.id;
+    const targetDept =
+      globalDepartments.find((d) => d.id === targetDeptId) || currentDept;
+
+    const updated: OrgEmployee = {
+      ...existing,
+      ...updates,
+      name: updates.name ?? existing.name,
+      email: updates.email ?? existing.email,
+      designation: updates.designation ?? existing.designation,
+      workMode: updates.workMode ?? existing.workMode,
+      status: updates.status ?? existing.status ?? "Full-Time",
+      employmentType: updates.employmentType ?? existing.employmentType,
+      remainingLeaveBalance:
+        updates.remainingLeaveBalance !== undefined
+          ? Number(updates.remainingLeaveBalance)
+          : existing.remainingLeaveBalance,
+      phoneNumber: updates.phoneNumber ?? existing.phoneNumber,
+      workLocation:
+        updates.workLocation ?? updates.location ?? existing.workLocation,
+      joiningDate: updates.joiningDate ?? existing.joiningDate,
+      departmentId: targetDept.id,
+      departmentName: targetDept.name,
+      teamLeadId: targetDept.teamLead.id,
+      teamLeadName: targetDept.teamLead.name,
+    };
+
+    updatedEmployee = updated;
+
+    if (targetDeptId !== currentDept.id) {
+      // Department transfer: remove from old department and prepend to new department
+      globalDepartments = globalDepartments.map((d) => {
+        if (d.id === currentDept.id) {
+          return {
+            ...d,
+            employees: d.employees.filter((e) => e.id !== id),
           };
-          dept.employees[idx] = updatedEmp;
-          notify();
-          return updatedEmp;
         }
-      }
+        if (d.id === targetDept.id) {
+          return {
+            ...d,
+            employees: [updated, ...d.employees],
+          };
+        }
+        return d;
+      });
+    } else {
+      // In-place department update
+      globalDepartments = globalDepartments.map((d) => {
+        if (d.id === currentDept.id) {
+          return {
+            ...d,
+            employees: d.employees.map((e) => (e.id === id ? updated : e)),
+          };
+        }
+        return d;
+      });
     }
-    return undefined;
+
+    // Cascade update to department Team Leads if applicable
+    globalDepartments = globalDepartments.map((d) => {
+      if (d.teamLead.id === id) {
+        return {
+          ...d,
+          teamLead: {
+            ...d.teamLead,
+            name: updated.name,
+            designation: updated.designation,
+            email: updated.email,
+          },
+        };
+      }
+      return d;
+    });
+
+    // Cascade update to global feedbacks
+    globalFeedbacks = globalFeedbacks.map((f) => {
+      if (f.employeeId === id) {
+        return {
+          ...f,
+          employeeName: updated.name,
+          departmentName: updated.departmentName,
+        };
+      }
+      return f;
+    });
+
+    // Cascade update to global leave requests
+    globalLeaveRequests = globalLeaveRequests.map((r) => {
+      if (r.employeeId === id) {
+        return {
+          ...r,
+          employeeName: updated.name,
+          departmentName: updated.departmentName,
+          designation: updated.designation,
+          remainingBalance: updated.remainingLeaveBalance,
+        };
+      }
+      return r;
+    });
+
+    // Cascade update to global WFH requests
+    globalWfhRequests = globalWfhRequests.map((r) => {
+      if (r.employeeId === id) {
+        return {
+          ...r,
+          employeeName: updated.name,
+          departmentName: updated.departmentName,
+          designation: updated.designation,
+        };
+      }
+      return r;
+    });
+
+    notify();
+    try {
+      syncEmployeeToSupabase(updated);
+      realtimeEventBus.emit("employee:updated", updatedEmployee);
+    } catch {
+      // safe fallback
+    }
+    return updatedEmployee;
   },
 
   deleteEmployee: (id: string): OrgEmployee | undefined => {
+    let removedEmployee: OrgEmployee | undefined = undefined;
     for (const dept of globalDepartments) {
-      const idx = dept.employees.findIndex((e) => e.id === id);
-      if (idx >= 0) {
-        const removed = dept.employees.splice(idx, 1)[0];
-        if (removed) {
-          notify();
-          return removed;
-        }
+      const emp = dept.employees.find((e) => e.id === id);
+      if (emp) {
+        removedEmployee = emp;
+        break;
       }
     }
-    return undefined;
+
+    if (removedEmployee) {
+      globalDepartments = globalDepartments.map((d) => ({
+        ...d,
+        employees: d.employees.filter((e) => e.id !== id),
+      }));
+
+      // Cascade remove from feedbacks, leave, and wfh requests
+      globalFeedbacks = globalFeedbacks.filter((f) => f.employeeId !== id);
+      globalLeaveRequests = globalLeaveRequests.filter((r) => r.employeeId !== id);
+      globalWfhRequests = globalWfhRequests.filter((r) => r.employeeId !== id);
+
+      notify();
+      try {
+        deleteEmployeeFromSupabase(id);
+        realtimeEventBus.emit("employee:deleted", removedEmployee);
+      } catch {
+        // safe fallback
+      }
+    }
+    return removedEmployee;
   },
 
   // Feedbacks
@@ -1119,62 +1647,132 @@ export const WorkpulseSharedStore = {
       globalFeedbacks = [newFeedback, ...globalFeedbacks];
     }
     notify();
+    try {
+      realtimeEventBus.emit("review:feedback_submitted", feedback);
+    } catch {
+      // safe fallback
+    }
   },
 
   // Leave Requests
   getLeaveRequests: () => globalLeaveRequests,
   tlApproveLeave: (requestId: string, comment?: string, leadName?: string) => {
-    globalLeaveRequests = globalLeaveRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "FORWARDED_TO_HR",
-            tlApproverName: leadName || "Alex Lead (Team Lead)",
-            tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-            tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
-          }
-        : req
-    );
+    let updatedReq: SharedLeaveRequest | undefined;
+    globalLeaveRequests = globalLeaveRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "FORWARDED_TO_HR",
+          tlApproverName: leadName || "Alex Lead (Team Lead)",
+          tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("leave:approved", { id: requestId, stage: "STAGE_1", comment });
+    } catch {
+      // safe fallback
+    }
   },
   tlRejectLeave: (requestId: string, reason: string) => {
-    globalLeaveRequests = globalLeaveRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "REJECTED",
-            rejectionReason: reason || "Rejected by Team Lead",
-          }
-        : req
-    );
+    let updatedReq: SharedLeaveRequest | undefined;
+    globalLeaveRequests = globalLeaveRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "REJECTED",
+          rejectionReason: reason || "Rejected by Team Lead",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("leave:rejected", { id: requestId, stage: "STAGE_1", reason });
+    } catch {
+      // safe fallback
+    }
   },
   hrApproveLeave: (requestId: string, comment?: string) => {
-    globalLeaveRequests = globalLeaveRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "APPROVED",
-            hrApproverName: "Rachel HR (People Ops Lead)",
-            hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-            hrComment: comment || "Final HR Approval granted.",
-            remainingBalance: Math.max(0, req.remainingBalance - req.daysCount),
-          }
-        : req
-    );
+    let affectedEmployeeId: string | undefined;
+    let daysDeducted = 1.0;
+    let updatedReq: SharedLeaveRequest | undefined;
+
+    globalLeaveRequests = globalLeaveRequests.map((req) => {
+      if (req.id === requestId) {
+        affectedEmployeeId = req.employeeId;
+        daysDeducted = req.daysCount || 1.0;
+        const newBalance = Math.max(0, req.remainingBalance - daysDeducted);
+        updatedReq = {
+          ...req,
+          status: "APPROVED",
+          hrApproverName: "Rachel HR (People Ops Lead)",
+          hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          hrComment: comment || "Final HR Approval granted.",
+          remainingBalance: newBalance,
+        };
+        return updatedReq;
+      }
+      return req;
+    });
+
+    if (affectedEmployeeId) {
+      // 1. Update in-memory employee leave balance
+      globalDepartments = globalDepartments.map((dept) => ({
+        ...dept,
+        employees: dept.employees.map((emp) =>
+          emp.id === affectedEmployeeId
+            ? {
+                ...emp,
+                remainingLeaveBalance: Math.max(0, emp.remainingLeaveBalance - daysDeducted),
+              }
+            : emp
+        ),
+      }));
+
+      // 2. Persist updated leave balance to Supabase
+      if (typeof window !== "undefined") {
+        const emp = WorkpulseSharedStore.getEmployeeById(affectedEmployeeId);
+        if (emp) {
+          fetch(`/api/v1/employees/${emp.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ remainingLeaveBalance: emp.remainingLeaveBalance }),
+          }).catch((err) => console.warn("Supabase leave balance sync error:", err));
+        }
+      }
+    }
+
     notify();
+    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("leave:approved", { id: requestId, stage: "STAGE_2", comment });
+    } catch {
+      // safe fallback
+    }
   },
   hrRejectLeave: (requestId: string, reason: string) => {
-    globalLeaveRequests = globalLeaveRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "REJECTED",
-            rejectionReason: reason || "Rejected by HR",
-          }
-        : req
-    );
+    let updatedReq: SharedLeaveRequest | undefined;
+    globalLeaveRequests = globalLeaveRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "REJECTED",
+          rejectionReason: reason || "Rejected by HR",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
   },
 
   addLeaveRequest: (req: {
@@ -1193,7 +1791,7 @@ export const WorkpulseSharedStore = {
   }) => {
     const daysCount = req.daysCount ?? 1.0;
     const newReq: SharedLeaveRequest = {
-      id: `leave-req-${Date.now()}`,
+      id: `leave-req-v2-${Date.now()}`,
       employeeId: req.employeeId || "emp-sarah",
       employeeName: req.employeeName || "Sarah Dev",
       departmentId: req.departmentId || "dept-development",
@@ -1205,13 +1803,14 @@ export const WorkpulseSharedStore = {
       daysCount,
       reason: req.reason,
       handoverNotes: req.handoverNotes || "Tasks reassigned to backup engineer.",
-      backupPersonName: req.backupPersonName || "John UI (Frontend)",
+      backupPersonName: req.backupPersonName || "Rohit Sharma (Frontend)",
       remainingBalance: 11.0,
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
     };
     globalLeaveRequests = [newReq, ...globalLeaveRequests];
     notify();
+    syncLeaveRequestToSupabase(newReq);
     return newReq;
   },
 
@@ -1229,9 +1828,8 @@ export const WorkpulseSharedStore = {
     contactMethod?: string;
     plannedDeliverables?: string;
   }) => {
-    const daysCount = req.daysCount ?? 1.0;
     const newReq: SharedWfhRequest = {
-      id: `wfh-req-${Date.now()}`,
+      id: `wfh-req-v2-${Date.now()}`,
       employeeId: req.employeeId || "emp-sarah",
       employeeName: req.employeeName || "Sarah Dev",
       departmentId: req.departmentId || "dept-development",
@@ -1239,110 +1837,114 @@ export const WorkpulseSharedStore = {
       designation: req.designation || "Senior Backend Engineer",
       startDate: req.startDate,
       endDate: req.endDate,
-      daysCount,
+      daysCount: req.daysCount ?? 1.0,
       reason: req.reason,
       availabilityHours: req.availabilityHours || "10:00 AM – 07:00 PM",
-      contactMethod: req.contactMethod || "Slack #dev-pod & Google Meet",
-      plannedDeliverables: req.plannedDeliverables || "Deliver assigned sprint deliverables remotely.",
+      contactMethod: req.contactMethod || "Slack & Zoom",
+      plannedDeliverables: req.plannedDeliverables || "Complete assigned sprint tasks",
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
     };
     globalWfhRequests = [newReq, ...globalWfhRequests];
     notify();
+    syncWfhRequestToSupabase(newReq);
     return newReq;
   },
 
   // WFH Requests
   getWfhRequests: () => globalWfhRequests,
   tlApproveWfh: (requestId: string, comment?: string, leadName?: string) => {
-    globalWfhRequests = globalWfhRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "FORWARDED_TO_HR",
-            tlApproverName: leadName || "Alex Lead (Team Lead)",
-            tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-            tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
-          }
-        : req
-    );
+    let updatedReq: SharedWfhRequest | undefined;
+    globalWfhRequests = globalWfhRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "FORWARDED_TO_HR",
+          tlApproverName: leadName || "Alex Lead (Team Lead)",
+          tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_1", comment });
+    } catch {
+      // safe fallback
+    }
   },
   tlRejectWfh: (requestId: string, reason: string) => {
-    globalWfhRequests = globalWfhRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "REJECTED",
-            rejectionReason: reason || "Rejected by Team Lead",
-          }
-        : req
-    );
+    let updatedReq: SharedWfhRequest | undefined;
+    globalWfhRequests = globalWfhRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "REJECTED",
+          rejectionReason: reason || "Rejected by Team Lead",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_1", reason });
+    } catch {
+      // safe fallback
+    }
   },
   hrApproveWfh: (requestId: string, comment?: string) => {
-    globalWfhRequests = globalWfhRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "APPROVED",
-            hrApproverName: "Rachel HR (People Ops Lead)",
-            hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-            hrComment: comment || "Final HR Approval granted for remote workday.",
-          }
-        : req
-    );
+    let updatedReq: SharedWfhRequest | undefined;
+    globalWfhRequests = globalWfhRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "APPROVED",
+          hrApproverName: "Rachel HR (People Ops Lead)",
+          hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          hrComment: comment || "Final HR Approval granted for remote workday.",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_2", comment });
+    } catch {
+      // safe fallback
+    }
   },
   hrRejectWfh: (requestId: string, reason: string) => {
-    globalWfhRequests = globalWfhRequests.map((req) =>
-      req.id === requestId
-        ? {
-            ...req,
-            status: "REJECTED",
-            rejectionReason: reason || "Rejected by HR",
-          }
-        : req
-    );
+    let updatedReq: SharedWfhRequest | undefined;
+    globalWfhRequests = globalWfhRequests.map((req) => {
+      if (req.id === requestId) {
+        updatedReq = {
+          ...req,
+          status: "REJECTED",
+          rejectionReason: reason || "Rejected by HR",
+        };
+        return updatedReq;
+      }
+      return req;
+    });
     notify();
+    if (updatedReq) syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_2", reason });
+    } catch {
+      // safe fallback
+    }
   },
 };
 
 // React hook for consuming shared state
-export function useWorkpulseSharedStore() {
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    const listener = () => setTick((t) => t + 1);
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }, []);
-
-  return {
-    departments: WorkpulseSharedStore.getDepartments(),
-    allEmployees: WorkpulseSharedStore.getAllEmployees(),
-    getDepartmentById: WorkpulseSharedStore.getDepartmentById,
-    feedbacks: WorkpulseSharedStore.getFeedbacks(),
-    updateLeadFeedback: WorkpulseSharedStore.updateLeadFeedback,
-    leaveRequests: WorkpulseSharedStore.getLeaveRequests(),
-    addLeaveRequest: WorkpulseSharedStore.addLeaveRequest,
-    tlApproveLeave: WorkpulseSharedStore.tlApproveLeave,
-    tlRejectLeave: WorkpulseSharedStore.tlRejectLeave,
-    hrApproveLeave: WorkpulseSharedStore.hrApproveLeave,
-    hrRejectLeave: WorkpulseSharedStore.hrRejectLeave,
-    wfhRequests: WorkpulseSharedStore.getWfhRequests(),
-    addWfhRequest: WorkpulseSharedStore.addWfhRequest,
-    tlApproveWfh: WorkpulseSharedStore.tlApproveWfh,
-    tlRejectWfh: WorkpulseSharedStore.tlRejectWfh,
-    hrApproveWfh: WorkpulseSharedStore.hrApproveWfh,
-    hrRejectWfh: WorkpulseSharedStore.hrRejectWfh,
-    addEmployee: WorkpulseSharedStore.addEmployee,
-    updateEmployee: WorkpulseSharedStore.updateEmployee,
-    deleteEmployee: WorkpulseSharedStore.deleteEmployee,
-  };
-}
+export { useWorkpulseSharedStore } from "./use-workpulse-store";
 
 const globalWeeklyGoals: any[] = [
   {
@@ -1410,6 +2012,10 @@ export const workpulseSharedStore = {
   getState: () => ({
     departments: WorkpulseSharedStore.getDepartments(),
     allEmployees: WorkpulseSharedStore.getAllEmployees(),
+    getEmployeeById: WorkpulseSharedStore.getEmployeeById,
+    addEmployee: WorkpulseSharedStore.addEmployee,
+    updateEmployee: WorkpulseSharedStore.updateEmployee,
+    deleteEmployee: WorkpulseSharedStore.deleteEmployee,
     leaveRequests: WorkpulseSharedStore.getLeaveRequests(),
     wfhRequests: WorkpulseSharedStore.getWfhRequests(),
     weeklyGoals: globalWeeklyGoals,
@@ -1429,6 +2035,13 @@ export const workpulseSharedStore = {
         method: "VIRTUAL_SIMULATOR",
         location: "HQ Office Floor 0",
         status: "VERIFIED",
+      });
+      syncBiometricPunchToSupabase({
+        employeeId: "emp-sarah",
+        employeeName: "Sarah Dev",
+        punchType: "OUT",
+        location: "HQ Office Floor 0",
+        method: "VIRTUAL_SIMULATOR",
       });
     },
   }),

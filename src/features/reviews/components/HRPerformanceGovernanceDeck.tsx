@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
@@ -32,7 +32,7 @@ interface PromotionNomination {
 const INITIAL_NOMINATIONS: PromotionNomination[] = [
   {
     id: "nom-1",
-    employeeName: "Sarah Dev",
+    employeeName: "Sara Dev",
     departmentName: "Development",
     currentTitle: "Senior Backend Engineer",
     proposedTitle: "Staff Software Architect",
@@ -47,7 +47,7 @@ const INITIAL_NOMINATIONS: PromotionNomination[] = [
     departmentName: "R & D",
     currentTitle: "QA & Test Automation Lead",
     proposedTitle: "Principal Quality Engineer",
-    nominatedBy: "Dr. Maya Chen",
+    nominatedBy: "David Director",
     currentRating: 94.0,
     businessJustification: "Zero production regressions for 3 consecutive quarters, created automated Playwright biometric harness.",
     status: "PENDING",
@@ -66,23 +66,42 @@ const INITIAL_NOMINATIONS: PromotionNomination[] = [
 ];
 
 export function HRPerformanceGovernanceDeck() {
-  const { departments } = useWorkpulseSharedStore();
+  const { departments, allEmployees, updateEmployee } = useWorkpulseSharedStore();
   const [activeTab, setActiveTab] = useState<"cycles" | "leads" | "bellcurve" | "promotions">("cycles");
   const [nominations, setNominations] = useState<PromotionNomination[]>(INITIAL_NOMINATIONS);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem("workpulse_promotion_nominations");
+      if (s) setNominations(JSON.parse(s));
+    } catch {
+      // safe fallback
+    }
+  }, []);
+
   const handleApproveNomination = (id: string, name: string, title: string) => {
-    setNominations((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, status: "APPROVED" } : n))
+    const updated = nominations.map((n) => (n.id === id ? { ...n, status: "APPROVED" as const } : n));
+    setNominations(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("workpulse_promotion_nominations", JSON.stringify(updated));
+    }
+    const matchedEmp = allEmployees.find(
+      (e) => e.name.toLowerCase() === name.toLowerCase()
     );
-    setToastMsg(`Promotion nomination for ${name} to "${title}" approved & logged! 🏆`);
+    if (matchedEmp) {
+      updateEmployee(matchedEmp.id, { designation: title });
+    }
+    setToastMsg(`Promotion nomination for ${name} to "${title}" approved & updated across all organizational rosters! 🏆`);
     setTimeout(() => setToastMsg(null), 3000);
   };
 
   const handleRejectNomination = (id: string, name: string) => {
-    setNominations((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, status: "REJECTED" } : n))
-    );
+    const updated = nominations.map((n) => (n.id === id ? { ...n, status: "REJECTED" as const } : n));
+    setNominations(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("workpulse_promotion_nominations", JSON.stringify(updated));
+    }
     setToastMsg(`Nomination for ${name} deferred to next cycle.`);
     setTimeout(() => setToastMsg(null), 3000);
   };
@@ -368,9 +387,9 @@ export function HRPerformanceGovernanceDeck() {
                 Score Range: 90 – 100. High performers driving innovation and outsized business impact.
               </p>
               <div className="pt-2 border-t border-border/50 text-[11px] text-foreground font-semibold space-y-1">
-                <div>• Sarah Dev (Score: 91.5)</div>
+                <div>• Sara Dev (Score: 91.5)</div>
                 <div>• Priya QA (Score: 94.0)</div>
-                <div>• Elena Rostova (Score: 92.0)</div>
+                <div>• Ananya Sen (Score: 92.0)</div>
               </div>
             </div>
 
@@ -378,14 +397,14 @@ export function HRPerformanceGovernanceDeck() {
               <div className="flex items-center justify-between">
                 <span className="font-bold text-xs text-cyan-400">Strong Contributors (Core 70%)</span>
                 <Badge variant="brand" className="text-[9px] bg-cyan-500/15 text-cyan-300 border-cyan-500/30">
-                  14 Staff
+                  4 Staff
                 </Badge>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Score Range: 75 – 89. Steady, reliable delivery meeting all sprint OKR deliverables consistently.
               </p>
               <div className="pt-2 border-t border-border/50 text-[11px] text-foreground font-semibold space-y-1">
-                <div>• Rohit Sharma, Karthik Raja, Sneha Kapoor, Arjun Nair...</div>
+                <div>• Rohit Sharma, Karthik Raja, Sneha Kapoor, Ananya Sen...</div>
               </div>
             </div>
 
@@ -400,8 +419,8 @@ export function HRPerformanceGovernanceDeck() {
                 Score Range: Below 75. Enrolled in 1-on-1 development coaching and skill upskilling plans.
               </p>
               <div className="pt-2 border-t border-border/50 text-[11px] text-foreground font-semibold space-y-1">
-                <div>• John UI (Score: 68.0 · Active 1-on-1 Plan)</div>
-                <div>• Nikhil Verma (Score: 72.0 · Onboarding)</div>
+                <div>• Rohit Sharma (Score: 74.0 · Active 1-on-1 Plan)</div>
+                <div>• Sneha Kapoor (Score: 73.0 · Ingestion Coaching)</div>
               </div>
             </div>
           </div>
@@ -427,27 +446,35 @@ export function HRPerformanceGovernanceDeck() {
           </div>
 
           <div className="space-y-3 pt-2">
-            {nominations.map((nom) => (
-              <div
-                key={nom.id}
-                className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-3 hover:border-amber-500/40 transition-all"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-foreground">{nom.employeeName}</span>
-                      <span className="text-xs text-muted-foreground">({nom.departmentName})</span>
-                      <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30 font-mono">
-                        Rating: {nom.currentRating} / 100
-                      </Badge>
-                    </div>
+            {nominations.map((nom) => {
+              const matchedEmp = allEmployees.find(
+                (e) => e.name.toLowerCase() === nom.employeeName.toLowerCase() || (nom.id === "nom-1" && e.id === "emp-sarah")
+              );
+              const employeeName = matchedEmp ? matchedEmp.name : nom.employeeName;
+              const currentTitle = matchedEmp ? matchedEmp.designation : nom.currentTitle;
+              const departmentName = matchedEmp ? matchedEmp.departmentName : nom.departmentName;
 
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                      <span>{nom.currentTitle}</span>
-                      <span className="text-amber-400 font-bold">→</span>
-                      <strong className="text-amber-300 font-bold">{nom.proposedTitle}</strong>
+              return (
+                <div
+                  key={nom.id}
+                  className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-3 hover:border-amber-500/40 transition-all"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-foreground">{employeeName}</span>
+                        <span className="text-xs text-muted-foreground">({departmentName})</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30 font-mono">
+                          Rating: {nom.currentRating} / 100
+                        </Badge>
+                      </div>
+
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                        <span>{currentTitle}</span>
+                        <span className="text-amber-400 font-bold">→</span>
+                        <strong className="text-amber-300 font-bold">{nom.proposedTitle}</strong>
+                      </div>
                     </div>
-                  </div>
 
                   <Badge
                     variant="outline"
@@ -493,9 +520,10 @@ export function HRPerformanceGovernanceDeck() {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </Interactive3DCard>
+            );
+          })}
+        </div>
+      </Interactive3DCard>
       )}
     </div>
   );

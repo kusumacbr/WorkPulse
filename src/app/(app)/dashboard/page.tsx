@@ -41,6 +41,7 @@ export default function DashboardPage() {
     leaveRequests,
     wfhRequests,
     departments,
+    allEmployees,
     hrApproveLeave,
     hrRejectLeave,
   } = useWorkpulseSharedStore();
@@ -51,7 +52,7 @@ export default function DashboardPage() {
   const [hrChecklist, setHrChecklist] = useState([
     { id: "chk-1", text: "Execute Stage-2 Leave authorizations for Sprint 34", done: false },
     { id: "chk-2", text: "Audit Bangalore HQ Biometric punch anomalies (Grace: 10:15 AM)", done: true },
-    { id: "chk-3", text: "Review 30-Day Probation evaluation for John UI with Alex Lead", done: false },
+    { id: "chk-3", text: "Review 30-Day Probation evaluation for Rohit Sharma with Alex Lead", done: false },
     { id: "chk-4", text: "Broadcast POSH 2026 Annual Compliance reminder notice", done: true },
     { id: "chk-5", text: "Prepare month-end biometric attendance muster roll for Payroll", done: false },
   ]);
@@ -331,22 +332,33 @@ export default function DashboardPage() {
                 <div className="flex flex-wrap sm:flex-col gap-2 shrink-0">
                   <Link
                     href="/team"
-                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-between gap-2 shadow-[0_4px_20px_rgba(168,85,247,0.25)] hover:opacity-95 transition-all"
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-between gap-2 shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:opacity-95 transition-all"
                   >
                     <span className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Member SOD Inspector</span>
+                      <Users className="h-3.5 w-3.5" />
+                      <span>Team Management Hub</span>
                     </span>
                     <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
 
                   <Link
-                    href="/reviews"
+                    href="/team"
                     className="px-4 py-2 rounded-xl bg-card border border-border/80 text-foreground font-semibold text-xs flex items-center justify-between gap-2 transition-all hover:border-purple-500/40"
                   >
                     <span className="flex items-center gap-1.5">
-                      <FileCheck2 className="h-3.5 w-3.5 text-purple-400" />
-                      <span>Appraisal Reviews (2 Pending)</span>
+                      <Clock className="h-3.5 w-3.5 text-purple-400" />
+                      <span>SOD & EOD Inspector</span>
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+
+                  <Link
+                    href="/reviews"
+                    className="px-4 py-2 rounded-xl bg-card border border-border/80 text-foreground font-semibold text-xs flex items-center justify-between gap-2 transition-all hover:border-cyan-500/40"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <FileCheck2 className="h-3.5 w-3.5 text-cyan-400" />
+                      <span>Appraisal Reviews</span>
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </Link>
@@ -357,19 +369,19 @@ export default function DashboardPage() {
             {/* 4 Clean Metric Tiles */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricTile3D
-                title="SOD Submissions"
-                value="6 / 6 Active"
-                subtitle="All pod members submitted on-time"
-                icon={Clock}
-                change="100% On-Time"
+                title="Direct Reports Roster"
+                value={`${allEmployees.length} Members`}
+                subtitle="Live pod management roster"
+                icon={Users}
+                change="Active Pod"
                 changePositive={true}
-                badgeText="Logged"
+                badgeText="Managed"
                 accent="cyan"
               />
 
               <MetricTile3D
                 title="Pod Presence"
-                value="4 HQ · 2 WFH"
+                value={`${allEmployees.filter((e) => e.workMode !== "WFH").length} HQ · ${allEmployees.filter((e) => e.workMode === "WFH").length} WFH`}
                 subtitle="Zero unexcused absences"
                 icon={Users}
                 change="Full Pod"
@@ -379,13 +391,13 @@ export default function DashboardPage() {
               />
 
               <MetricTile3D
-                title="Appraisal Reviews"
-                value="2 Pending"
-                subtitle="Sprint 34 submissions awaiting sign-off"
-                icon={FileCheck2}
-                change="Action Req"
-                changePositive={false}
-                badgeText="Queue: 2"
+                title="Stage 1 Leaves"
+                value={`${leaveRequests.filter((r) => r.status === "PENDING_TL_STAGE_1").length} Pending`}
+                subtitle="Pod leave requests to review"
+                icon={Calendar}
+                change={leaveRequests.filter((r) => r.status === "PENDING_TL_STAGE_1").length > 0 ? "Review Req" : "All Clear"}
+                changePositive={leaveRequests.filter((r) => r.status === "PENDING_TL_STAGE_1").length === 0}
+                badgeText={`Queue: ${leaveRequests.filter((r) => r.status === "PENDING_TL_STAGE_1").length}`}
                 accent="purple"
               />
 
@@ -401,40 +413,40 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Simple Member Execution Table */}
+            {/* Direct Reports Execution Table */}
             <Interactive3DCard className="p-6 border border-border/80 space-y-4 bg-card/60">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-purple-400" />
-                  Direct Reports Execution Pulse
+                  Direct Reports Team Execution Pulse
                 </h3>
-                <Link href="/team" className="text-xs font-bold text-purple-400 hover:underline flex items-center gap-1">
-                  <span>View All Members</span>
+                <Link href="/team" className="text-xs font-bold text-indigo-400 hover:underline flex items-center gap-1">
+                  <span>Open Full Team Management</span>
                   <ChevronRight className="h-3 w-3" />
                 </Link>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                {[
-                  { name: "Sarah Dev", role: "Sr. Backend Engineer", mode: "OFFICE", progress: 80, status: "SOD Active" },
-                  { name: "Rohit Sharma", role: "Frontend UI/UX", mode: "OFFICE", progress: 65, status: "SOD Active" },
-                  { name: "John UI", role: "Frontend Engineer", mode: "HYBRID", progress: 30, status: "In Progress" },
-                ].map((member, i) => (
-                  <div key={i} className="p-3.5 rounded-xl bg-card border border-border/80 space-y-2">
+                {(allEmployees.length > 0 ? allEmployees.slice(0, 6) : [
+                  { id: "1", name: "Sara Dev", designation: "Sr. Backend Engineer", workMode: "OFFICE" as const, overallProgress: 80, sodStatus: "SUBMITTED" },
+                  { id: "2", name: "Rohit Sharma", designation: "Frontend UI/UX", workMode: "OFFICE" as const, overallProgress: 65, sodStatus: "SUBMITTED" },
+                  { id: "3", name: "Priya QA", designation: "QA & Automation Lead", workMode: "WFH" as const, overallProgress: 95, sodStatus: "SUBMITTED" },
+                ]).map((member) => (
+                  <div key={member.id} className="p-3.5 rounded-xl bg-card border border-border/80 space-y-2">
                     <div className="flex items-center justify-between">
                       <strong className="text-foreground text-xs">{member.name}</strong>
                       <Badge variant="outline" className="text-[9px] text-purple-300 border-purple-500/30">
-                        {member.mode}
+                        {member.workMode || "OFFICE"}
                       </Badge>
                     </div>
-                    <span className="text-[11px] text-muted-foreground block">{member.role}</span>
+                    <span className="text-[11px] text-muted-foreground block truncate">{member.designation}</span>
                     <div className="space-y-1 pt-1">
                       <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-muted-foreground">{member.status}</span>
-                        <strong className="text-emerald-400 font-mono">{member.progress}%</strong>
+                        <span className="text-muted-foreground">{member.sodStatus || "SOD Active"}</span>
+                        <strong className="text-emerald-400 font-mono">{member.overallProgress || 75}%</strong>
                       </div>
                       <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-purple-400 to-cyan-400" style={{ width: `${member.progress}%` }} />
+                        <div className="h-full bg-gradient-to-r from-purple-400 to-cyan-400" style={{ width: `${member.overallProgress || 75}%` }} />
                       </div>
                     </div>
                   </div>
@@ -581,46 +593,54 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-2.5">
-                      {pendingLeaves.map((req) => (
-                        <div
-                          key={req.id}
-                          className="p-3.5 rounded-xl bg-card border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <strong className="text-foreground">{req.employeeName}</strong>
-                              <span className="text-[11px] text-muted-foreground">({req.departmentName})</span>
-                              <Badge variant="outline" className="text-[9px] text-pink-300 border-pink-500/30">
-                                {req.leaveType} ({req.daysCount}d)
-                              </Badge>
-                            </div>
-                            <span className="text-[11px] text-muted-foreground block">
-                              Date: {req.startDate} · Reason: "{req.reason}"
-                            </span>
-                          </div>
+                      {pendingLeaves.map((req) => {
+                        const matchedEmp = allEmployees.find(
+                          (e) => e.id === req.employeeId || (req.employeeId === "emp-sarah" && (e.id === "emp-sarah" || e.name.toLowerCase().includes("sara")))
+                        );
+                        const employeeName = matchedEmp ? matchedEmp.name : req.employeeName;
+                        const departmentName = matchedEmp ? matchedEmp.departmentName : req.departmentName;
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              size="sm"
-                              variant="brand"
-                              onClick={() => handleQuickApproveLeave(req.id, req.employeeName)}
-                              className="text-xs font-bold h-7 px-3 bg-pink-500 hover:bg-pink-600 text-white gap-1"
-                            >
-                              <Check className="h-3 w-3" />
-                              <span>Authorize</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleQuickRejectLeave(req.id, req.employeeName)}
-                              className="text-xs font-bold h-7 px-2.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/10 gap-1"
-                            >
-                              <X className="h-3 w-3" />
-                              <span>Reject</span>
-                            </Button>
+                        return (
+                          <div
+                            key={req.id}
+                            className="p-3.5 rounded-xl bg-card border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <strong className="text-foreground">{employeeName}</strong>
+                                <span className="text-[11px] text-muted-foreground">({departmentName})</span>
+                                <Badge variant="outline" className="text-[9px] text-pink-300 border-pink-500/30">
+                                  {req.leaveType} ({req.daysCount}d)
+                                </Badge>
+                              </div>
+                              <span className="text-[11px] text-muted-foreground block">
+                                Date: {req.startDate} · Reason: "{req.reason}"
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="brand"
+                                onClick={() => handleQuickApproveLeave(req.id, employeeName)}
+                                className="text-xs font-bold h-7 px-3 bg-pink-500 hover:bg-pink-600 text-white gap-1"
+                              >
+                                <Check className="h-3 w-3" />
+                                <span>Authorize</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleQuickRejectLeave(req.id, employeeName)}
+                                className="text-xs font-bold h-7 px-2.5 border-rose-500/40 text-rose-400 hover:bg-rose-500/10 gap-1"
+                              >
+                                <X className="h-3 w-3" />
+                                <span>Reject</span>
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </Interactive3DCard>

@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
+import { useCurrentUser } from "@/components/layout/UserContext";
+import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import {
   Clock,
   Plus,
@@ -229,6 +231,8 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const currentUser = useCurrentUser();
+
   // Submit and lock SOD -> Transitions strictly into Work Execution!
   const handleSubmitSOD = () => {
     if (tasks.length === 0) {
@@ -238,6 +242,43 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setSodSubmittedAt(`Today at ${timeStr}`);
     setPhase("WORK_EXECUTION");
+
+    // Persist SOD to WorkpulseSharedStore & Supabase
+    const targetEmp = WorkpulseSharedStore.getAllEmployees().find(
+      (e) => e.email.toLowerCase() === (currentUser?.userEmail || "").toLowerCase()
+    );
+    const targetEmpId = targetEmp ? targetEmp.id : "emp-sarah";
+
+    WorkpulseSharedStore.updateEmployee(targetEmpId, {
+      sodStatus: "SUBMITTED",
+      sodTime: timeStr,
+      plannedTasks: tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        project: t.project,
+        priority: t.priority,
+        estimatedMinutes: t.estimatedMinutes,
+        completionPercentage: t.completionPercentage,
+        status: t.status,
+        expectedOutput: t.expectedOutput,
+      })),
+      overallProgress: 80,
+    });
+
+    if (typeof window !== "undefined") {
+      fetch("/api/v1/workdays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: targetEmpId,
+          date: new Date().toISOString().split("T")[0],
+          sodStatus: "SUBMITTED",
+          plannedTasks: tasks,
+          overallProgress: 80,
+        }),
+      }).catch((err) => console.warn("Supabase workday SOD sync:", err));
+    }
+
     showToast("Morning SOD Submitted & Locked! Switched to Work Execution Mode. 🚀");
   };
 
@@ -285,6 +326,38 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
   // Submit EOD
   const handleSubmitEOD = () => {
     setIsEodSubmitted(true);
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const targetEmp = WorkpulseSharedStore.getAllEmployees().find(
+      (e) => e.email.toLowerCase() === (currentUser?.userEmail || "").toLowerCase()
+    );
+    const targetEmpId = targetEmp ? targetEmp.id : "emp-sarah";
+
+    WorkpulseSharedStore.updateEmployee(targetEmpId, {
+      eodStatus: "SUBMITTED",
+      eodTime: timeStr,
+      eodAchievements: achievements,
+      eodBlockers: blockers,
+      eodTomorrowFocus: tomorrowFocus,
+      overallProgress: 100,
+    });
+
+    if (typeof window !== "undefined") {
+      fetch("/api/v1/workdays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: targetEmpId,
+          date: new Date().toISOString().split("T")[0],
+          eodStatus: "SUBMITTED",
+          eodAchievements: achievements,
+          eodBlockers: blockers,
+          eodTomorrowFocus: tomorrowFocus,
+          overallProgress: 100,
+        }),
+      }).catch((err) => console.warn("Supabase workday EOD sync:", err));
+    }
+
     showToast("End-of-Day (EOD) Wrap-up submitted successfully! Great work today! 🌟");
   };
 

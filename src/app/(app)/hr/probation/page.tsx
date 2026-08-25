@@ -11,8 +11,8 @@ export default function HRProbationPage() {
   const [candidates, setCandidates] = useState([
     {
       id: "prob-1",
-      employeeName: "John UI",
-      designation: "Frontend Engineer",
+      employeeName: "Rohit Sharma",
+      designation: "Frontend Engineer (UI/UX)",
       checkpoint: "Day 30",
       workQualityScore: 5.0,
       leadRecommendation: "CONFIRM_EMPLOYMENT",

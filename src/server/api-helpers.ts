@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, CurrentUser } from "@/lib/auth/get-current-user";
 import { AuthActor, RoleType } from "@/lib/authorization/types";
-import { SEEDED_TEST_ACCOUNTS } from "@/lib/auth/dev-personas";
+import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -40,72 +40,95 @@ export function apiError(
 export async function getSessionActor(req?: Request): Promise<{ user: CurrentUser; actor: AuthActor }> {
   let email: string | undefined;
   if (req) {
-    email = req.headers.get("x-user-email") || undefined;
+    email = req.headers.get("x-user-email") || req.headers.get("x-test-email") || undefined;
   }
 
   let user: CurrentUser;
 
   if (email) {
     const normalizedEmail = email.toLowerCase().trim();
-    const persona = SEEDED_TEST_ACCOUNTS.find((p) => p.email.toLowerCase() === normalizedEmail);
+    const allEmployees = WorkpulseSharedStore.getAllEmployees();
+    const departments = WorkpulseSharedStore.getDepartments();
 
-    if (persona) {
-      const role = persona.role as RoleType;
+    const matched = allEmployees.find((e) => e.email.toLowerCase() === normalizedEmail);
+    const matchedLead = departments.find((d) => d.teamLead.email.toLowerCase() === normalizedEmail);
+
+    if (matched) {
+      const role: RoleType =
+        normalizedEmail.includes("admin") || normalizedEmail.includes("director")
+          ? "ADMIN"
+          : normalizedEmail.includes("hr")
+          ? "HR"
+          : normalizedEmail.includes("lead") || normalizedEmail.includes("manager")
+          ? "MANAGER"
+          : "EMPLOYEE";
+      const roles: RoleType[] =
+        role === "ADMIN"
+          ? ["ADMIN", "MANAGER", "HR", "EMPLOYEE"]
+          : role === "HR"
+          ? ["HR", "EMPLOYEE"]
+          : role === "MANAGER"
+          ? ["MANAGER", "EMPLOYEE"]
+          : ["EMPLOYEE"];
       user = {
-        id:
-          role === "EMPLOYEE"
-            ? "emp-sarah"
-            : role === "MANAGER"
-            ? "emp-alex"
-            : role === "HR"
-            ? "emp-rachel"
-            : "emp-david",
-        email: persona.email,
-        name: persona.name,
-        roles: role === "MANAGER" ? ["MANAGER", "EMPLOYEE"] : [role],
+        id: matched.id,
+        email: matched.email,
+        name: matched.name,
+        roles,
         primaryRole: role,
-        designation: persona.title,
-        department: "Engineering",
-        team: "Platform Core",
+        designation: matched.designation,
+        department: matched.departmentName,
+        team: `${matched.departmentName} Pod`,
+      };
+    } else if (matchedLead) {
+      user = {
+        id: matchedLead.teamLead.id,
+        email: matchedLead.teamLead.email,
+        name: matchedLead.teamLead.name,
+        roles: ["MANAGER", "EMPLOYEE"],
+        primaryRole: "MANAGER",
+        designation: matchedLead.teamLead.designation,
+        department: matchedLead.name,
+        team: `${matchedLead.name} Pod`,
       };
     } else if (normalizedEmail.includes("manager") || normalizedEmail.includes("lead")) {
       user = {
-        id: "emp-alex",
+        id: "lead-alex",
         email,
-        name: "Test Team Lead",
+        name: "Alex Lead",
         roles: ["MANAGER", "EMPLOYEE"],
         primaryRole: "MANAGER",
-        designation: "Engineering Lead",
-        department: "Engineering",
-        team: "Platform Core",
+        designation: "Engineering Lead · Development",
+        department: "Development",
+        team: "Development Pod",
       };
     } else if (normalizedEmail.includes("hr")) {
       user = {
-        id: "emp-rachel",
+        id: "hr-rachel",
         email,
-        name: "Test HR Partner",
-        roles: ["HR"],
+        name: "Rachel HR",
+        roles: ["HR", "EMPLOYEE"],
         primaryRole: "HR",
-        designation: "HR Specialist",
-        department: "People Operations",
-        team: "People Operations",
+        designation: "Head of People Operations",
+        department: "Human Resources",
+        team: "Human Resources Pod",
       };
-    } else if (normalizedEmail.includes("admin")) {
+    } else if (normalizedEmail.includes("admin") || normalizedEmail.includes("director")) {
       user = {
-        id: "emp-david",
+        id: "admin-david",
         email,
-        name: "Test Admin",
-        roles: ["ADMIN"],
+        name: "David Director",
+        roles: ["ADMIN", "MANAGER", "HR", "EMPLOYEE"],
         primaryRole: "ADMIN",
-        designation: "System Administrator",
-        department: "Security & Operations",
-        team: "Platform Core",
+        designation: "VP of Engineering & SuperAdmin",
+        department: "Executive",
+        team: "Executive Pod",
       };
     } else {
       user = {
         id: "emp-sarah",
         email,
-        name: "Sarah Dev",
+        name: "Sara Dev",
         roles: ["EMPLOYEE"],
         primaryRole: "EMPLOYEE",
         designation: "Senior Backend Engineer",
@@ -120,7 +143,7 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
       user = {
         id: "emp-sarah",
         email: "employee.test@xorstack.com",
-        name: "Sarah Dev",
+        name: "Sara Dev",
         roles: ["EMPLOYEE"],
         primaryRole: "EMPLOYEE",
         designation: "Senior Backend Engineer",

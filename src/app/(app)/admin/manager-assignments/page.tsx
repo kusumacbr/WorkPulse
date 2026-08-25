@@ -6,26 +6,20 @@ import { PageTransition } from "@/components/animations/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { UserCheck, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export default function AdminManagerAssignmentsPage() {
-  const assignments = [
-    {
-      id: "asg-1",
-      employeeName: "Sarah Dev",
-      designation: "Senior Backend Engineer",
-      primaryManager: "Alex Lead (Engineering Manager)",
-      secondaryManager: "None",
-      effectiveFrom: "August 01, 2025",
-    },
-    {
-      id: "asg-2",
-      employeeName: "John UI",
-      designation: "Frontend Engineer",
-      primaryManager: "Alex Lead (Engineering Manager)",
-      secondaryManager: "None",
-      effectiveFrom: "August 01, 2025",
-    },
-  ];
+  const { allEmployees } = useWorkpulseSharedStore();
+
+  const assignments = allEmployees.map((emp) => ({
+    id: `asg-${emp.id}`,
+    employeeName: emp.name,
+    designation: emp.designation,
+    department: emp.departmentName,
+    primaryManager: emp.teamLeadName || "David Director (SuperAdmin)",
+    secondaryManager: "None",
+    effectiveFrom: emp.joiningDate || "August 01, 2025",
+  }));
 
   return (
     <PageTransition>

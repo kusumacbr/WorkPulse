@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { PipService } from "@/server/services/coaching-service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const { actor } = await getSessionActor(req);
 
@@ -9,9 +11,9 @@ export async function GET(req: NextRequest) {
   const pips = [
     {
       id: "pip-sample-1",
-      employeeId: "emp-john",
-      employeeName: "John UI",
-      managerId: "emp-alex",
+      employeeId: "emp-rohit",
+      employeeName: "Rohit Sharma",
+      managerId: "lead-alex",
       managerName: "Alex Lead",
       reason: "Latency in sprint UI delivery commitments",
       performanceConcerns: "Missed 2 sprint delivery deadlines due to unestimated component work",

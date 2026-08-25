@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
-import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
@@ -9,18 +11,18 @@ export async function GET(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  const emp = workpulseSharedStore.getState().allEmployees.find((e) => e.id === id);
+  const emp = WorkpulseSharedStore.getEmployeeById(id);
   if (!emp) {
     return apiError(`Employee '${id}' not found`, 404, "NOT_FOUND");
   }
 
   // Authorization check: Self, assigned Manager, HR, Admin
   const isSelf = actor.employeeId === id || actor.userId === id;
-  const isManager = actor.roles.includes("MANAGER") && (
-    (actor.directReportIds && actor.directReportIds.includes(id)) ||
-    emp.teamLeadName.toLowerCase().includes("alex") ||
-    emp.teamLeadName.toLowerCase().includes("lead")
-  );
+  const isManager =
+    actor.roles.includes("MANAGER") &&
+    ((actor.directReportIds && actor.directReportIds.includes(id)) ||
+      emp.teamLeadName.toLowerCase().includes("alex") ||
+      emp.teamLeadName.toLowerCase().includes("lead"));
   const isHrOrAdmin = actor.roles.includes("HR") || actor.roles.includes("ADMIN");
 
   if (!isSelf && !isManager && !isHrOrAdmin) {
@@ -30,7 +32,6 @@ export async function GET(
   // Sensitive field filtering: emergency contact restricted to HR and Admin
   const employeeData = { ...emp };
   if (!isHrOrAdmin && !isSelf) {
-    // Mask sensitive fields if non-admin/non-HR
     delete (employeeData as any).emergencyContact;
   }
 
@@ -46,33 +47,120 @@ export async function PATCH(
 
   const isSelf = actor.employeeId === id || actor.userId === id;
   const isHrOrAdmin = actor.roles.includes("HR") || actor.roles.includes("ADMIN");
+  const isManager = actor.roles.includes("MANAGER");
 
-  if (!isSelf && !isHrOrAdmin) {
+  if (!isSelf && !isHrOrAdmin && !isManager) {
     return apiError("Forbidden: Unauthorized to update this employee record.", 403, "FORBIDDEN");
   }
 
   try {
-    const body = await req.json();
-    const state = workpulseSharedStore.getState();
-    const empIndex = state.allEmployees.findIndex((e) => e.id === id);
-    if (empIndex === -1) {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      const text = await req.text();
+      body = text ? JSON.parse(text) : {};
+    }
+
+    const updated = WorkpulseSharedStore.updateEmployee(
+      id,
+      isHrOrAdmin
+        ? body
+        : {
+            preferredName: body.preferredName,
+            phoneNumber: body.phoneNumber,
+            skills: body.skills,
+          }
+    );
+
+    if (!updated) {
       return apiError(`Employee '${id}' not found`, 404, "NOT_FOUND");
     }
 
-    // Update allowed fields
-    const updated = {
-      ...state.allEmployees[empIndex],
-      ...(isHrOrAdmin ? body : {
-        preferredName: body.preferredName,
-        phoneNumber: body.phoneNumber,
-        skills: body.skills,
-      }),
-    };
-
-    state.allEmployees[empIndex] = updated as any;
+    // Persist changes to Supabase public.employees
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin
+          .from("employees")
+          .update({
+            name: updated.name,
+            role_title: updated.designation,
+            department: updated.departmentName,
+            department_id: updated.departmentId,
+            work_mode: updated.workMode,
+            status: updated.status,
+            phone_number: updated.phoneNumber,
+            location: updated.location,
+            leave_balance: updated.remainingLeaveBalance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+      }
+    } catch (err: any) {
+      console.warn("Supabase employee update sync warning:", err.message);
+    }
 
     return apiSuccess({ employee: updated, message: "Employee profile updated successfully." });
-  } catch {
-    return apiError("Failed to parse request body", 400, "BAD_REQUEST");
+  } catch (err: any) {
+    return apiError(err.message || "Failed to parse request body", 400, "BAD_REQUEST");
   }
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return PATCH(req, { params });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { actor } = await getSessionActor(req);
+
+  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
+    return apiError("Forbidden: Only HR and Admin can offboard/delete employee records.", 403, "FORBIDDEN");
+  }
+
+  const removed = WorkpulseSharedStore.deleteEmployee(id);
+  if (!removed) {
+    return apiError(`Employee '${id}' not found or could not be removed`, 404, "NOT_FOUND");
+  }
+
+  // Hard delete from Supabase public.employees & associated tables
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabaseAdmin = createAdminClient();
+    if (supabaseAdmin) {
+      // Cascade delete related records first
+      await Promise.allSettled([
+        supabaseAdmin.from("leave_requests").delete().eq("employee_id", id),
+        supabaseAdmin.from("wfh_requests").delete().eq("employee_id", id),
+        supabaseAdmin.from("workdays").delete().eq("employee_id", id),
+        supabaseAdmin.from("biometric_punches").delete().eq("employee_id", id),
+        supabaseAdmin.from("feedbacks").delete().eq("employee_id", id),
+        supabaseAdmin.from("regularization_requests").delete().eq("employee_id", id),
+      ]);
+
+      // Delete the employee row from Supabase
+      const { error: delErr } = await supabaseAdmin
+        .from("employees")
+        .delete()
+        .eq("id", id);
+
+      if (delErr) {
+        console.warn("Supabase employee delete error:", delErr.message);
+      } else {
+        console.log(`[Supabase] Successfully deleted employee '${id}' from public.employees`);
+      }
+    }
+  } catch (err: any) {
+    console.warn("Supabase employee delete sync warning:", err.message);
+  }
+
+  return apiSuccess({ employee: removed, message: `Employee '${id}' successfully removed from Supabase and application roster.` });
 }

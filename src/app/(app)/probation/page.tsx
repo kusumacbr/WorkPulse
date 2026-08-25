@@ -62,7 +62,7 @@ export default function ProbationStatusPage() {
           <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1 text-xs">
             <strong className="text-foreground">Manager Recommendation & HR Decision</strong>
             <p className="text-muted-foreground leading-relaxed">
-              "Sarah has shown stellar architecture ownership, 100% on-time SOD submissions, and exceptional team unblocking. Recommended for immediate confirmation without extension."
+              "Sara has shown stellar architecture ownership, 100% on-time SOD submissions, and exceptional team unblocking. Recommended for immediate confirmation without extension."
             </p>
             <span className="text-[11px] text-muted-foreground font-mono block pt-1">
               Signed by: Alex Lead (Manager) · Approved by: Rachel HR · Confirmed by: David Director (SuperAdmin)

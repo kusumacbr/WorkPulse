@@ -21,8 +21,8 @@ export function NotificationDropdown() {
     {
       id: "n-bday-1",
       type: "BIRTHDAY_BROADCAST",
-      title: "🎂 Birthday Celebration: Sarah Dev!",
-      message: "Today is Sarah Dev's Birthday! Join the org celebration and send your warm wishes on the celebration board.",
+      title: "🎂 Birthday Celebration: Sara Dev!",
+      message: "Today is Sara Dev's Birthday! Join the org celebration and send your warm wishes on the celebration board.",
       linkUrl: "/hr",
       read: false,
       createdAt: "Just now",

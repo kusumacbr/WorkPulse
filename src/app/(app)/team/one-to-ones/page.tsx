@@ -11,7 +11,7 @@ export default function TeamOneToOnesPage() {
   const meetings = [
     {
       id: "121-team-1",
-      employeeName: "Sarah Dev",
+      employeeName: "Sara Dev",
       designation: "Senior Backend Engineer",
       scheduledAt: "Today at 03:30 PM",
       duration: "30 Mins",
@@ -20,8 +20,8 @@ export default function TeamOneToOnesPage() {
     },
     {
       id: "121-team-2",
-      employeeName: "John UI",
-      designation: "Frontend Engineer",
+      employeeName: "Rohit Sharma",
+      designation: "Frontend Engineer (UI/UX)",
       scheduledAt: "Tomorrow at 11:00 AM",
       duration: "30 Mins",
       status: "SCHEDULED",

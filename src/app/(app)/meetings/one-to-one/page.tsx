@@ -19,14 +19,14 @@ export default function OneToOneMeetingPage() {
   const meeting = {
     id: "121-sprint34",
     managerName: "Alex Lead (Engineering Manager)",
-    employeeName: "Sarah Dev",
+    employeeName: "Sara Dev",
     scheduledAt: "Today at 03:30 PM",
     duration: "30 Mins",
     agenda: "Sprint 34 deliverables, biometric edge connector architecture, and Q4 career growth",
-    sharedNotes: "Agreed on prioritizing Vitest automated test suites for all 91 specification acceptance criteria. Sarah will also lead the upcoming technical showcase.",
+    sharedNotes: "Agreed on prioritizing Vitest automated test suites for all 91 specification acceptance criteria. Sara will also lead the upcoming technical showcase.",
     actionItems: [
       { id: "act-1", title: "Complete biometric edge connector offline queue tests", done: true },
-      { id: "act-2", title: "Schedule mentoring sync with John UI for frontend state alignment", done: false },
+      { id: "act-2", title: "Schedule mentoring sync with Rohit Sharma for frontend state alignment", done: false },
     ],
   };
 

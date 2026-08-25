@@ -1,14 +1,15 @@
 import React from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { LandingHero } from "@/features/landing/components/LandingHero";
 
 export default async function HomePage() {
-  // Check if active session cookie exists
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("better-auth.session_token")?.value;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (sessionToken) {
+  if (user) {
     // Authenticated user: skip landing page and redirect straight to dashboard
     redirect("/dashboard");
   }

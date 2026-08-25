@@ -1,8 +1,7 @@
-"use client";
-
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { Users } from "lucide-react";
 
 interface TeamMemberHeatmap {
@@ -21,64 +20,37 @@ export function TeamHeatmapGrid({
   teamName = "Core Platform Engineering",
   sprintRange = "Aug 17 – Aug 23, 2026",
 }: TeamHeatmapGridProps) {
-  const teamMembersData: TeamMemberHeatmap[] = [
-    {
-      employeeId: "emp-sarah",
-      employeeName: "Sarah Dev",
-      jobTitle: "Senior Backend Engineer",
-      days: [
-        { date: "2026-08-17", dayName: "Mon", status: "LOCKED", taskCount: 3 },
-        { date: "2026-08-18", dayName: "Tue", status: "LOCKED", taskCount: 4 },
-        { date: "2026-08-19", dayName: "Wed", status: "LOCKED", taskCount: 3 },
-        { date: "2026-08-20", dayName: "Thu", status: "SOD_SUBMITTED", taskCount: 2 },
-        { date: "2026-08-21", dayName: "Fri", status: "NO_DATA", taskCount: 0 },
-        { date: "2026-08-22", dayName: "Sat", status: "WEEKLY_OFF", taskCount: 0 },
-        { date: "2026-08-23", dayName: "Sun", status: "WEEKLY_OFF", taskCount: 0 },
-      ],
-    },
-    {
-      employeeId: "emp-john",
-      employeeName: "John UI",
-      jobTitle: "Frontend Engineer",
-      days: [
-        { date: "2026-08-17", dayName: "Mon", status: "LOCKED", taskCount: 4 },
-        { date: "2026-08-18", dayName: "Tue", status: "LOCKED", taskCount: 3 },
-        { date: "2026-08-19", dayName: "Wed", status: "LOCKED", taskCount: 4 },
-        { date: "2026-08-20", dayName: "Thu", status: "EOD_SUBMITTED", taskCount: 3 },
-        { date: "2026-08-21", dayName: "Fri", status: "NO_DATA", taskCount: 0 },
-        { date: "2026-08-22", dayName: "Sat", status: "WEEKLY_OFF", taskCount: 0 },
-        { date: "2026-08-23", dayName: "Sun", status: "WEEKLY_OFF", taskCount: 0 },
-      ],
-    },
-    {
-      employeeId: "emp-priya",
-      employeeName: "Priya QA",
-      jobTitle: "QA Lead",
-      days: [
-        { date: "2026-08-17", dayName: "Mon", status: "LOCKED", taskCount: 5 },
-        { date: "2026-08-18", dayName: "Tue", status: "LOCKED", taskCount: 3 },
-        { date: "2026-08-19", dayName: "Wed", status: "NO_UPDATE", taskCount: 0 },
-        { date: "2026-08-20", dayName: "Thu", status: "OPEN", taskCount: 0 },
-        { date: "2026-08-21", dayName: "Fri", status: "NO_DATA", taskCount: 0 },
-        { date: "2026-08-22", dayName: "Sat", status: "WEEKLY_OFF", taskCount: 0 },
-        { date: "2026-08-23", dayName: "Sun", status: "WEEKLY_OFF", taskCount: 0 },
-      ],
-    },
-    {
-      employeeId: "emp-david",
-      employeeName: "David DevOps",
-      jobTitle: "DevOps Engineer",
-      days: [
-        { date: "2026-08-17", dayName: "Mon", status: "LOCKED", taskCount: 3 },
-        { date: "2026-08-18", dayName: "Tue", status: "FULL_DAY_LEAVE", taskCount: 0 },
-        { date: "2026-08-19", dayName: "Wed", status: "LOCKED", taskCount: 4 },
-        { date: "2026-08-20", dayName: "Thu", status: "SOD_SUBMITTED", taskCount: 3 },
-        { date: "2026-08-21", dayName: "Fri", status: "NO_DATA", taskCount: 0 },
-        { date: "2026-08-22", dayName: "Sat", status: "WEEKLY_OFF", taskCount: 0 },
-        { date: "2026-08-23", dayName: "Sun", status: "WEEKLY_OFF", taskCount: 0 },
-      ],
-    },
-  ];
+  const { allEmployees } = useWorkpulseSharedStore();
+
+  const teamMembersData: TeamMemberHeatmap[] = useMemo(() => {
+    if (allEmployees && allEmployees.length > 0) {
+      return allEmployees.map((emp, idx) => ({
+        employeeId: emp.id,
+        employeeName: emp.name,
+        jobTitle: emp.designation,
+        days: [
+          { date: "2026-08-17", dayName: "Mon", status: "LOCKED", taskCount: 3 + (idx % 3) },
+          { date: "2026-08-18", dayName: "Tue", status: "LOCKED", taskCount: 2 + (idx % 4) },
+          { date: "2026-08-19", dayName: "Wed", status: "LOCKED", taskCount: 3 + (idx % 2) },
+          {
+            date: "2026-08-20",
+            dayName: "Thu",
+            status:
+              emp.eodStatus === "SUBMITTED"
+                ? "EOD_SUBMITTED"
+                : emp.sodStatus === "SUBMITTED"
+                ? "SOD_SUBMITTED"
+                : "OPEN",
+            taskCount: emp.plannedTasks ? emp.plannedTasks.length : 2,
+          },
+          { date: "2026-08-21", dayName: "Fri", status: "NO_DATA", taskCount: 0 },
+          { date: "2026-08-22", dayName: "Sat", status: "WEEKLY_OFF", taskCount: 0 },
+          { date: "2026-08-23", dayName: "Sun", status: "WEEKLY_OFF", taskCount: 0 },
+        ],
+      }));
+    }
+    return [];
+  }, [allEmployees]);
 
   const getCellColor = (status: string) => {
     switch (status) {

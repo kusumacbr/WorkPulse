@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       managerId: "emp-alex",
       managerName: "Alex Lead",
       employeeId: "emp-sarah",
-      employeeName: "Sarah Dev",
+      employeeName: "Sara Dev",
       scheduledAt: "2026-08-22T15:30:00Z",
       durationMinutes: 30,
       status: "SCHEDULED",

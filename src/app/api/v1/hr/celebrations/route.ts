@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
       todayBirthdays: [
         {
           id: "emp-sarah",
-          name: "Sarah Dev",
+          name: "Sara Dev",
           role: "Sr. Backend Engineer",
           department: "Development",
           birthDate: "August 21",

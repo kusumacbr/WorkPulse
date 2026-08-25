@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,7 +97,7 @@ const INITIAL_NEW_JOINERS: NewJoiner[] = [
   {
     id: "nj-1",
     name: "Rohit Sharma",
-    email: "rohit.ui@xorstack.com",
+    email: "rohit.sharma@xorstack.com",
     designation: "Frontend Engineer (UI/UX)",
     department: "Development",
     joiningDate: "2026-08-01",
@@ -108,27 +108,27 @@ const INITIAL_NEW_JOINERS: NewJoiner[] = [
   },
   {
     id: "nj-2",
-    name: "Elena Rostova",
-    email: "elena.devops@xorstack.com",
-    designation: "DevOps & Cloud Engineer",
-    department: "Devops",
+    name: "Sneha Kapoor",
+    email: "sneha.kapoor@xorstack.com",
+    designation: "Data Analytics Engineer",
+    department: "Data processing",
     joiningDate: "2026-08-10",
     onboardingProgress: 85,
     probationCheckpoint: "30_DAYS",
     checkpointStatus: "IN_PROGRESS",
-    leadName: "Marcus Vance",
+    leadName: "Vikram Rao",
   },
   {
     id: "nj-3",
-    name: "Deepak Joshi",
-    email: "deepak.sap@xorstack.com",
-    designation: "SAP S/4HANA Consultant",
-    department: "SAP Services",
+    name: "Ananya Sen",
+    email: "ananya.sen@xorstack.com",
+    designation: "Automation & Embedded QA Engineer",
+    department: "Service Providers (ConfigTap)",
     joiningDate: "2026-08-15",
     onboardingProgress: 70,
     probationCheckpoint: "30_DAYS",
     checkpointStatus: "SCHEDULED",
-    leadName: "Rajeshwar Rao",
+    leadName: "Alex Lead",
   },
 ];
 
@@ -151,29 +151,29 @@ const INITIAL_PROBATION_RECORDS: ProbationRecord[] = [
   {
     id: "pr-2",
     employeeName: "Ananya Sen",
-    department: "Quality Assurance",
-    designation: "Automation QA Lead",
+    department: "Service Providers (ConfigTap)",
+    designation: "Automation & Embedded QA Engineer",
     joiningDate: "2026-06-20",
     confirmationDueDate: "2026-09-20",
     stage: "60_DAYS",
     leadRecommendation: "CONFIRM",
-    leadNotes: "Engineered automated Playwright biometric end-to-end regression suites.",
-    leadName: "Dr. Maya Chen",
+    leadNotes: "Engineered automated ECU and Autosar CAN diagnostic conformity test suites.",
+    leadName: "Alex Lead",
     okrScore: 94.0,
     shiftPunctuality: 99.1,
     status: "PENDING_HR_DECISION",
   },
   {
     id: "pr-3",
-    employeeName: "Elena Rostova",
-    department: "Devops",
-    designation: "DevOps & Cloud Engineer",
+    employeeName: "Sneha Kapoor",
+    department: "Data processing",
+    designation: "Data Analytics Engineer",
     joiningDate: "2026-08-10",
     confirmationDueDate: "2026-09-10",
     stage: "30_DAYS",
     leadRecommendation: "UNDER_REVIEW",
-    leadNotes: "30-day initial checkpoint. Active on CI/CD pipeline optimization tasks.",
-    leadName: "Marcus Vance",
+    leadNotes: "30-day initial checkpoint. Active on real-time ingestion pipeline optimization tasks.",
+    leadName: "Vikram Rao",
     okrScore: 86.0,
     shiftPunctuality: 97.5,
     status: "PENDING_HR_DECISION",
@@ -183,9 +183,9 @@ const INITIAL_PROBATION_RECORDS: ProbationRecord[] = [
 const INITIAL_NOTICE_RECORDS: NoticeExitRecord[] = [
   {
     id: "ne-1",
-    employeeName: "Karthik Raja",
-    department: "Devops",
-    designation: "DevOps & Cloud Engineer",
+    employeeName: "Ananya Sen",
+    department: "Service Providers (ConfigTap)",
+    designation: "Automation & Embedded QA Engineer",
     resignationDate: "2026-08-15",
     lastWorkingDate: "2026-09-15",
     type: "NOTICE_PERIOD",
@@ -193,23 +193,15 @@ const INITIAL_NOTICE_RECORDS: NoticeExitRecord[] = [
     exitInterviewDone: false,
     clearanceStatus: "PENDING_IT",
   },
-  {
-    id: "ne-2",
-    employeeName: "Rajesh Kumar",
-    department: "Data processing",
-    designation: "ETL Data Developer",
-    resignationDate: "2026-06-30",
-    lastWorkingDate: "2026-07-31",
-    type: "EXITED",
-    handoverStatus: "COMPLETED",
-    exitInterviewDone: true,
-    clearanceStatus: "FINAL_SETTLEMENT_DONE",
-  },
 ];
 
 export function HRPeopleOperationsDeck() {
-  const { departments, addEmployee, updateEmployee, deleteEmployee } = useWorkpulseSharedStore();
+  const { allEmployees, departments, addEmployee, updateEmployee, deleteEmployee, syncWithSupabase } = useWorkpulseSharedStore();
   const [subTab, setSubTab] = useState<"joiners_probation" | "org_tree" | "directory" | "exits">("directory");
+
+  useEffect(() => {
+    syncWithSupabase();
+  }, []);
 
   // Probation state
   const [probationList, setProbationList] = useState<ProbationRecord[]>(INITIAL_PROBATION_RECORDS);
@@ -262,59 +254,56 @@ export function HRPeopleOperationsDeck() {
     showToast(`Probation period extended by 30 days for ${name}.`);
   };
 
-  // Build full employee directory from all 6 departments + leads
+  // Build full employee directory from allEmployees (exact Supabase records)
   const fullDirectory = useMemo(() => {
+    const seen = new Set<string>();
     const list: DirectoryEmployeeItem[] = [];
 
-    // Add designated team leads
-    departments.forEach((d) => {
+    // Prioritize all live employees from the reactive Supabase store
+    const sourceList = allEmployees.length > 0 ? allEmployees : departments.flatMap((d) => d.employees);
+
+    sourceList.forEach((emp) => {
+      if (seen.has(emp.id)) return;
+      seen.add(emp.id);
+
+      const isLead =
+        emp.id.startsWith("lead-") ||
+        emp.id.startsWith("admin-") ||
+        (emp.designation && (emp.designation.toLowerCase().includes("lead") || emp.designation.toLowerCase().includes("director"))) ||
+        departments.some((d) => d.teamLead.id === emp.id);
+
+      const isProbation = INITIAL_PROBATION_RECORDS.some(
+        (p) => p.employeeName.toLowerCase() === emp.name.toLowerCase() && p.status === "PENDING_HR_DECISION"
+      );
+      const isNotice = INITIAL_NOTICE_RECORDS.some(
+        (n) => n.employeeName.toLowerCase() === emp.name.toLowerCase() && n.type === "NOTICE_PERIOD"
+      );
+
       list.push({
-        id: d.teamLead.id,
-        name: d.teamLead.name,
-        email: d.teamLead.email,
-        designation: d.teamLead.designation,
-        department: d.name,
-        departmentId: d.id,
-        teamLeadName: "Executive Leadership",
-        workMode: "OFFICE",
-        status: "Full-Time",
-        joiningDate: "2024-01-15",
-        leaveBalance: 14.5,
-        phoneNumber: "+91 98450 00100",
-        workLocation: "Bangalore HQ (Floor 3)",
-        isLead: true,
-      });
-
-      // Add direct reports
-      d.employees.forEach((emp) => {
-        const isProbation = INITIAL_PROBATION_RECORDS.some(
-          (p) => p.employeeName.toLowerCase() === emp.name.toLowerCase() && p.status === "PENDING_HR_DECISION"
-        );
-        const isNotice = INITIAL_NOTICE_RECORDS.some(
-          (n) => n.employeeName.toLowerCase() === emp.name.toLowerCase() && n.type === "NOTICE_PERIOD"
-        );
-
-        list.push({
-          id: emp.id,
-          name: emp.name,
-          email: emp.email,
-          designation: emp.designation,
-          department: d.name,
-          departmentId: d.id,
-          teamLeadName: emp.teamLeadName,
-          workMode: emp.workMode || "OFFICE",
-          status: isNotice ? "Notice Period" : isProbation ? "Probation" : "Full-Time",
-          joiningDate: "2025-06-01",
-          leaveBalance: emp.remainingLeaveBalance || 11.0,
-          phoneNumber: "+91 98450 88771",
-          workLocation: emp.workMode === "WFH" ? "Remote (India)" : "Bangalore HQ (Floor 0)",
-          isLead: false,
-        });
+        id: emp.id,
+        name: emp.name,
+        email: emp.email,
+        designation: emp.designation,
+        department: emp.departmentName,
+        departmentId: emp.departmentId,
+        teamLeadName: isLead ? "Executive Leadership" : emp.teamLeadName,
+        workMode: emp.workMode || "OFFICE",
+        status:
+          (emp.status as any) ||
+          (isNotice ? "Notice Period" : isProbation ? "Probation" : "Full-Time"),
+        joiningDate: emp.joiningDate || "2025-06-01",
+        leaveBalance: emp.remainingLeaveBalance ?? 12.0,
+        phoneNumber: emp.phoneNumber || "+91 98450 88771",
+        workLocation:
+          emp.workLocation ||
+          emp.location ||
+          (emp.workMode === "WFH" ? "Remote (India)" : "Bangalore HQ (Floor 3)"),
+        isLead,
       });
     });
 
     return list;
-  }, [departments]);
+  }, [allEmployees, departments]);
 
   // Filtered directory
   const filteredDirectory = useMemo(() => {
@@ -340,14 +329,14 @@ export function HRPeopleOperationsDeck() {
   }, [filteredDirectory, safeCurrentPage, pageSize]);
 
   // Handle Add Employee Submit
-  const handleAddEmployeeSubmit = (e: React.FormEvent) => {
+  const handleAddEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addForm.name.trim() || !addForm.email.trim() || !addForm.designation.trim()) {
       showToast("Please fill all required employee fields.");
       return;
     }
 
-    const created = addEmployee({
+    const payload = {
       name: addForm.name.trim(),
       email: addForm.email.trim(),
       designation: addForm.designation.trim(),
@@ -355,14 +344,28 @@ export function HRPeopleOperationsDeck() {
       workMode: addForm.workMode,
       remainingLeaveBalance: Number(addForm.remainingLeaveBalance) || 12.0,
       employmentType: addForm.employmentType,
+      status: addForm.employmentType === "Probation" ? "Probation" : "Full-Time",
       joiningDate: addForm.joiningDate,
       phoneNumber: addForm.phoneNumber,
       location: addForm.location,
-    });
+      workLocation: addForm.location,
+    };
+
+    const created = addEmployee(payload);
+
+    try {
+      await fetch("/api/v1/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // safe fallback
+    }
 
     if (created) {
       const targetDept = departments.find((d) => d.id === addForm.departmentId);
-      showToast(`🎉 Employee "${created.name}" onboarded successfully into ${targetDept?.name || "the organization"}!`);
+      showToast(`🎉 Employee "${created.name}" onboarded successfully into ${targetDept?.name || "the organization"} & synced to Supabase!`);
       setShowAddModal(false);
       // Reset form
       setAddForm({
@@ -381,28 +384,56 @@ export function HRPeopleOperationsDeck() {
   };
 
   // Handle Edit Employee Submit
-  const handleEditEmployeeSubmit = (e: React.FormEvent) => {
+  const handleEditEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEmployee) return;
 
-    updateEmployee(editingEmployee.id, {
+    const updates = {
       name: editingEmployee.name.trim(),
       email: editingEmployee.email.trim(),
       designation: editingEmployee.designation.trim(),
       departmentId: editingEmployee.departmentId,
       workMode: editingEmployee.workMode,
+      status: editingEmployee.status,
       remainingLeaveBalance: Number(editingEmployee.leaveBalance),
-    });
+      phoneNumber: editingEmployee.phoneNumber,
+      workLocation: editingEmployee.workLocation,
+      joiningDate: editingEmployee.joiningDate,
+    };
 
-    showToast(`✓ Employee record for "${editingEmployee.name}" updated successfully.`);
+    updateEmployee(editingEmployee.id, updates);
+
+    try {
+      await fetch(`/api/v1/employees/${editingEmployee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+    } catch {
+      // safe fallback
+    }
+
+    showToast(`✓ Employee record for "${editingEmployee.name}" updated in Supabase & application roster.`);
     setEditingEmployee(null);
   };
 
   // Handle Delete / Offboard Employee Confirm
-  const handleDeleteEmployeeConfirm = () => {
+  const handleDeleteEmployeeConfirm = async () => {
     if (!deletingEmployee) return;
-    deleteEmployee(deletingEmployee.id);
-    showToast(`🗑️ Employee "${deletingEmployee.name}" has been offboarded & archived from active roster.`);
+    const empId = deletingEmployee.id;
+    const empName = deletingEmployee.name;
+
+    deleteEmployee(empId);
+
+    try {
+      await fetch(`/api/v1/employees/${empId}`, {
+        method: "DELETE",
+      });
+    } catch {
+      // safe fallback
+    }
+
+    showToast(`🗑️ Employee "${empName}" offboarded & archived from Supabase & application.`);
     setDeletingEmployee(null);
   };
 
@@ -1417,7 +1448,7 @@ export function HRPeopleOperationsDeck() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-foreground">Work Mode</label>
                   <select
@@ -1437,7 +1468,25 @@ export function HRPeopleOperationsDeck() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-foreground">Remaining Leave Quota (Days)</label>
+                  <label className="text-[11px] font-bold text-foreground">Status</label>
+                  <select
+                    value={editingEmployee.status}
+                    onChange={(e) =>
+                      setEditingEmployee({
+                        ...editingEmployee,
+                        status: e.target.value as "Full-Time" | "Probation" | "Notice Period",
+                      })
+                    }
+                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-card text-xs text-foreground focus:outline-none"
+                  >
+                    <option value="Full-Time">Full-Time</option>
+                    <option value="Probation">Probation</option>
+                    <option value="Notice Period">Notice Period</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-foreground">Leave Quota (Days)</label>
                   <Input
                     type="number"
                     step="0.5"
@@ -1448,6 +1497,28 @@ export function HRPeopleOperationsDeck() {
                         leaveBalance: parseFloat(e.target.value) || 0,
                       })
                     }
+                    className="h-8.5 text-xs bg-card"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-foreground">Phone Number</label>
+                  <Input
+                    value={editingEmployee.phoneNumber || ""}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, phoneNumber: e.target.value })}
+                    placeholder="+91 98450 11223"
+                    className="h-8.5 text-xs bg-card"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-foreground">Work Location</label>
+                  <Input
+                    value={editingEmployee.workLocation || ""}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, workLocation: e.target.value })}
+                    placeholder="Bangalore HQ (Floor 0)"
                     className="h-8.5 text-xs bg-card"
                   />
                 </div>

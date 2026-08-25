@@ -175,6 +175,27 @@ export class WorkdayService {
 
     inMemoryWorkdays.set(key, workday);
 
+    // Persist to Supabase public.workdays table
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("workdays").upsert({
+          id: workday.id,
+          employee_id: targetEmployeeId,
+          employee_name: params.actor.userId,
+          date: params.input.workDate,
+          work_mode: workday.workMode,
+          sod_status: "SUBMITTED",
+          sod_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          planned_tasks: tasks,
+          overall_progress: 0,
+        });
+      }
+    } catch {
+      // Graceful fallback
+    }
+
     // Record Audit event
     await AuditService.record({
       actorId: params.actor.userId,
@@ -297,6 +318,30 @@ export class WorkdayService {
     };
 
     inMemoryWorkdays.set(workdayKey, updatedWorkday);
+
+    // Persist to Supabase public.workdays table
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("workdays").upsert({
+          id: updatedWorkday.id,
+          employee_id: updatedWorkday.employeeId,
+          date: updatedWorkday.workDate,
+          work_mode: updatedWorkday.workMode,
+          eod_status: "SUBMITTED",
+          eod_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          actual_hours: workedHours,
+          achievements: params.input.dailySummary.achievements,
+          blockers: params.input.dailySummary.issues || null,
+          tomorrow_focus: params.input.dailySummary.nextDayFocus || null,
+          planned_tasks: updatedTasks,
+          overall_progress: 100,
+        });
+      }
+    } catch {
+      // Graceful fallback
+    }
 
     // Record Audit Event
     await AuditService.record({

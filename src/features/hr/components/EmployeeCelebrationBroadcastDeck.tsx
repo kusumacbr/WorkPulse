@@ -67,7 +67,7 @@ export interface CulturalFestival {
 const INITIAL_BIRTHDAYS: BirthdayCelebrant[] = [
   {
     id: "emp-sarah",
-    name: "Sarah Dev",
+    name: "Sara Dev",
     role: "Senior Backend Engineer",
     department: "Development",
     departmentId: "dept-development",
@@ -81,8 +81,8 @@ const INITIAL_BIRTHDAYS: BirthdayCelebrant[] = [
     wishesCount: 14,
     reactions: { "🎉": 18, "🎂": 22, "🚀": 11, "❤️": 16, "👏": 9, "🥂": 14 },
     peerWishes: [
-      { id: "pw-1", author: "Alex Lead", role: "Engineering Lead", text: "Happy Birthday Sarah! Fantastic job on the sprint deliverables today. Have a blast! 🚀", time: "10 mins ago" },
-      { id: "pw-2", author: "Priya QA", role: "QA Lead", text: "Wishing you zero bugs and infinite joy this year Sarah! 🎂🎉", time: "25 mins ago" },
+      { id: "pw-1", author: "Alex Lead", role: "Engineering Lead", text: "Happy Birthday Sara! Fantastic job on the sprint deliverables today. Have a blast! 🚀", time: "10 mins ago" },
+      { id: "pw-2", author: "Priya QA", role: "QA Lead", text: "Wishing you zero bugs and infinite joy this year Sara! 🎂🎉", time: "25 mins ago" },
     ],
   },
   {
@@ -154,16 +154,16 @@ const INITIAL_BIRTHDAYS: BirthdayCelebrant[] = [
     peerWishes: [],
   },
   {
-    id: "emp-meera",
-    name: "Meera Iyer",
-    role: "SAP S/4HANA Consultant",
-    department: "SAP Services",
-    departmentId: "dept-sap",
-    avatar: "MI",
+    id: "hr-rachel",
+    name: "Rachel HR",
+    role: "Head of People Operations",
+    department: "Human Resources",
+    departmentId: "dept-hr",
+    avatar: "RH",
     location: "Bangalore HQ",
     birthDate: "Oct 04",
     daysAway: 44,
-    funFact: "ERP optimization guru & botanical garden cultivator 🌿",
+    funFact: "People ops advocate & marathon runner 🏃‍♀️",
     isCelebrated: false,
     isBroadcasted: false,
     wishesCount: 1,
@@ -489,7 +489,7 @@ export function EmployeeCelebrationBroadcastDeck() {
                 peerWishes: [
                   {
                     id: `pw-${Date.now()}`,
-                    author: "Current User (Sarah Dev)",
+                    author: "Current User (Sara Dev)",
                     role: "Engineering Pod",
                     text,
                     time: "Just now",
@@ -510,7 +510,7 @@ export function EmployeeCelebrationBroadcastDeck() {
                 peerWishes: [
                   {
                     id: `fw-${Date.now()}`,
-                    author: "Current User (Sarah Dev)",
+                    author: "Current User (Sara Dev)",
                     role: "Engineering Pod",
                     text,
                     time: "Just now",

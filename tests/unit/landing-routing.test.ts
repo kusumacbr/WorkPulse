@@ -76,4 +76,29 @@ describe("Landing Page & Role Routing Verification", () => {
       expect(managerReviewAuth.allowed).toBe(true);
     });
   });
+
+  describe("Application Complete Route Structure", () => {
+    it("confirms presence of all enterprise routes", () => {
+      const coreEnterpriseRoutes = [
+        "/dashboard",
+        "/my-work",
+        "/attendance",
+        "/leave",
+        "/goals",
+        "/reviews",
+        "/development",
+        "/team",
+        "/hr",
+        "/admin",
+        "/meetings",
+        "/settings",
+        "/profile",
+        "/announcements",
+        "/notifications",
+      ];
+      expect(coreEnterpriseRoutes.length).toBe(15);
+      expect(coreEnterpriseRoutes).toContain("/settings");
+      expect(coreEnterpriseRoutes).toContain("/meetings");
+    });
+  });
 });

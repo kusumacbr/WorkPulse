@@ -40,10 +40,10 @@ interface RegularizationRequest {
 const INITIAL_REGULARIZATIONS: RegularizationRequest[] = [
   {
     id: "reg-1",
-    employeeId: "emp-john",
-    employeeName: "John UI",
+    employeeId: "emp-rohit",
+    employeeName: "Rohit Sharma",
     departmentName: "Development",
-    designation: "Frontend Engineer",
+    designation: "Frontend Engineer (UI/UX)",
     date: "2026-08-19",
     punchType: "MISSED_IN",
     actualTime: "10:04 AM",
@@ -80,7 +80,7 @@ const INITIAL_REGULARIZATIONS: RegularizationRequest[] = [
 ];
 
 export function HREnterpriseAttendanceOversight() {
-  const { departments } = useWorkpulseSharedStore();
+  const { departments, allEmployees } = useWorkpulseSharedStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState<string>("ALL");
   const [selectedPolicyType, setSelectedPolicyType] = useState<"ALL" | "FULL_TIME" | "PROBATION">("ALL");
@@ -401,13 +401,19 @@ export function HREnterpriseAttendanceOversight() {
             </p>
 
             <div className="space-y-3 pt-1">
-              {regularizations.map((reg) => (
-                <div
-                  key={reg.id}
-                  className="p-3.5 rounded-xl bg-card/60 border border-border/70 space-y-2.5 text-xs transition-all hover:border-amber-500/40"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-foreground">{reg.employeeName}</span>
+              {regularizations.map((reg) => {
+                const matchedEmp = allEmployees.find(
+                  (e) => e.id === reg.employeeId || e.name.toLowerCase() === reg.employeeName.toLowerCase()
+                );
+                const employeeName = matchedEmp ? matchedEmp.name : reg.employeeName;
+
+                return (
+                  <div
+                    key={reg.id}
+                    className="p-3.5 rounded-xl bg-card/60 border border-border/70 space-y-2.5 text-xs transition-all hover:border-amber-500/40"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">{employeeName}</span>
                     <Badge
                       variant="outline"
                       className={`text-[9px] uppercase font-bold ${
@@ -458,9 +464,10 @@ export function HREnterpriseAttendanceOversight() {
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </Interactive3DCard>
+              );
+            })}
+          </div>
+        </Interactive3DCard>
         </div>
       </div>
 

@@ -38,7 +38,7 @@ export default function TeamReviewDetailPage({
               </div>
               <h2 className="text-2xl font-black text-foreground">Sprint 34 Team Appraisal Detail</h2>
               <p className="text-xs text-muted-foreground">
-                Employee: <strong className="text-foreground">Sarah Dev</strong> · Lead Reviewer: <strong className="text-purple-300">Alex Lead</strong>
+                Employee: <strong className="text-foreground">Sara Dev</strong> · Lead Reviewer: <strong className="text-purple-300">Alex Lead</strong>
               </p>
             </div>
             <div className="text-right">
