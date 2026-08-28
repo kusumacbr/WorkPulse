@@ -9,7 +9,7 @@ export async function POST(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN") && !actor.roles.includes("MANAGER")) {
+  if (!actor.roles.includes("HR") && !actor.roles.includes("MANAGER")) {
     return apiError("Forbidden: You lack authority to finalize monthly performance reviews.", 403, "FORBIDDEN");
   }
 

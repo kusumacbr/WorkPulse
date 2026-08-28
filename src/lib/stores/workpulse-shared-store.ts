@@ -2022,10 +2022,15 @@ export const workpulseSharedStore = {
     weeklyReviews: globalWeeklyReviews,
     myPunches: globalMyPunches,
     leaveBalances: globalLeaveBalances,
+    tlApproveLeave: WorkpulseSharedStore.tlApproveLeave,
+    tlRejectLeave: WorkpulseSharedStore.tlRejectLeave,
     leadApproveLeave: WorkpulseSharedStore.tlApproveLeave,
     hrApproveLeave: WorkpulseSharedStore.hrApproveLeave,
     hrRejectLeave: WorkpulseSharedStore.hrRejectLeave,
+    tlApproveWfh: WorkpulseSharedStore.tlApproveWfh,
+    tlRejectWfh: WorkpulseSharedStore.tlRejectWfh,
     hrApproveWfh: WorkpulseSharedStore.hrApproveWfh,
+    hrRejectWfh: WorkpulseSharedStore.hrRejectWfh,
     virtualPunch: () => {
       globalMyPunches.unshift({
         id: `punch-${Date.now()}`,

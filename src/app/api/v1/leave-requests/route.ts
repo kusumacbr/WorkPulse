@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
   const state = workpulseSharedStore.getState();
   let requests = state.leaveRequests;
 
-  // Scoping: Employee only sees own; Manager sees direct reports; HR/Admin sees all
-  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
+  // Scoping: Employee only sees own; Manager sees direct reports; HR sees all
+  if (!actor.roles.includes("HR")) {
     if (actor.roles.includes("MANAGER")) {
       requests = requests.filter(
         (r) =>

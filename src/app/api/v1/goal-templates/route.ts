@@ -34,8 +34,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only HR and Admin can create goal templates.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can create goal templates.", 403, "FORBIDDEN");
   }
 
   try {

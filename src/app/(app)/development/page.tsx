@@ -22,7 +22,7 @@ import {
 
 export default function DevelopmentPage() {
   const user = useCurrentUser();
-  const isHR = user.roles.includes("HR") || user.primaryRole === "HR" || user.roles.includes("ADMIN");
+  const isHR = user.roles.includes("HR") || user.primaryRole === "HR";
 
   const [activeTab, setActiveTab] = useState<"hr_talent" | "blockers" | "1on1" | "badges" | "pip">(
     isHR ? "hr_talent" : "blockers"

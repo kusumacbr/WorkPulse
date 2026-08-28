@@ -17,19 +17,15 @@ import {
   Calendar,
   ShieldCheck,
   HeartHandshake,
-  Megaphone,
   LayoutDashboard,
-  Activity,
 } from "lucide-react";
 
 export type HrMainTabKey =
   | "overview"
-  | "live_monitor"
-  | "people_ops"
+  | "directory"
   | "attendance_leave"
-  | "compliance"
-  | "wellbeing"
-  | "communication";
+  | "talent_compliance"
+  | "culture_wellbeing";
 
 export default function HrCommandCenterPage() {
   const [activeTab, setActiveTab] = useState<HrMainTabKey>("overview");
@@ -48,14 +44,15 @@ export default function HrCommandCenterPage() {
 
   return (
     <PageTransition>
-      {/* 1. TOP-LEVEL ACTIONABLE GLANCEABLE SUMMARY (At the very top of the page) */}
+      {/* 1. TOP-LEVEL ACTIONABLE GLANCEABLE SUMMARY */}
       <HRTopLevelSummary
         onNavigateTab={handleNavigateTab}
         onOpenExportModal={() => setShowExportModal(true)}
       />
 
-      {/* 2. MAIN SECTION NAVIGATION BAR */}
-      <div className="flex items-center p-1.5 rounded-2xl bg-card/60 border border-border/80 backdrop-blur-xl overflow-x-auto gap-1 shadow-sm mt-6 mb-6">
+      {/* 2. STREAMLINED & DISTRIBUTED HR DASHBOARD TABS */}
+      <div className="flex items-center p-1.5 rounded-2xl bg-card/60 border border-border/80 backdrop-blur-xl overflow-x-auto gap-1.5 shadow-sm mt-6 mb-6">
+        {/* TAB 1: UNIFIED COMMAND */}
         <button
           type="button"
           onClick={() => {
@@ -72,38 +69,24 @@ export default function HrCommandCenterPage() {
           <span>Unified Command</span>
         </button>
 
+        {/* TAB 2: EMPLOYEES & DIRECTORY */}
         <button
           type="button"
           onClick={() => {
-            setActiveTab("live_monitor");
+            setActiveTab("directory");
             setSubTabFilter(undefined);
           }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-            activeTab === "live_monitor"
-              ? "bg-gradient-to-r from-cyan-500 to-emerald-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-          }`}
-        >
-          <Activity className="h-3.5 w-3.5" />
-          <span>Live Org Execution Radar</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("people_ops");
-            setSubTabFilter(undefined);
-          }}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-            activeTab === "people_ops"
+            activeTab === "directory"
               ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <Users className="h-3.5 w-3.5" />
-          <span>People Operations & Directory</span>
+          <span>Employees & Directory</span>
         </button>
 
+        {/* TAB 3: ATTENDANCE & LEAVE OVERSIGHT */}
         <button
           type="button"
           onClick={() => {
@@ -125,90 +108,78 @@ export default function HrCommandCenterPage() {
           )}
         </button>
 
+        {/* TAB 4: TALENT, PROBATION & COMPLIANCE */}
         <button
           type="button"
           onClick={() => {
-            setActiveTab("compliance");
+            setActiveTab("talent_compliance");
             setSubTabFilter(undefined);
           }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-            activeTab === "compliance"
-              ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+            activeTab === "talent_compliance"
+              ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <ShieldCheck className="h-3.5 w-3.5" />
-          <span>Policy, Compliance & PIP</span>
+          <span>Talent, Probation & Compliance</span>
         </button>
 
+        {/* TAB 5: CULTURE, WELLBEING & BROADCASTS */}
         <button
           type="button"
           onClick={() => {
-            setActiveTab("wellbeing");
+            setActiveTab("culture_wellbeing");
             setSubTabFilter(undefined);
           }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-            activeTab === "wellbeing"
+            activeTab === "culture_wellbeing"
               ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <HeartHandshake className="h-3.5 w-3.5" />
-          <span>Wellbeing Signals</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("communication");
-            setSubTabFilter(undefined);
-          }}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-            activeTab === "communication"
-              ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-          }`}
-        >
-          <Megaphone className="h-3.5 w-3.5" />
-          <span>Broadcasts & Reporting</span>
+          <span>Culture, Wellbeing & Broadcasts</span>
         </button>
       </div>
 
       {/* 3. SECTION CONTENT */}
       <AnimatedTabContent tabKey={activeTab}>
-        {/* TAB 1: UNIFIED COMMAND (Showing People Ops + Live Stage-2 + Wellbeing + Reporting Shortcuts) */}
+        {/* TAB 1: UNIFIED COMMAND (High-level presence, radar, live stage-2 approvals, quick directory access) */}
         {activeTab === "overview" && (
           <div className="space-y-6">
             <OrgLiveExecutionMonitor />
             <HRAttendanceLeaveOversightDeck defaultSubTab="queue" />
-            <HRPeopleOperationsDeck />
+            <HRPeopleOperationsDeck defaultSubTab="directory" allowedSubTabs={["directory"]} />
             <HRWellbeingSignalsDeck />
             <HRCommunicationReportingDeck onOpenExportModal={() => setShowExportModal(true)} />
           </div>
         )}
 
-        {/* TAB 2: LIVE ORG EXECUTION RADAR */}
-        {activeTab === "live_monitor" && <OrgLiveExecutionMonitor />}
+        {/* TAB 2: EMPLOYEES & DIRECTORY */}
+        {activeTab === "directory" && (
+          <HRPeopleOperationsDeck
+            defaultSubTab={(subTabFilter as any) || "directory"}
+            allowedSubTabs={["directory", "org_tree"]}
+          />
+        )}
 
-        {/* TAB 3: PEOPLE OPERATIONS */}
-        {activeTab === "people_ops" && <HRPeopleOperationsDeck />}
-
-        {/* TAB 4: ATTENDANCE & LEAVE OVERSIGHT */}
+        {/* TAB 3: ATTENDANCE & LEAVE OVERSIGHT */}
         {activeTab === "attendance_leave" && (
           <HRAttendanceLeaveOversightDeck defaultSubTab={subTabFilter || "queue"} />
         )}
 
-        {/* TAB 5: POLICY, COMPLIANCE & PIP */}
-        {activeTab === "compliance" && (
-          <HRPolicyComplianceDeck defaultSubTab={subTabFilter || "reviews"} />
+        {/* TAB 4: TALENT, PROBATION & COMPLIANCE (Onboarding, 90-day confirmation, Lead reviews, PIP, Exits, Policies) */}
+        {activeTab === "talent_compliance" && (
+          <HRPolicyComplianceDeck defaultSubTab={subTabFilter || "joiners_probation"} />
         )}
 
-        {/* TAB 6: WELLBEING SIGNALS */}
-        {activeTab === "wellbeing" && <HRWellbeingSignalsDeck />}
-
-        {/* TAB 7: BROADCASTS & EXECUTIVE REPORTING */}
-        {activeTab === "communication" && (
-          <HRCommunicationReportingDeck onOpenExportModal={() => setShowExportModal(true)} />
+        {/* TAB 5: CULTURE, WELLBEING & BROADCASTS (Celebrations, Hampers, Mood radar, Announcements & Audit reports) */}
+        {activeTab === "culture_wellbeing" && (
+          <div className="space-y-6">
+            <HRWellbeingSignalsDeck />
+            <HRCommunicationReportingDeck onOpenExportModal={() => setShowExportModal(true)} />
+          </div>
         )}
       </AnimatedTabContent>
 

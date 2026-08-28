@@ -139,9 +139,9 @@ export class ExportService {
 
     const actorEmpId = params.actor.employeeId || params.actor.userId;
     const isOwner = job.requesterId === actorEmpId;
-    const isAdmin = params.actor.roles.includes("ADMIN");
+    const isHR = params.actor.roles.includes("HR");
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isHR) {
       return { valid: false, error: "Forbidden: You do not have permission to download this export file." };
     }
 

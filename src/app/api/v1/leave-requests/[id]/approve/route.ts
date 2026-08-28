@@ -15,15 +15,15 @@ export async function POST(
   if (!reqItem) return apiError(`Leave request '${id}' not found`, 404, "NOT_FOUND");
 
   // Prevent employee approving own request
-  if (actor.employeeId === reqItem.employeeId && !actor.roles.includes("ADMIN")) {
+  if (actor.employeeId === reqItem.employeeId) {
     return apiError("Forbidden: You cannot approve your own leave application.", 403, "FORBIDDEN");
   }
 
   const body = await req.json().catch(() => ({}));
 
   if (reqItem.status === "PENDING_TL_STAGE_1" || (reqItem.status as string) === "PENDING_MANAGER") {
-    if (!actor.roles.includes("MANAGER") && !actor.roles.includes("ADMIN")) {
-      return apiError("Forbidden: Only Managers or Admin can provide Stage 1 approval.", 403, "FORBIDDEN");
+    if (!actor.roles.includes("MANAGER")) {
+      return apiError("Forbidden: Only Team Leads can provide Stage 1 approval.", 403, "FORBIDDEN");
     }
     state.leadApproveLeave(id, body.comment || "Approved by Manager");
     await AuditService.record({
@@ -35,8 +35,8 @@ export async function POST(
     });
     return apiSuccess({ request: reqItem, status: "FORWARDED_TO_HR", message: "Stage 1 approved. Forwarded to HR." });
   } else if (reqItem.status === "FORWARDED_TO_HR" || (reqItem.status as string) === "PENDING_HR") {
-    if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-      return apiError("Forbidden: Only HR or Admin can provide final Stage 2 approval.", 403, "FORBIDDEN");
+    if (!actor.roles.includes("HR")) {
+      return apiError("Forbidden: Only HR can provide final Stage 2 approval.", 403, "FORBIDDEN");
     }
     state.hrApproveLeave(id, body.comment || "Approved by HR");
     await AuditService.record({

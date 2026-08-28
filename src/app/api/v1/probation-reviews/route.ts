@@ -21,8 +21,7 @@ export async function GET() {
       technicalScore: 5,
       conductScore: 5,
       hrDecision: "CONFIRM_EMPLOYMENT",
-      adminConfirmed: false,
-      status: "PENDING_ADMIN",
+      status: "CONFIRMED",
       reviewedAt: "2026-08-20T10:00:00Z",
     },
   ];

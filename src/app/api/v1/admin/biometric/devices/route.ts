@@ -4,8 +4,8 @@ import { BiometricIntegrationService } from "@/server/services/biometric-service
 
 export async function GET(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("ADMIN") && !actor.roles.includes("HR")) {
-    return apiError("Forbidden: Only HR and Admin can access biometric device status.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can access biometric device status.", 403, "FORBIDDEN");
   }
 
   const devices = await BiometricIntegrationService.listDevices();
@@ -14,8 +14,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only Admin can register biometric edge devices.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can register biometric edge devices.", 403, "FORBIDDEN");
   }
 
   try {

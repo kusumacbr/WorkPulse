@@ -6,7 +6,7 @@ import { Header } from "./Header";
 import { AmbientBackdrop } from "../3d/AmbientBackdrop";
 import { UserProvider, UserContextValue, useCurrentUser } from "./UserContext";
 import { BroadcastNotificationPopup } from "./BroadcastNotificationPopup";
-import { LiveDemoAndQASandbox } from "./LiveDemoAndQASandbox";
+import { PulseAgentWidget } from "../agent/PulseAgentWidget";
 import { useRealtimeSync } from "@/lib/realtime/use-realtime-sync";
 
 interface AppShellProps {
@@ -26,8 +26,8 @@ function InnerAppShell({ children, fallbackUser }: { children: React.ReactNode; 
       {/* Global Broadcast Notification Popup Modal */}
       <BroadcastNotificationPopup />
 
-      {/* Interactive QA & Live Demo Sandbox Floating Console */}
-      <LiveDemoAndQASandbox />
+      {/* Google ADK Pulse Agent Floating Widget */}
+      <PulseAgentWidget />
 
       {/* Glassmorphic Sidebar navigation */}
       <Sidebar userRoles={effectiveRoles} />

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
+import { HRPeopleOperationsDeck } from "@/features/hr/components/HRPeopleOperationsDeck";
 import {
   Calendar,
   CheckCircle2,
@@ -13,6 +14,8 @@ import {
   Lock,
   Plus,
   Check,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 
 interface LeadComplianceRecord {
@@ -170,9 +173,9 @@ const INITIAL_HOLIDAYS: CompanyHoliday[] = [
   },
 ];
 
-export function HRPolicyComplianceDeck({ defaultSubTab = "reviews" }: { defaultSubTab?: string }) {
-  const [subTab, setSubTab] = useState<"reviews" | "pip" | "holidays">(
-    defaultSubTab === "holidays" ? "holidays" : (defaultSubTab as any) || "reviews"
+export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: { defaultSubTab?: string }) {
+  const [subTab, setSubTab] = useState<"joiners_probation" | "reviews" | "pip" | "exits" | "holidays">(
+    (defaultSubTab as any) || "joiners_probation"
   );
 
   const [leadCompliance, setLeadCompliance] = useState<LeadComplianceRecord[]>(INITIAL_LEAD_COMPLIANCE);
@@ -235,6 +238,19 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "reviews" }: { defaultS
       <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto gap-1 text-xs">
         <button
           type="button"
+          onClick={() => setSubTab("joiners_probation")}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+            subTab === "joiners_probation"
+              ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+          }`}
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+          <span>New Joiners & Probation Due</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setSubTab("reviews")}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "reviews"
@@ -243,7 +259,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "reviews" }: { defaultS
           }`}
         >
           <Award className="h-3.5 w-3.5" />
-          <span>Team Lead Review Compliance</span>
+          <span>Lead Review Compliance</span>
         </button>
 
         <button
@@ -264,6 +280,19 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "reviews" }: { defaultS
 
         <button
           type="button"
+          onClick={() => setSubTab("exits")}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+            subTab === "exits"
+              ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+          }`}
+        >
+          <UserMinus className="h-3.5 w-3.5" />
+          <span>Notice Period & Exits</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setSubTab("holidays")}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "holidays"
@@ -272,9 +301,19 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "reviews" }: { defaultS
           }`}
         >
           <Calendar className="h-3.5 w-3.5" />
-          <span>Holiday Calendar Management</span>
+          <span>Holiday Calendar & Policies</span>
         </button>
       </div>
+
+      {/* RENDER NEW JOINERS & PROBATION */}
+      {subTab === "joiners_probation" && (
+        <HRPeopleOperationsDeck defaultSubTab="joiners_probation" allowedSubTabs={["joiners_probation"]} />
+      )}
+
+      {/* RENDER NOTICE PERIOD & EXITS */}
+      {subTab === "exits" && (
+        <HRPeopleOperationsDeck defaultSubTab="exits" allowedSubTabs={["exits"]} />
+      )}
 
       {/* ============================================================== */}
       {/* 1. TEAM LEAD REVIEW COMPLIANCE TRACKER                         */}

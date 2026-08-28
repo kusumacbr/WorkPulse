@@ -8,7 +8,7 @@ import { MetricTile3D } from "@/components/3d/MetricTile3D";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { LeaveRequestModal } from "@/features/leave/components/LeaveRequestModal";
 import { WfhRequestModal } from "@/features/leave/components/WfhRequestModal";
-import { HREnterpriseLeaveDesk } from "@/features/leave/components/HREnterpriseLeaveDesk";
+import { LeadLeaveManager } from "@/features/leave/components/LeadLeaveManager";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import {
@@ -16,21 +16,32 @@ import {
   Laptop,
   Plus,
   Clock,
-  ShieldCheck,
   Sparkles,
   CheckCircle2,
-  ArrowRight,
-  UserCheck,
-  XCircle,
+  PieChart,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
+
+type LeaveTab = "LEAVES" | "WFH" | "BALANCES";
 
 export default function LeavePage() {
   const user = useCurrentUser();
-  const isHR = user.roles.includes("HR") || user.primaryRole === "HR" || user.roles.includes("ADMIN");
+  const isHR =
+    user.roles.includes("HR") ||
+    user.primaryRole === "HR" ||
+    user.userEmail.toLowerCase().includes("hr");
 
-  const [activeTab, setActiveTab] = useState<"hr_desk" | "my_requests">(isHR ? "hr_desk" : "my_requests");
+  const isLead =
+    !isHR &&
+    (user.roles.includes("MANAGER") ||
+      user.primaryRole === "MANAGER" ||
+      user.userEmail.toLowerCase().includes("lead"));
+
+  const [activeTab, setActiveTab] = useState<LeaveTab>("LEAVES");
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
+  const [toastMsg] = useState<string | null>(null);
 
   const { allEmployees, leaveRequests, wfhRequests } = useWorkpulseSharedStore();
 
@@ -46,6 +57,7 @@ export default function LeavePage() {
       r.employeeName === user.userName ||
       r.employeeId === "emp-sarah"
   );
+
   const myWfhRequests = wfhRequests.filter(
     (r) =>
       (matchedEmp && r.employeeId === matchedEmp.id) ||
@@ -57,307 +69,374 @@ export default function LeavePage() {
     matchedEmp?.remainingLeaveBalance ??
     (myLeaveRequests.length > 0 ? myLeaveRequests[0]!.remainingBalance : 12.0);
 
+  if (isHR || isLead) {
+    return (
+      <PageTransition>
+        <div className="space-y-6">
+          <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Badge variant="brand" className="font-bold text-[10px] uppercase">
+                  {isHR ? (
+                    <>
+                      <ShieldCheck className="h-3 w-3 mr-1 text-pink-400" />
+                      <span>HR Leave &amp; WFH Oversight</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-3 w-3 mr-1 text-indigo-400" />
+                      <span>Pod Leave &amp; WFH Operations</span>
+                    </>
+                  )}
+                </Badge>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {isHR ? "Organization-Wide Stage 2 Authorizations & Balances" : "Development Pod · 4 Direct Reports"}
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                {isHR ? "Leave & WFH Oversight & Approvals" : "Pod Leave & WFH Management"}
+              </h2>
+
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                {isHR
+                  ? "Execute Stage-2 HR leave and WFH authorizations, track organization-wide time off, and verify remaining balances."
+                  : "Review direct report time-off applications, manage sprint coverage, and submit your personal leave."}
+              </p>
+            </div>
+          </Interactive3DCard>
+
+          <LeadLeaveManager />
+        </div>
+      </PageTransition>
+    );
+  }
+
   return (
     <PageTransition>
-      {/* 3D Hero */}
-      <Interactive3DCard className="p-6 md:p-8 border border-teal-500/30 bg-gradient-to-r from-card/80 via-card/60 to-teal-500/10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <Badge variant="brand" className="font-bold text-[10px] uppercase bg-teal-500/15 border-teal-500/30 text-teal-300">
-                <ShieldCheck className="h-3 w-3 mr-1 text-teal-400" />
-                Two-Stage Approval Compliance
-              </Badge>
-              <span className="text-xs text-muted-foreground font-mono">Stage 1: Lead Approval → Stage 2: HR Sign-off</span>
+      <div className="space-y-6">
+        {/* Toast Feedback */}
+        {toastMsg && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span className="font-semibold">{toastMsg}</span>
+          </div>
+        )}
+
+        {/* 1. Header Banner */}
+        <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Badge variant="brand" className="font-bold text-[10px] uppercase">
+                  <Calendar className="h-3 w-3 mr-1 text-teal-400" />
+                  Time Off &amp; Remote Work
+                </Badge>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  Stage 1 Approver: <strong className="text-foreground">Alex Lead</strong> (Team Lead)
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                Leave & Work From Home
+              </h2>
+
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Apply for planned time off, submit work-from-home requests, and track your balances.
+              </p>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              {isHR ? "Enterprise Leave & Remote Work Administration Desk" : "Leave & Remote Work Hub"}
-            </h2>
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowWfhModal(true)}
+                className="text-xs font-semibold gap-1.5 h-9"
+              >
+                <Laptop className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Request WFH</span>
+              </Button>
 
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              {isHR
-                ? "Oversee organizational leave quotas across all 6 departments, authorize Stage-2 leave & WFH submissions, monitor remote work compliance, and audit absence trends."
-                : "Submit planned time-off or remote work requests. All applications flow through Team Lead (Alex Lead) for sprint pod review and are forwarded to HR (Rachel HR) for final authorization."}
-            </p>
+              <Button
+                size="sm"
+                variant="brand"
+                onClick={() => setShowLeaveModal(true)}
+                className="text-xs font-bold gap-1.5 h-9"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Apply for Leave</span>
+              </Button>
+            </div>
           </div>
+        </Interactive3DCard>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {isHR && (
-              <div className="flex items-center p-1 rounded-xl bg-background/50 border border-teal-500/30 backdrop-blur-md shrink-0 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("hr_desk")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                    activeTab === "hr_desk"
-                      ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white font-bold shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  <span>HR Enterprise Desk</span>
-                </button>
+        {/* 2. Glanceable Balance Summary Tiles */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricTile3D
+            title="Casual Leave (CL)"
+            value={`${remainingBalance} Days`}
+            subtitle="Available balance"
+            icon={Calendar}
+            badgeText="Available"
+            accent="emerald"
+          />
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("my_requests")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                    activeTab === "my_requests"
-                      ? "bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>My Personal Requests</span>
-                </button>
-              </div>
-            )}
+          <MetricTile3D
+            title="Sick Leave (SL)"
+            value="8.0 Days"
+            subtitle="Annual allocation"
+            icon={Clock}
+            badgeText="Available"
+            accent="cyan"
+          />
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs font-semibold gap-1.5 h-9 border-border/80 hover:border-teal-500/40"
-              onClick={() => setShowWfhModal(true)}
-            >
-              <Laptop className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Request WFH</span>
-            </Button>
-            <Button
-              variant="brand"
-              size="sm"
-              className="text-xs font-bold gap-1.5 h-9 bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md"
-              onClick={() => setShowLeaveModal(true)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Apply for Leave</span>
-            </Button>
-          </div>
+          <MetricTile3D
+            title="WFH This Month"
+            value={`${myWfhRequests.length} Days`}
+            subtitle="Remote work sessions"
+            icon={Laptop}
+            badgeText="Flexible"
+            accent="purple"
+          />
+
+          <MetricTile3D
+            title="Next Holiday"
+            value="Aug 29"
+            subtitle="Ganesh Chaturthi"
+            icon={Sparkles}
+            badgeText="Company Holiday"
+            accent="gold"
+          />
         </div>
-      </Interactive3DCard>
 
-      {/* Render HR Enterprise Desk if active */}
-      {activeTab === "hr_desk" && isHR ? (
-        <HREnterpriseLeaveDesk />
-      ) : (
-        <>
-          {/* 3D Metric Indicators for Personal Leaves */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricTile3D
-              title="Casual Leave (CL)"
-              value={`${remainingBalance} Days`}
-              subtitle="12 Allotted · Available Balance"
-              icon={Calendar}
-              change="Available"
-              changePositive={true}
-              badgeText="Healthy"
-              accent="emerald"
-            />
+        {/* 3. Segregated Navigation Bar */}
+        <Interactive3DCard className="p-4 md:p-5 border border-border/80 bg-card/60 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center p-1 rounded-xl bg-background/50 border border-border/70 overflow-x-auto gap-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveTab("LEAVES")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all ${
+                  activeTab === "LEAVES"
+                    ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Leave Requests ({myLeaveRequests.length})</span>
+              </button>
 
-            <MetricTile3D
-              title="Sick Leave (SL)"
-              value="8.0 Days"
-              subtitle="8 Allotted · 0 Used"
-              icon={Clock}
-              change="Full Balance"
-              changePositive={true}
-              badgeText="Available"
-              accent="cyan"
-            />
+              <button
+                type="button"
+                onClick={() => setActiveTab("WFH")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all ${
+                  activeTab === "WFH"
+                    ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Laptop className="h-3.5 w-3.5" />
+                <span>Work From Home ({myWfhRequests.length})</span>
+              </button>
 
-            <MetricTile3D
-              title="WFH Usage"
-              value={`${myWfhRequests.length} Active`}
-              subtitle="Mon–Fri (10:00 AM – 07:00 PM)"
-              icon={Laptop}
-              change="3 Days Left"
-              changePositive={true}
-              badgeText="Active"
-              accent="purple"
-            />
-
-            <MetricTile3D
-              title="Next Public Holiday"
-              value="In 9 Days"
-              subtitle="Ganesh Chaturthi (Company Holiday)"
-              icon={Sparkles}
-              change="Aug 29, 2026"
-              changePositive={true}
-              badgeText="Countdown"
-              accent="gold"
-            />
+              <button
+                type="button"
+                onClick={() => setActiveTab("BALANCES")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all ${
+                  activeTab === "BALANCES"
+                    ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <PieChart className="h-3.5 w-3.5" />
+                <span>Leave Allowances</span>
+              </button>
+            </div>
           </div>
+        </Interactive3DCard>
 
-          {/* Requests Lists */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Leave Requests */}
-            <Interactive3DCard className="p-6 space-y-4 border-border/80">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-teal-400" />
-                  My Leave Requests
-                </h3>
-                <span className="text-xs text-muted-foreground">{myLeaveRequests.length} Applications</span>
+        {/* 4. Tab Contents */}
+
+        {/* TAB 1: LEAVE REQUESTS */}
+        {activeTab === "LEAVES" && (
+          <div className="space-y-3">
+            {myLeaveRequests.length === 0 ? (
+              <div className="p-12 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
+                <Calendar className="h-8 w-8 text-muted-foreground mx-auto" />
+                <p className="font-semibold text-sm text-foreground">No leave applications</p>
+                <p>You have not submitted any leave requests yet. Click &quot;Apply for Leave&quot; above to request time off.</p>
               </div>
+            ) : (
+              myLeaveRequests.map((req) => {
+                const isApproved = req.status === "APPROVED";
+                const isRejected = req.status === "REJECTED";
+                const isStage2 = req.status === "FORWARDED_TO_HR";
 
-              <div className="space-y-4">
-                {myLeaveRequests.map((req) => (
+                return (
                   <div
                     key={req.id}
-                    className="p-4 rounded-xl border border-border/70 bg-card/60 hover:border-teal-500/40 space-y-3 transition-all"
+                    className="p-4 rounded-xl border border-border/70 bg-card/70 hover:border-primary/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-xs text-foreground block">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <strong className="text-xs font-bold text-foreground">
                           {req.leaveType} Leave ({req.daysCount} {req.daysCount === 1 ? "Day" : "Days"})
-                        </span>
-                        <span className="text-[11px] text-muted-foreground font-mono">
-                          {req.startDate} {req.startDate !== req.endDate ? `→ ${req.endDate}` : ""}
-                        </span>
+                        </strong>
+
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] uppercase font-bold ${
+                            isApproved
+                              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                              : isRejected
+                              ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                              : isStage2
+                              ? "border-cyan-500/30 text-cyan-300 bg-cyan-500/10"
+                              : "border-amber-500/30 text-amber-300 bg-amber-500/10"
+                          }`}
+                        >
+                          {isApproved
+                            ? "✓ Fully Approved"
+                            : isRejected
+                            ? "Declined"
+                            : isStage2
+                            ? "Stage 2: Lead Approved · Awaiting HR"
+                            : "Stage 1: Pending Team Lead"}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] uppercase font-bold ${
-                          req.status === "APPROVED"
-                            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                            : req.status === "FORWARDED_TO_HR"
-                            ? "border-pink-500/30 text-pink-300 bg-pink-500/10"
-                            : req.status === "REJECTED"
-                            ? "border-red-500/30 text-red-400 bg-red-500/10"
-                            : "border-amber-500/30 text-amber-300 bg-amber-500/10"
-                        }`}
-                      >
-                        {req.status === "APPROVED"
-                          ? "Approved (Final)"
-                          : req.status === "FORWARDED_TO_HR"
-                          ? "Stage 2: Pending HR"
-                          : req.status === "REJECTED"
-                          ? "Rejected"
-                          : "Stage 1: Pending TL"}
-                      </Badge>
+
+                      <p className="text-xs text-muted-foreground">
+                        {req.startDate} {req.startDate !== req.endDate ? `→ ${req.endDate}` : ""}
+                        {req.reason && ` · "${req.reason}"`}
+                      </p>
                     </div>
 
-                    {/* Two-Stage Progress Stepper Visualizer */}
-                    <div className="p-2.5 rounded-lg bg-muted/30 border border-border/50 space-y-1.5">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-                        Two-Stage Approval Status
-                      </span>
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        {/* Stage 1: TL */}
-                        {req.status !== "PENDING_TL_STAGE_1" ? (
-                          <div className="flex items-center gap-1 text-emerald-400 font-semibold">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Stage 1: Lead Approved</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-amber-300 font-semibold animate-pulse">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>Stage 1: In Lead Queue</span>
-                          </div>
-                        )}
-
-                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
-
-                        {/* Stage 2: HR */}
-                        {req.status === "APPROVED" ? (
-                          <div className="flex items-center gap-1 text-emerald-400 font-semibold">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Stage 2: HR Approved</span>
-                          </div>
-                        ) : req.status === "FORWARDED_TO_HR" ? (
-                          <div className="flex items-center gap-1 text-pink-300 font-semibold animate-pulse">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>Stage 2: In HR Queue</span>
-                          </div>
-                        ) : req.status === "REJECTED" ? (
-                          <div className="flex items-center gap-1 text-red-400 font-semibold">
-                            <XCircle className="h-3.5 w-3.5" />
-                            <span>Rejected</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-muted-foreground font-semibold opacity-60">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>Stage 2: Awaiting Stage 1</span>
-                          </div>
-                        )}
-                      </div>
+                    <div className="text-[11px] text-muted-foreground shrink-0 font-mono">
+                      Balance Remaining: {req.remainingBalance}d
                     </div>
-
-                    <p className="text-xs text-muted-foreground">{req.reason}</p>
-
-                    {req.tlComment && (
-                      <div className="p-2 rounded-lg bg-card/70 border border-border/50 text-[11px] text-muted-foreground">
-                        <span className="font-semibold text-foreground">Lead Feedback:</span> &quot;{req.tlComment}&quot;
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            </Interactive3DCard>
+                );
+              })
+            )}
+          </div>
+        )}
 
-            {/* WFH Requests */}
-            <Interactive3DCard className="p-6 space-y-4 border-border/80">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Laptop className="h-4 w-4 text-cyan-400" />
-                  My Remote Work (WFH) Logs
-                </h3>
-                <span className="text-xs text-muted-foreground">{myWfhRequests.length} Sessions</span>
+        {/* TAB 2: WORK FROM HOME (WFH) REQUESTS */}
+        {activeTab === "WFH" && (
+          <div className="space-y-3">
+            {myWfhRequests.length === 0 ? (
+              <div className="p-12 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
+                <Laptop className="h-8 w-8 text-muted-foreground mx-auto" />
+                <p className="font-semibold text-sm text-foreground">No WFH requests</p>
+                <p>You have not logged any remote workdays. Click &quot;Request WFH&quot; above to log a remote day.</p>
               </div>
+            ) : (
+              myWfhRequests.map((wfh) => {
+                const isApproved = wfh.status === "APPROVED";
+                const isRejected = wfh.status === "REJECTED";
+                const isStage2 = wfh.status === "FORWARDED_TO_HR";
 
-              <div className="space-y-3">
-                {myWfhRequests.map((wfh) => (
+                return (
                   <div
                     key={wfh.id}
-                    className="p-4 rounded-xl border border-border/70 bg-card/60 hover:border-cyan-500/40 space-y-2.5 transition-all"
+                    className="p-4 rounded-xl border border-border/70 bg-card/70 hover:border-cyan-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-foreground">
-                        WFH Session ({wfh.startDate})
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] uppercase font-bold ${
-                          wfh.status === "APPROVED"
-                            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
-                            : wfh.status === "FORWARDED_TO_HR"
-                            ? "border-pink-500/30 text-pink-300 bg-pink-500/10"
-                            : "border-amber-500/30 text-amber-300 bg-amber-500/10"
-                        }`}
-                      >
-                        {wfh.status === "APPROVED"
-                          ? "Approved"
-                          : wfh.status === "FORWARDED_TO_HR"
-                          ? "Stage 2: Pending HR"
-                          : "Stage 1: Pending TL"}
-                      </Badge>
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <strong className="text-xs font-bold text-foreground">
+                          Remote Work ({wfh.startDate})
+                        </strong>
+
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] uppercase font-bold ${
+                            isApproved
+                              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                              : isRejected
+                              ? "border-rose-500/30 text-rose-400 bg-rose-500/10"
+                              : isStage2
+                              ? "border-cyan-500/30 text-cyan-300 bg-cyan-500/10"
+                              : "border-amber-500/30 text-amber-300 bg-amber-500/10"
+                          }`}
+                        >
+                          {isApproved
+                            ? "✓ Fully Approved"
+                            : isRejected
+                            ? "Declined"
+                            : isStage2
+                            ? "Stage 2: Lead Approved · Awaiting HR"
+                            : "Stage 1: Pending Team Lead"}
+                        </Badge>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground">
+                        {wfh.reason || "Remote workday"}
+                      </p>
                     </div>
 
-                    <p className="text-xs text-muted-foreground">{wfh.reason}</p>
-
-                    {/* Stepper */}
-                    <div className="p-2 rounded-lg bg-muted/30 border border-border/50 text-xs flex items-center gap-2">
-                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                        <UserCheck className="h-3.5 w-3.5" />
-                        Stage 1: Lead Approved
-                      </span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                      <span className={wfh.status === "APPROVED" ? "text-emerald-400 font-semibold" : "text-pink-300 font-semibold"}>
-                        {wfh.status === "APPROVED" ? "Stage 2: HR Final Sign-off ✓" : "Stage 2: In HR Queue"}
-                      </span>
-                    </div>
-
-                    <div className="pt-1 text-[11px] text-muted-foreground flex items-center justify-between">
-                      <span>Shift: {wfh.availabilityHours}</span>
-                      <span className="font-mono text-cyan-400">{wfh.contactMethod}</span>
+                    <div className="text-[11px] text-muted-foreground shrink-0">
+                      Contact: <span className="font-mono text-cyan-400">{wfh.contactMethod}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </Interactive3DCard>
+                );
+              })
+            )}
           </div>
-        </>
-      )}
+        )}
 
+        {/* TAB 3: LEAVE ALLOWANCES BREAKDOWN */}
+        {activeTab === "BALANCES" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-5 rounded-xl border border-border bg-card space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-foreground">Casual Leave (CL)</h4>
+                <Badge variant="brand" className="text-[9px]">12 Days / Year</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                For personal errands, family events, and planned breaks. Available balance: <strong className="text-emerald-400">{remainingBalance} days</strong>.
+              </p>
+              <div className="pt-1">
+                <Button size="sm" variant="outline" onClick={() => setShowLeaveModal(true)} className="w-full text-xs h-8">
+                  Apply for Casual Leave
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl border border-border bg-card space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-foreground">Sick Leave (SL)</h4>
+                <Badge variant="secondary" className="text-[9px]">8 Days / Year</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                For medical appointments, unexpected illness, and recovery. Available balance: <strong className="text-cyan-400">8 days</strong>.
+              </p>
+              <div className="pt-1">
+                <Button size="sm" variant="outline" onClick={() => setShowLeaveModal(true)} className="w-full text-xs h-8">
+                  Apply for Sick Leave
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl border border-border bg-card space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-foreground">Work From Home (WFH)</h4>
+                <Badge variant="outline" className="text-[9px]">Flexible</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Work remotely when needed with prior notification. Availability during standard business hours (10:00 AM – 07:00 PM).
+              </p>
+              <div className="pt-1">
+                <Button size="sm" variant="outline" onClick={() => setShowWfhModal(true)} className="w-full text-xs h-8">
+                  Submit WFH Request
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
       {showLeaveModal && <LeaveRequestModal onClose={() => setShowLeaveModal(false)} />}
       {showWfhModal && <WfhRequestModal onClose={() => setShowWfhModal(false)} />}
     </PageTransition>

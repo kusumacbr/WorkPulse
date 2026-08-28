@@ -42,11 +42,11 @@ describe("Central Authorization Engine", () => {
     teamId: "team-hr-ops",
   };
 
-  const adminActor: AuthActor = {
-    userId: "user-david",
-    employeeId: "emp-david",
-    email: "admin@xorstack.com",
-    roles: ["ADMIN", "EMPLOYEE"],
+  const hrAdminActor: AuthActor = {
+    userId: "user-rachel-lead",
+    employeeId: "emp-rachel-lead",
+    email: "hr.lead@xorstack.com",
+    roles: ["HR", "EMPLOYEE"],
   };
 
   describe("Employee Permissions & Scopes", () => {
@@ -181,37 +181,9 @@ describe("Central Authorization Engine", () => {
     });
   });
 
-  describe("Admin Permissions & Overrides", () => {
-    it("allows Admin organization-wide access", async () => {
-      const adminRead = await authorize({
-        actor: adminActor,
-        permission: PERMISSIONS.AUDIT_READ,
-      });
-      expect(adminRead.allowed).toBe(true);
-      expect(adminRead.scope).toBe("organization");
-    });
-
-    it("requires reason for Admin emergency overrides", async () => {
-      const noReasonOverride = await authorize({
-        actor: adminActor,
-        permission: PERMISSIONS.LEAVE_OVERRIDE,
-        resource: { override: true, reason: "   " },
-      });
-      expect(noReasonOverride.allowed).toBe(false);
-      expect(noReasonOverride.reason).toContain("mandatory written reason");
-
-      const withReasonOverride = await authorize({
-        actor: adminActor,
-        permission: PERMISSIONS.LEAVE_OVERRIDE,
-        resource: { override: true, reason: "Emergency medical regularization per VP authorization." },
-      });
-      expect(withReasonOverride.allowed).toBe(true);
-    });
-  });
-
   describe("Sensitive Field Access Rules", () => {
     describe("Emergency Contact Information", () => {
-      it("allows employee (own), HR, and Admin to view emergency contacts", async () => {
+      it("allows employee (own) and HR to view emergency contacts", async () => {
         // Self
         const selfResult = await authorize({
           actor: employeeActor,
@@ -227,14 +199,6 @@ describe("Central Authorization Engine", () => {
           resource: { employeeId: "emp-sarah", sensitiveField: "emergencyContact" },
         });
         expect(hrResult.allowed).toBe(true);
-
-        // Admin
-        const adminResult = await authorize({
-          actor: adminActor,
-          permission: PERMISSIONS.PROFILE_READ,
-          resource: { employeeId: "emp-sarah", sensitiveField: "emergencyContact" },
-        });
-        expect(adminResult.allowed).toBe(true);
       });
 
       it("denies Manager from accessing emergency contacts of direct reports", async () => {
@@ -337,7 +301,7 @@ describe("Central Authorization Engine", () => {
 
     it("resolves cleanly on valid authorization", async () => {
       const result = await assertAuthorized({
-        actor: adminActor,
+        actor: hrAdminActor,
         permission: PERMISSIONS.AUDIT_READ,
       });
       expect(result.allowed).toBe(true);

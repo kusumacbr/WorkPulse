@@ -27,12 +27,11 @@ describe("Supabase Auth & Security Verification", () => {
     });
 
     it("verifies expected roles are properly enumerated", () => {
-      const roles = ["EMPLOYEE", "MANAGER", "HR", "ADMIN"];
-      expect(roles).toHaveLength(4);
+      const roles = ["EMPLOYEE", "MANAGER", "HR"];
+      expect(roles).toHaveLength(3);
       expect(roles).toContain("EMPLOYEE");
       expect(roles).toContain("MANAGER");
       expect(roles).toContain("HR");
-      expect(roles).toContain("ADMIN");
     });
   });
 });

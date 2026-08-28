@@ -48,13 +48,6 @@ describe("Section 8: 91 Acceptance Criteria Comprehensive Verification", () => {
     roles: ["HR"],
   };
 
-  const adminActor: AuthActor = {
-    userId: "usr-david",
-    employeeId: "emp-david",
-    email: "david.admin@xorstack.com",
-    roles: ["ADMIN"],
-  };
-
   beforeEach(() => {
     BiometricService.clearStore();
     SkillDevelopmentService.clearStore();
@@ -69,7 +62,6 @@ describe("Section 8: 91 Acceptance Criteria Comprehensive Verification", () => {
       expect(employeeActor.roles).toContain("EMPLOYEE");
       expect(managerActor.roles).toContain("MANAGER");
       expect(hrActor.roles).toContain("HR");
-      expect(adminActor.roles).toContain("ADMIN");
 
       await expect(
         assertAuthorized({ actor: employeeActor, permission: PERMISSIONS.DEVICE_MANAGE })
@@ -108,7 +100,7 @@ describe("Section 8: 91 Acceptance Criteria Comprehensive Verification", () => {
 
     it("AC 7-12: Immutable audit trail logging for security actions", async () => {
       await AuditService.record({
-        actorId: adminActor.userId,
+        actorId: hrActor.userId,
         action: "role_assigned",
         entity: "UserRole",
         entityId: "usr-sarah",

@@ -533,9 +533,9 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
                         <span className="text-[10px] text-muted-foreground block font-bold">Yesterday&apos;s Progress</span>
                         <span className="font-bold text-amber-400 font-mono">{ro.previousProgress}%</span>
                       </div>
-                      <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="progress-track-line w-24">
                         <div
-                          className="h-full bg-gradient-to-r from-amber-400 to-yellow-500"
+                          className="progress-track-fill-emerald"
                           style={{ width: `${ro.previousProgress}%` }}
                         />
                       </div>
@@ -805,9 +805,9 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
               <span className="font-bold text-foreground">Total Day Deliverable Completion</span>
               <span className="font-mono font-bold text-cyan-400">{overallCompletion}%</span>
             </div>
-            <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
+            <div className="progress-track-line">
               <div
-                className="h-full bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 transition-all duration-300"
+                className="progress-track-fill-cyan"
                 style={{ width: `${overallCompletion}%` }}
               />
             </div>

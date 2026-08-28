@@ -4,8 +4,8 @@ import { BiometricIntegrationService } from "@/server/services/biometric-service
 
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("ADMIN") && !actor.roles.includes("HR")) {
-    return apiError("Forbidden: Only HR and Admin can configure biometric mappings.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can configure biometric mappings.", 403, "FORBIDDEN");
   }
 
   try {

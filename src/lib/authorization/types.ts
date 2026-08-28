@@ -1,4 +1,4 @@
-export type RoleType = "EMPLOYEE" | "MANAGER" | "HR" | "ADMIN";
+export type RoleType = "EMPLOYEE" | "MANAGER" | "HR";
 
 export type RecordScope =
   | "self"

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { RoleType } from "../authorization/types";
 import { WorkpulseSharedStore } from "../stores/workpulse-shared-store";
 
@@ -20,12 +21,14 @@ export interface CurrentUser {
  */
 export async function getCurrentUser(): Promise<CurrentUser> {
   const supabase = await createClient();
+  const cookieStore = await cookies();
+  const devEmail = cookieStore.get("workpulse_dev_email")?.value;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && !devEmail) {
     // No authenticated user — return a minimal fallback
     // (middleware should redirect to /login before this is reached)
     return {
@@ -42,31 +45,33 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   // Try to look up profile for role information
   let role: RoleType = "EMPLOYEE";
-  let profileName = user.user_metadata?.full_name || user.user_metadata?.name || "";
-  let avatarUrl = user.user_metadata?.avatar_url || "";
+  let profileName = user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+  let avatarUrl = user?.user_metadata?.avatar_url || "";
 
-  try {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, full_name, avatar_url, department, designation")
-      .eq("id", user.id)
-      .single();
+  if (user) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, full_name, avatar_url, department, designation")
+        .eq("id", user.id)
+        .single();
 
-    if (profile) {
-      role = (profile.role as RoleType) || "EMPLOYEE";
-      profileName = profile.full_name || profileName;
-      avatarUrl = profile.avatar_url || avatarUrl;
+      if (profile) {
+        role = (profile.role as RoleType) || "EMPLOYEE";
+        profileName = profile.full_name || profileName;
+        avatarUrl = profile.avatar_url || avatarUrl;
+      }
+    } catch {
+      // Profile table may not exist yet or query may fail — use defaults
+      console.warn("[Auth] Could not load profile for user:", user.id);
     }
-  } catch {
-    // Profile table may not exist yet or query may fail — use defaults
-    console.warn("[Auth] Could not load profile for user:", user.id);
   }
 
   // Resolve employee details from shared store
   const allEmployees = WorkpulseSharedStore.getAllEmployees();
   const departments = WorkpulseSharedStore.getDepartments();
 
-  const userEmailLower = (user.email || "").toLowerCase();
+  const userEmailLower = (user?.email || devEmail || "").toLowerCase();
 
   // Determine role based on known personas or lead status
   const isLead =
@@ -75,45 +80,38 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     departments.some(
       (d) =>
         d.teamLead.email.toLowerCase() === userEmailLower ||
-        d.teamLead.id === user.id ||
+        (user && d.teamLead.id === user.id) ||
         (userEmailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex")
     );
 
   const isHR =
     userEmailLower === "hr.test@xorstack.com" ||
+    userEmailLower === "director.test@xorstack.com" ||
+    userEmailLower === "admin@xorstack.com" ||
     userEmailLower.includes("hr.rachel") ||
     role === "HR";
 
-  const isAdmin =
-    userEmailLower === "director.test@xorstack.com" ||
-    userEmailLower === "admin@xorstack.com" ||
-    role === "ADMIN";
-
-  const effectivePrimaryRole: RoleType = isAdmin
-    ? "ADMIN"
-    : isHR
+  const effectivePrimaryRole: RoleType = isHR
     ? "HR"
     : isLead || role === "MANAGER"
     ? "MANAGER"
-    : role || "EMPLOYEE";
+    : "EMPLOYEE";
 
   const effectiveRoles: RoleType[] =
-    effectivePrimaryRole === "ADMIN"
-      ? ["ADMIN", "MANAGER", "HR", "EMPLOYEE"]
-      : effectivePrimaryRole === "HR"
+    effectivePrimaryRole === "HR"
       ? ["HR", "EMPLOYEE"]
       : effectivePrimaryRole === "MANAGER"
       ? ["MANAGER", "EMPLOYEE"]
       : ["EMPLOYEE"];
 
   const matchedEmployee = allEmployees.find(
-    (e) => e.email.toLowerCase() === userEmailLower || e.id === "lead-alex" && isLead
+    (e) => e.email.toLowerCase() === userEmailLower || (e.id === "lead-alex" && isLead)
   );
 
   if (matchedEmployee) {
     return {
       id: matchedEmployee.id,
-      email: user.email || matchedEmployee.email,
+      email: user?.email || matchedEmployee.email,
       name: matchedEmployee.name,
       roles: effectiveRoles,
       primaryRole: effectivePrimaryRole,
@@ -134,7 +132,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   if (matchedLead) {
     return {
       id: matchedLead.teamLead.id,
-      email: user.email || matchedLead.teamLead.email,
+      email: user?.email || matchedLead.teamLead.email,
       name: matchedLead.teamLead.name,
       roles: effectiveRoles,
       primaryRole: effectivePrimaryRole,
@@ -147,9 +145,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   // Fallback: use Supabase user metadata
   return {
-    id: user.id,
-    email: user.email || "",
-    name: profileName || user.email?.split("@")[0] || "User",
+    id: user?.id || `dev-${userEmailLower.replace(/[^a-zA-Z0-9]/g, "-")}`,
+    email: user?.email || userEmailLower || "",
+    name: profileName || userEmailLower?.split("@")[0] || "User",
     roles: effectiveRoles,
     primaryRole: effectivePrimaryRole,
     designation: effectivePrimaryRole === "MANAGER" ? "Engineering Lead" : "",

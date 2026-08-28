@@ -437,9 +437,9 @@ export function HREnterpriseLeaveDesk() {
                         <span>Balance Remaining:</span>
                         <strong className="text-emerald-400 font-mono">{totalRemaining.toFixed(1)} / {totalAllotted} Days</strong>
                       </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="progress-track-line">
                         <div
-                          className="h-full bg-purple-400 rounded-full"
+                          className="progress-track-fill-purple"
                           style={{ width: `${100 - usagePercent}%` }}
                         />
                       </div>

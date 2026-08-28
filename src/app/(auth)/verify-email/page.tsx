@@ -15,7 +15,7 @@ export default function VerifyEmailPage() {
       <div className="w-full max-w-md space-y-6 relative z-10">
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-2">
-            <BrandLogo size="lg" showCompany={true} withPulseAnimation={true} />
+            <BrandLogo size="lg" />
           </div>
           <p className="text-xs text-muted-foreground">Corporate Identity & Verification</p>
         </div>

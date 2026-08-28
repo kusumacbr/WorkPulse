@@ -230,9 +230,9 @@ export function TeamManagementDeck() {
                   </span>
                   <strong className="text-emerald-400 font-mono">{progress}% Complete</strong>
                 </div>
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div className="progress-track-line">
                   <div
-                    className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 transition-all duration-300"
+                    className="progress-track-fill-cyan"
                     style={{ width: `${progress}%` }}
                   />
                 </div>

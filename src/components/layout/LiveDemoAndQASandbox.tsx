@@ -34,7 +34,6 @@ export function LiveDemoAndQASandbox() {
       EMPLOYEE: "employee.test@xorstack.com",
       MANAGER: "lead.test@xorstack.com",
       HR: "hr.test@xorstack.com",
-      ADMIN: "director.test@xorstack.com",
     };
 
     const targetEmail = roleEmails[targetRole];
@@ -48,13 +47,7 @@ export function LiveDemoAndQASandbox() {
 
       if (res.ok) {
         showToast(`Switched to ${targetRole} persona`);
-        const targetPath =
-          targetRole === "ADMIN" || targetRole === "HR"
-            ? "/hr"
-            : targetRole === "MANAGER"
-            ? "/team"
-            : "/dashboard";
-        window.location.href = targetPath;
+        window.location.href = "/dashboard";
       }
     } catch {
       showToast("Role switch failed");
@@ -116,7 +109,7 @@ export function LiveDemoAndQASandbox() {
         <button
           type="button"
           onClick={() => setIsExpanded(true)}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 text-white font-bold text-xs shadow-[0_0_24px_rgba(99,102,241,0.4)] hover:shadow-[0_0_32px_rgba(99,102,241,0.6)] hover:scale-105 transition-all group"
+          className="fixed bottom-6 right-[170px] z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 text-white font-bold text-xs shadow-[0_0_24px_rgba(99,102,241,0.4)] hover:shadow-[0_0_32px_rgba(99,102,241,0.6)] hover:scale-105 transition-all group"
         >
           <Wrench className="h-4 w-4 group-hover:rotate-45 transition-transform" />
           <span className="tracking-wide">QA & Demo Sandbox</span>
@@ -126,7 +119,7 @@ export function LiveDemoAndQASandbox() {
 
       {/* Expanded Interactive QA Panel */}
       {isExpanded && (
-        <div className="fixed bottom-6 right-6 z-40 w-96 rounded-3xl glass-panel border border-border shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-150 space-y-3.5 backdrop-blur-2xl">
+        <div className="fixed bottom-20 right-6 z-40 w-96 rounded-3xl glass-panel border border-border shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-150 space-y-3.5 backdrop-blur-2xl">
           {/* Header */}
           <div className="flex items-center justify-between pb-2.5 border-b border-border/60">
             <div className="flex items-center gap-2">
@@ -233,24 +226,7 @@ export function LiveDemoAndQASandbox() {
                     <span>Rachel HR</span>
                     {currentRole === "HR" && <CheckCircle className="h-3 w-3 text-pink-400" />}
                   </div>
-                  <span className="text-[10px] text-muted-foreground block">Head of People · Stage-2</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isBusy || currentRole === "ADMIN"}
-                  onClick={() => handleSwitchRole("ADMIN")}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    currentRole === "ADMIN"
-                      ? "bg-red-500/20 border-red-500/50 text-red-300 font-bold"
-                      : "bg-muted/30 border-border hover:border-red-500/40 text-foreground"
-                  }`}
-                >
-                  <div className="font-bold flex items-center justify-between">
-                    <span>David Director</span>
-                    {currentRole === "ADMIN" && <CheckCircle className="h-3 w-3 text-red-400" />}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground block">VP Eng · SuperAdmin</span>
+                  <span className="text-[10px] text-muted-foreground block">Head of People · HR</span>
                 </button>
               </div>
             </div>

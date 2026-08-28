@@ -89,7 +89,7 @@ export function HRTopLevelSummary({
           {/* Item 1: Active Headcount by Dept */}
           <button
             type="button"
-            onClick={() => onNavigateTab("people_ops")}
+            onClick={() => onNavigateTab("directory")}
             className="p-3 rounded-xl bg-card/60 border border-border/80 hover:border-pink-500/40 text-left transition-all group space-y-1"
           >
             <div className="flex items-center justify-between text-muted-foreground">
@@ -156,7 +156,7 @@ export function HRTopLevelSummary({
           {/* Item 4: Upcoming Milestones & Holidays */}
           <button
             type="button"
-            onClick={() => onNavigateTab("compliance", "holidays")}
+            onClick={() => onNavigateTab("talent_compliance", "holidays")}
             className="p-3 rounded-xl bg-card/60 border border-border/80 hover:border-pink-500/40 text-left transition-all group space-y-1"
           >
             <div className="flex items-center justify-between text-muted-foreground">
@@ -188,7 +188,7 @@ export function HRTopLevelSummary({
           changePositive={true}
           badgeText="Active Org"
           accent="purple"
-          onClick={() => onNavigateTab("people_ops", "org_matrix")}
+          onClick={() => onNavigateTab("directory", "org_matrix")}
         />
 
         <MetricTile3D

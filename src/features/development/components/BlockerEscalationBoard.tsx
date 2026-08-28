@@ -43,9 +43,9 @@ export function BlockerEscalationBoard({ initialBlockers }: BlockerEscalationBoa
           {
             id: "esc-1",
             blockerId: "blk-1",
-            escalatedToRole: "ADMIN",
+            escalatedToRole: "HR",
             escalatedAt: new Date(Date.now() - 3600000).toISOString(),
-            reason: "Critical blocker SLA breached (3.0h >= 2h threshold). Escalated to Admin.",
+            reason: "Critical blocker SLA breached (3.0h >= 2h threshold). Escalated to HR.",
           },
         ],
       },

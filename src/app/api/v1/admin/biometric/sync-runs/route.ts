@@ -3,8 +3,8 @@ import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 
 export async function GET(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("ADMIN") && !actor.roles.includes("HR")) {
-    return apiError("Forbidden: Only HR and Admin can view biometric sync history.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can view biometric sync history.", 403, "FORBIDDEN");
   }
 
   const syncRuns = [

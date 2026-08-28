@@ -9,8 +9,8 @@ export async function POST(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("MANAGER") && !actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only Managers, HR, and Admin can approve attendance regularisation.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("MANAGER") && !actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only Team Leads and HR can approve attendance regularisation.", 403, "FORBIDDEN");
   }
 
   await AuditService.record({

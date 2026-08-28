@@ -9,26 +9,36 @@ export async function POST(
 ) {
   const { id } = await params;
   const { actor } = await getSessionActor(req);
+  const body = await req.json().catch(() => ({}));
+  const isHr = actor.roles.includes("HR");
 
   const state = workpulseSharedStore.getState();
   const reqItem = state.wfhRequests.find((r: any) => r.id === id);
   if (!reqItem) return apiError(`WFH request '${id}' not found`, 404, "NOT_FOUND");
 
-  state.hrApproveWfh(id, "Approved by Manager/HR");
-
-  // Update employee work mode
-  const emp = state.allEmployees.find((e: any) => e.id === reqItem.employeeId);
-  if (emp) {
-    emp.workMode = "WFH";
+  if (isHr) {
+    state.hrApproveWfh(id, body.comment || "Authorized by HR People Ops");
+    // Update employee work mode to WFH
+    const emp = state.allEmployees.find((e: any) => e.id === reqItem.employeeId);
+    if (emp) {
+      emp.workMode = "WFH";
+    }
+  } else {
+    state.tlApproveWfh(id, body.comment || "Approved by Team Lead. Forwarded to HR.");
   }
 
   await AuditService.record({
     actorId: actor.userId,
-    action: "wfh_approved",
+    action: isHr ? "wfh_authorized_by_hr" : "wfh_approved_by_lead",
     entity: "WfhRequest",
     entityId: id,
-    reason: "Approved WFH request and updated work mode",
+    reason: isHr ? "Stage-2 HR authorization" : "Stage-1 Team Lead review",
   });
 
-  return apiSuccess({ request: reqItem, message: "WFH request approved. Work mode set to WFH." });
+  return apiSuccess({
+    request: reqItem,
+    message: isHr
+      ? "WFH request authorized by HR. Work mode set to WFH."
+      : "WFH request approved by Lead and forwarded to HR for final sign-off.",
+  });
 }

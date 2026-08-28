@@ -35,7 +35,6 @@ export function OrgLiveExecutionMonitor() {
   const totalEmployees = allEmployees.length;
   const sodSubmittedCount = allEmployees.filter((e) => e.sodStatus === "SUBMITTED").length;
   const eodCompletedCount = allEmployees.filter((e) => e.eodStatus === "SUBMITTED").length;
-  const missingSodCount = allEmployees.filter((e) => e.sodStatus === "PENDING").length;
   const avgOrgProgress = Math.round(
     allEmployees.reduce((acc, curr) => acc + (curr.overallProgress || 0), 0) / (totalEmployees || 1)
   );
@@ -79,46 +78,37 @@ export function OrgLiveExecutionMonitor() {
       )}
 
       {/* Top Level Pulse Overview Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         {/* Total Org Headcount */}
         <div className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground">Total Headcount</span>
+          <span className="text-[11px] font-semibold text-muted-foreground">Total Staff</span>
           <div className="text-2xl font-black text-foreground font-mono">{totalEmployees}</div>
-          <span className="text-[10px] text-cyan-400 font-bold">Across {departments.length} Pods</span>
+          <span className="text-[10px] text-cyan-400 font-bold">Across {departments.length} Departments</span>
         </div>
 
-        {/* SOD Submissions */}
+        {/* Morning Plans Submissions */}
         <div className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground">Morning SOD Rate</span>
+          <span className="text-[11px] font-semibold text-muted-foreground">Morning Plans Shared</span>
           <div className="text-2xl font-black text-emerald-400 font-mono">
             {Math.round((sodSubmittedCount / (totalEmployees || 1)) * 100)}%
           </div>
-          <span className="text-[10px] text-muted-foreground">{sodSubmittedCount} / {totalEmployees} Logged</span>
+          <span className="text-[10px] text-muted-foreground">{sodSubmittedCount} of {totalEmployees} Shared</span>
         </div>
 
         {/* Average Org Progress */}
         <div className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground">Org Execution Pace</span>
+          <span className="text-[11px] font-semibold text-muted-foreground">Today&apos;s Team Progress</span>
           <div className="text-2xl font-black text-cyan-300 font-mono">{avgOrgProgress}%</div>
-          <div className="w-full bg-muted/40 h-1.5 rounded-full overflow-hidden mt-1">
-            <div className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full" style={{ width: `${avgOrgProgress}%` }} />
+          <div className="progress-track-line mt-1">
+            <div className="progress-track-fill-emerald" style={{ width: `${avgOrgProgress}%` }} />
           </div>
         </div>
 
-        {/* EOD Wrapped Up */}
+        {/* Evening Summaries */}
         <div className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground">EOD Wrapped Up</span>
+          <span className="text-[11px] font-semibold text-muted-foreground">Evening Summaries</span>
           <div className="text-2xl font-black text-purple-400 font-mono">{eodCompletedCount}</div>
-          <span className="text-[10px] text-muted-foreground font-mono">{totalEmployees - eodCompletedCount} In-Flight</span>
-        </div>
-
-        {/* Missing / Attention Req */}
-        <div className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-1">
-          <span className="text-[11px] font-semibold text-muted-foreground">Pending SOD Nudges</span>
-          <div className={`text-2xl font-black font-mono ${missingSodCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-            {missingSodCount}
-          </div>
-          <span className="text-[10px] text-amber-300 font-bold">{missingSodCount > 0 ? "Needs Morning Ping" : "All Clear"}</span>
+          <span className="text-[10px] text-muted-foreground font-mono">{totalEmployees - eodCompletedCount} in progress</span>
         </div>
       </div>
 
@@ -128,10 +118,10 @@ export function OrgLiveExecutionMonitor() {
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <Users className="h-4 w-4 text-cyan-400" />
-              Organization Live Workday & Task Radar ({filteredEmployees.length} Staff)
+              Today&apos;s Staff Work Plans ({filteredEmployees.length} Staff)
             </h3>
             <p className="text-xs text-muted-foreground">
-              Real-time oversight of daily task plans, work modes, completion percentages, and EOD wrap-ups across all departments.
+              Overview of daily tasks, work locations, and progress across all teams.
             </p>
           </div>
 
@@ -166,10 +156,9 @@ export function OrgLiveExecutionMonitor() {
               className="h-8 px-2.5 rounded-lg border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
             >
               <option value="ALL">All Statuses</option>
-              <option value="SOD_SUBMITTED">SOD Logged</option>
-              <option value="IN_PROGRESS">Executing (Live)</option>
-              <option value="EOD_COMPLETED">EOD Finalized</option>
-              <option value="MISSING_SOD">Missing SOD</option>
+              <option value="SOD_SUBMITTED">Morning Plan Shared</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="EOD_COMPLETED">Evening Summary Sent</option>
             </select>
           </div>
         </div>
@@ -179,12 +168,12 @@ export function OrgLiveExecutionMonitor() {
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
               <tr>
-                <th className="p-3">Employee & Pod</th>
-                <th className="p-3">Work Mode</th>
-                <th className="p-3">SOD Status & Timing</th>
-                <th className="p-3">Current Primary Focus / Task</th>
-                <th className="p-3 text-center">Progress %</th>
-                <th className="p-3 text-right">Oversight Action</th>
+                <th className="p-3">Employee &amp; Team</th>
+                <th className="p-3">Work Location</th>
+                <th className="p-3">Morning Check-In</th>
+                <th className="p-3">Today&apos;s Focus Task</th>
+                <th className="p-3 text-center">Progress</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -261,9 +250,9 @@ export function OrgLiveExecutionMonitor() {
                     {/* Progress */}
                     <td className="p-3 text-center">
                       <div className="font-mono font-bold text-xs text-foreground">{emp.overallProgress}%</div>
-                      <div className="w-16 mx-auto bg-muted/40 h-1 rounded-full overflow-hidden mt-1">
+                      <div className="progress-track-line w-20 mx-auto mt-1">
                         <div
-                          className="bg-cyan-400 h-full transition-all"
+                          className="progress-track-fill-cyan"
                           style={{ width: `${emp.overallProgress}%` }}
                         />
                       </div>

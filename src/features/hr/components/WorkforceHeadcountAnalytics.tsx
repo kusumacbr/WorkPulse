@@ -47,7 +47,7 @@ export function WorkforceHeadcountAnalytics() {
 
           {/* Stacked Multi-Color Progress Bar */}
           <div className="space-y-2">
-            <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex shadow-inner">
+            <div className="h-3.5 w-full rounded-full bg-slate-900 border border-slate-700/80 p-0.5 overflow-hidden flex shadow-inner">
               {DEPARTMENTS.map((dept) => (
                 <div
                   key={dept.name}

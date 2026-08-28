@@ -4,10 +4,18 @@ import React, { Suspense } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, Variants } from "framer-motion";
-import { User, Users, Briefcase, ShieldCheck, Sparkles, Shield, ArrowUpRight } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Target,
+  Sparkles,
+  Shield,
+  ArrowRight,
+  LogIn,
+} from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import { RoleCard3D } from "./RoleCard3D";
+import { FeatureCard } from "./FeatureCard";
 
 // Code-split / lazy-load Three.js 3D canvas so it doesn't affect main app bundles
 const Hero3DCanvas = dynamic(
@@ -59,9 +67,10 @@ export function LandingHero() {
           <ThemeToggle variant="toggle" size="sm" />
           <Link
             href="/login"
-            className="text-xs font-bold text-foreground hover:text-[var(--brand-primary)] transition-colors flex items-center gap-1 bg-card/60 px-3 py-1.5 rounded-lg border border-border/80"
+            className="text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-all flex items-center gap-1.5 px-4 py-2 rounded-xl shadow-sm"
           >
-            Direct Login <ArrowUpRight className="h-3 w-3" />
+            <LogIn className="h-3.5 w-3.5" />
+            <span>Sign In</span>
           </Link>
         </div>
       </header>
@@ -72,13 +81,13 @@ export function LandingHero() {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="space-y-12 text-center max-w-4xl mx-auto w-full"
+          className="space-y-10 text-center max-w-5xl mx-auto w-full"
         >
           {/* Hero Header Section */}
           <motion.div variants={itemVariants} className="space-y-4">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-cyan-500/30 bg-gradient-to-r from-cyan-500/10 via-[var(--brand-primary)]/10 to-purple-500/10 text-cyan-300 text-xs font-bold shadow-[0_0_20px_rgba(6,182,212,0.15)]">
               <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-              <span>Unified Work & Performance Engine</span>
+              <span>Unified Work &amp; Performance Engine</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.1]">
@@ -89,53 +98,69 @@ export function LandingHero() {
             </h1>
 
             <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              WorkPulse synchronizes daily execution, reviews, biometric attendance, blockers, and professional coaching for our high-performing team.
+              WorkPulse synchronizes daily task execution, biometric shift attendance, two-stage leave approvals, sprint deliverables, and team alignment for our high-performing organization.
             </p>
+
+            {/* Prominent Primary Sign In Button */}
+            <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/login"
+                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-400 via-cyan-400 to-teal-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-[0_4px_25px_rgba(6,182,212,0.3)] hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                <span>Sign In to WorkPulse</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </motion.div>
 
-          {/* 4 Role Selection Tiles */}
+          {/* Core Feature Information Cards (In Place of Role Login Tiles) */}
           <motion.div
             variants={itemVariants}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-left pt-2"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left pt-2 max-w-5xl mx-auto w-full"
           >
-            <RoleCard3D
-              roleSlug="employee"
-              roleName="Employee"
-              roleBadge="Core Pod"
+            <FeatureCard
+              title="Daily Tasks & Execution"
+              badge="Workflows"
               badgeVariant="brand"
-              icon={User}
-              description="Plan your day, submit SOD/EOD updates, budget weekly goals, and track your attendance."
-              highlights={["Daily SOD/EOD workflow", "100% Goal Budgeting", "Two-Stage Leave Requests"]}
+              icon={CheckCircle2}
+              accentColor="#06b6d4"
+              description="Plan morning priorities with Start-of-Day (SOD) templates, track real-time progress, roll over pending items, and log End-of-Day (EOD) achievements."
+              highlights={[
+                "Morning SOD prioritization",
+                "1-Click task carryover & rollover",
+                "Real-time task timers & blocker flags",
+                "Daily EOD achievement logging",
+              ]}
             />
 
-            <RoleCard3D
-              roleSlug="manager"
-              roleName="Team Lead"
-              roleBadge="Management"
+            <FeatureCard
+              title="Biometric Attendance & Shifts"
+              badge="Presence"
               badgeVariant="secondary"
-              icon={Users}
-              description="Lead your team, unblock critical issues, conduct 1-on-1s, and approve performance cycles."
-              highlights={["Team Presence Heatmap", "SLA Escalation Board", "Weekly Review Cycles"]}
+              icon={Clock}
+              accentColor="#38bdf8"
+              description="Log shift punches instantly via biometric terminals, manage 10:00 AM – 07:00 PM shifts with 10:15 AM grace window compliance, and check live team presence."
+              highlights={[
+                "1-Tap biometric punch in/out",
+                "10:15 AM grace window adherence",
+                "Live 'Who's Where' presence radar",
+                "Official festival & holiday calendar",
+              ]}
             />
 
-            <RoleCard3D
-              roleSlug="hr"
-              roleName="People Ops / HR"
-              roleBadge="Operations"
+            <FeatureCard
+              title="Leave Approvals & Goals"
+              badge="Governance"
               badgeVariant="outline"
-              icon={Briefcase}
-              description="Oversee headcount, publish organization broadcasts, evaluate probation, and audit leaves."
-              highlights={["Company Announcements", "Stage-2 Leave Sign-off", "Probation & PIP Pipeline"]}
-            />
-
-            <RoleCard3D
-              roleSlug="admin"
-              roleName="System Admin"
-              roleBadge="Security"
-              badgeVariant="destructive"
-              icon={ShieldCheck}
-              description="Root security control, biometric hardware integration, immutable audit logs, and system config."
-              highlights={["Biometric Terminal Sync", "Immutable Audit Vault", "Scoped Data Exports"]}
+              icon={Target}
+              accentColor="#10b981"
+              description="Manage casual, sick, and earned leave quotas with two-tier approvals (Team Lead review & HR sign-off), alongside quarterly OKRs and performance milestones."
+              highlights={[
+                "Real-time leave balance quotas",
+                "Stage-1 Lead → Stage-2 HR pipeline",
+                "Handover notes & backup coverage",
+                "Quarterly OKRs & key result metrics",
+              ]}
             />
           </motion.div>
         </motion.div>
@@ -148,7 +173,7 @@ export function LandingHero() {
           <span>Restricted to authorized Xorstack team members. Zero raw biometric retention.</span>
         </div>
         <div>
-          <span>© 2026 Xorstack Inc. · All rights reserved.</span>
+          <span>&copy; 2026 Xorstack Inc. · All rights reserved.</span>
         </div>
       </footer>
     </div>

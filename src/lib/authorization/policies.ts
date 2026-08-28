@@ -64,68 +64,64 @@ export function evaluateSensitiveFieldAccess(
     return { allowed: true };
   }
 
-  const isAdmin = actor.roles.includes("ADMIN");
   const isHR = actor.roles.includes("HR");
   const self = isSelf(actor, resource);
   const directReport = isDirectReport(actor, resource);
 
   switch (sensitiveField) {
     case "emergencyContact": {
-      // Emergency contact: employee (own), HR, Admin only. (Manager cannot view)
+      // Emergency contact: employee (own), HR only. (Manager cannot view)
       if (self) return { allowed: true, scope: "self" };
       if (isHR) return { allowed: true, scope: "organization" };
-      if (isAdmin) return { allowed: true, scope: "organization" };
       return {
         allowed: false,
-        reason: "Access denied: Emergency contact info is restricted to the employee, HR, and Admin.",
+        reason: "Access denied: Emergency contact info is restricted to the employee and HR.",
       };
     }
 
     case "privateNotes": {
-      // Private 1-on-1 notes: author, HR, and Admin only — never employee unless explicitly shared
+      // Private 1-on-1 notes: author and HR only — never employee unless explicitly shared
       const isAuthor =
         resource.authorId &&
         (resource.authorId === actor.userId || resource.authorId === actor.employeeId);
       if (isAuthor) return { allowed: true, scope: "self" };
       if (resource.isShared && self) return { allowed: true, scope: "self" };
       if (isHR) return { allowed: true, scope: "organization" };
-      if (isAdmin) return { allowed: true, scope: "organization" };
       return {
         allowed: false,
-        reason: "Access denied: Private one-to-one notes are restricted to the author, HR, and Admin.",
+        reason: "Access denied: Private one-to-one notes are restricted to the author and HR.",
       };
     }
 
     case "pip": {
-      // PIP records: the employee, their assigned manager, HR, and Admin only
+      // PIP records: the employee, their assigned manager, and HR only
       if (self) return { allowed: true, scope: "self" };
       if (directReport && actor.roles.includes("MANAGER")) {
         return { allowed: true, scope: "direct_reports" };
       }
       if (isHR) return { allowed: true, scope: "organization" };
-      if (isAdmin) return { allowed: true, scope: "organization" };
       return {
         allowed: false,
-        reason: "Access denied: PIP records are restricted to the employee, assigned manager, HR, and Admin.",
+        reason: "Access denied: PIP records are restricted to the employee, assigned manager, and HR.",
       };
     }
 
     case "biometricSecrets": {
-      // Biometric secrets: HR and Admin only
-      if (isHR || isAdmin) return { allowed: true, scope: "organization" };
+      // Biometric secrets: HR only
+      if (isHR) return { allowed: true, scope: "organization" };
       return {
         allowed: false,
-        reason: "Access denied: Biometric device secrets are strictly restricted to HR and Admin.",
+        reason: "Access denied: Biometric device secrets are strictly restricted to HR.",
       };
     }
 
     case "performanceRank": {
-      // Performance rank: employee sees only own rank; manager sees direct reports; HR/Admin see permitted aggregates
+      // Performance rank: employee sees only own rank; manager sees direct reports; HR sees aggregates
       if (self) return { allowed: true, scope: "self" };
       if (directReport && actor.roles.includes("MANAGER")) {
         return { allowed: true, scope: "direct_reports" };
       }
-      if (isHR || isAdmin) return { allowed: true, scope: "organization" };
+      if (isHR) return { allowed: true, scope: "organization" };
       return {
         allowed: false,
         reason: "Access denied: Performance rank visibility is strictly scoped.",
@@ -151,17 +147,6 @@ function evaluateRolePolicy(
   const isFallback = isFallbackReviewer(actor, resource);
 
   switch (role) {
-    case "ADMIN": {
-      // Admin has organization-wide access to all modules, requires reason for emergency override
-      if (resource?.override && !resource?.reason?.trim()) {
-        return {
-          allowed: false,
-          reason: "Admin emergency override requires a mandatory written reason.",
-        };
-      }
-      return { allowed: true, scope: "organization" };
-    }
-
     case "HR": {
       // HR cannot silently override manager rating — requires reason
       if (

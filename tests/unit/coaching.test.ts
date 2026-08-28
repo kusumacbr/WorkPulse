@@ -34,11 +34,11 @@ describe("Coaching, Blockers & Development Lifecycle (Phase 5)", () => {
     departmentId: "dept-hr",
   };
 
-  const adminActor: AuthActor = {
+  const hrAdminActor: AuthActor = {
     userId: "user-admin",
     employeeId: "emp-admin",
     email: "admin@xorstack.com",
-    roles: ["ADMIN"],
+    roles: ["HR"],
     departmentId: "dept-core",
   };
 
@@ -78,7 +78,7 @@ describe("Coaching, Blockers & Development Lifecycle (Phase 5)", () => {
 
       expect(escRun1.escalatedCount).toBe(1);
       expect(escRun1.escalations[0]?.blockerId).toBe(critBlocker.id);
-      expect(escRun1.escalations[0]?.escalatedToRole).toBe("ADMIN");
+      expect(escRun1.escalations[0]?.escalatedToRole).toBe("HR");
 
       // 4. Fast-forward time by 9 hours: High (9h >= 8h) should now also escalate
       const nineHoursLater = new Date(Date.now() + 9 * 3600000).toISOString();
@@ -86,11 +86,11 @@ describe("Coaching, Blockers & Development Lifecycle (Phase 5)", () => {
 
       expect(escRun2.escalatedCount).toBe(1);
       expect(escRun2.escalations[0]?.blockerId).toBe(highBlocker.id);
-      expect(escRun2.escalations[0]?.escalatedToRole).toBe("ADMIN");
+      expect(escRun2.escalations[0]?.escalatedToRole).toBe("HR");
 
       // 5. Resolving the blocker never deletes the escalation history
       await BlockerService.resolveBlocker({
-        actor: adminActor,
+        actor: hrAdminActor,
         input: {
           blockerId: critBlocker.id,
           resolutionSummary: "Killed lock and reset connection pool.",
@@ -196,7 +196,7 @@ describe("Coaching, Blockers & Development Lifecycle (Phase 5)", () => {
 
       expect(rec.status).toBe("PENDING_HR");
 
-      // 2. HR Reviews and endorses confirmation
+      // 2. HR Reviews and finalizes confirmation
       const hrReviewed = await ProbationService.hrReview({
         actor: hrPriya,
         reviewId: rec.id,
@@ -204,17 +204,7 @@ describe("Coaching, Blockers & Development Lifecycle (Phase 5)", () => {
         comments: "All compliance checks and background verification completed.",
       });
 
-      expect(hrReviewed.status).toBe("PENDING_ADMIN");
-
-      // 3. Admin confirms decision
-      const confirmed = await ProbationService.adminConfirm({
-        actor: adminActor,
-        reviewId: rec.id,
-        comments: "Approved employment confirmation.",
-      });
-
-      expect(confirmed.status).toBe("CONFIRMED");
-      expect(confirmed.adminConfirmed).toBe(true);
+      expect(hrReviewed.status).toBe("CONFIRMED");
     });
   });
 });

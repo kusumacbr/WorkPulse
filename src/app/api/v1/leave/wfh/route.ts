@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
         let query = supabaseAdmin.from("wfh_requests").select("*").order("created_at", { ascending: false });
-        if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
+        if (!actor.roles.includes("HR")) {
           if (!actor.roles.includes("MANAGER")) {
             query = query.eq("employee_id", actor.employeeId);
           }

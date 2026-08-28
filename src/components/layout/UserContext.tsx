@@ -66,28 +66,20 @@ export function UserProvider({
 
     const isHR =
       emailLower === "hr.test@xorstack.com" ||
+      emailLower === "director.test@xorstack.com" ||
+      emailLower.includes("admin") ||
       emailLower.includes("hr.rachel") ||
       nameLower.includes("rachel") ||
       user.roles.includes("HR");
 
-    const isAdmin =
-      emailLower === "director.test@xorstack.com" ||
-      emailLower.includes("admin") ||
-      nameLower.includes("david") ||
-      user.roles.includes("ADMIN");
-
-    const effectivePrimaryRole: RoleType = isAdmin
-      ? "ADMIN"
-      : isHR
+    const effectivePrimaryRole: RoleType = isHR
       ? "HR"
       : isLead
       ? "MANAGER"
-      : user.primaryRole || "EMPLOYEE";
+      : "EMPLOYEE";
 
     const effectiveRoles: RoleType[] =
-      effectivePrimaryRole === "ADMIN"
-        ? ["ADMIN", "MANAGER", "HR", "EMPLOYEE"]
-        : effectivePrimaryRole === "HR"
+      effectivePrimaryRole === "HR"
         ? ["HR", "EMPLOYEE"]
         : effectivePrimaryRole === "MANAGER"
         ? ["MANAGER", "EMPLOYEE"]

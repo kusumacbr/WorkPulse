@@ -355,9 +355,9 @@ export function DedicatedSODSection() {
                     <span className="text-[10px] text-muted-foreground block font-bold">Yesterday&apos;s Progress</span>
                     <span className="font-bold text-amber-400 font-mono">{task.previousProgress}%</span>
                   </div>
-                  <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="progress-track-line w-24">
                     <div
-                      className="h-full bg-gradient-to-r from-amber-400 to-yellow-500"
+                      className="progress-track-fill-emerald"
                       style={{ width: `${task.previousProgress}%` }}
                     />
                   </div>

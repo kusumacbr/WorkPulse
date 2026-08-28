@@ -9,8 +9,8 @@ export async function POST(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("ADMIN") && !actor.roles.includes("HR")) {
-    return apiError("Forbidden: Only HR and Admin can finalize probation reviews.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can finalize probation reviews.", 403, "FORBIDDEN");
   }
 
   try {

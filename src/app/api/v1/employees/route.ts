@@ -88,8 +88,8 @@ export async function GET(req: NextRequest) {
 
     let employees = liveEmployees;
 
-    // Role scoping: Manager can only view direct reports if not HR/Admin
-    if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
+    // Role scoping: Manager can only view direct reports if not HR
+    if (!actor.roles.includes("HR")) {
       if (actor.roles.includes("MANAGER")) {
         employees = employees.filter(
           (e) =>
@@ -129,8 +129,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only HR and Admin can onboard/create employee records.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can onboard/create employee records.", 403, "FORBIDDEN");
   }
 
   try {

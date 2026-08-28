@@ -154,12 +154,12 @@ export function HREnterpriseGoalsDeck() {
           onClick={() => setActiveTab("strategic")}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
             activeTab === "strategic"
-              ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+              ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <Target className="h-3.5 w-3.5" />
-          <span>People Strategy Strategic OKRs</span>
+          <span>HR Strategic Goals</span>
         </button>
 
         <button
@@ -172,7 +172,7 @@ export function HREnterpriseGoalsDeck() {
           }`}
         >
           <Users className="h-3.5 w-3.5" />
-          <span>Cross-Department Cascaded OKR Health</span>
+          <span>Department Alignment &amp; Goals</span>
         </button>
 
         <button
@@ -185,7 +185,7 @@ export function HREnterpriseGoalsDeck() {
           }`}
         >
           <Sliders className="h-3.5 w-3.5" />
-          <span>100% OKR Weight Budgeting</span>
+          <span>Goal Priorities &amp; Weights</span>
           <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-extrabold">
             {totalWeight}%
           </span>
@@ -194,11 +194,11 @@ export function HREnterpriseGoalsDeck() {
 
       {/* TAB 1: STRATEGIC HR OKRS */}
       {activeTab === "strategic" && (
-        <Interactive3DCard className="p-6 space-y-4 border-border/80">
+        <Interactive3DCard className="p-6 space-y-4 border-border/80 bg-card/80">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <Target className="h-4 w-4 text-emerald-400" />
-              People Operations & Talent Strategic Goals (Q3 2026)
+              HR &amp; People Operations Goals (Q3 2026)
             </h3>
             <p className="text-xs text-muted-foreground">
               Core institutional objectives tied directly to organization growth, talent retention, shift adherence, and compliance.
@@ -209,25 +209,25 @@ export function HREnterpriseGoalsDeck() {
             {goals.map((goal) => (
               <div
                 key={goal.id}
-                className="p-5 rounded-2xl bg-card/60 border border-border/80 hover:border-emerald-500/40 space-y-3 transition-all"
+                className="p-5 rounded-2xl bg-gradient-to-r from-card/90 via-card/70 to-card/50 border border-border/80 hover:border-emerald-500/40 space-y-3 transition-all shadow-sm"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-foreground">{goal.title}</span>
-                      <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
+                      <span className="font-extrabold text-sm text-foreground">{goal.title}</span>
+                      <Badge variant="outline" className="text-[10px] font-bold text-cyan-400 border-cyan-500/30 bg-cyan-500/10">
                         {goal.category.replace("_", " ")}
                       </Badge>
                     </div>
                     <span className="text-xs text-muted-foreground block">
                       Metric: <strong className="text-foreground">{goal.metric}</strong> · Target:{" "}
                       <strong className="text-foreground">{goal.target}</strong> · Current:{" "}
-                      <strong className="text-emerald-400">{goal.currentValue}</strong>
+                      <strong className="text-emerald-400 font-mono font-bold">{goal.currentValue}</strong>
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-[10px] font-mono text-purple-300 border-purple-500/30">
+                    <Badge variant="outline" className="text-[10px] font-mono font-bold text-purple-300 border-purple-500/30 bg-purple-500/10">
                       {goal.weight}% Weight
                     </Badge>
                     <Badge
@@ -243,14 +243,14 @@ export function HREnterpriseGoalsDeck() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs font-semibold">
                     <span className="text-muted-foreground">Owner: {goal.owner}</span>
                     <strong className="text-emerald-400 font-mono">{goal.progress}% Completed</strong>
                   </div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="progress-track-line">
                     <div
-                      className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full"
+                      className="progress-track-fill-emerald"
                       style={{ width: `${goal.progress}%` }}
                     />
                   </div>
@@ -295,9 +295,9 @@ export function HREnterpriseGoalsDeck() {
                       <span>Lead: {dept.teamLead.name}</span>
                       <strong className="text-emerald-400 font-mono">{progress}% Velocity</strong>
                     </div>
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="progress-track-line">
                       <div
-                        className="h-full bg-cyan-400 rounded-full"
+                        className="progress-track-fill-cyan"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -355,7 +355,7 @@ export function HREnterpriseGoalsDeck() {
                   step={5}
                   value={g.weight}
                   onChange={(e) => handleWeightChange(g.id, parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-purple-400"
+                  className="w-full h-2.5 cursor-pointer accent-purple-400"
                 />
               </div>
             ))}

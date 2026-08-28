@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { triggerBroadcastPopup } from "@/lib/stores/broadcast-popup-store";
+import { fireCelebrationConfetti, fireSuccessBurst, fireFireworksConfetti } from "@/lib/ui/confetti";
 import {
   Cake,
   Sparkles,
@@ -304,6 +305,8 @@ export function EmployeeCelebrationBroadcastDeck() {
   const [selectedPerk, setSelectedPerk] = useState<string>("perk-1");
   const [candlesBlown, setCandlesBlown] = useState(false);
   const [diyaLit, setDiyaLit] = useState(false);
+  const [floatingReactions, setFloatingReactions] = useState<{ id: number; emoji: string; left: number }[]>([]);
+  const [giftUnboxed, setGiftUnboxed] = useState(false);
 
   // Live Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -316,12 +319,38 @@ export function EmployeeCelebrationBroadcastDeck() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const spawnReaction = (emoji: string) => {
+    const newReaction = {
+      id: Date.now() + Math.random(),
+      emoji,
+      left: 10 + Math.floor(Math.random() * 80),
+    };
+    setFloatingReactions((prev) => [...prev.slice(-20), newReaction]);
+    fireSuccessBurst({ x: newReaction.left / 100, y: 0.65 });
+    showCelebrationToast(`${emoji} Celebration reaction popped!`);
+  };
+
+  const handleBlowCandles = () => {
+    setCandlesBlown(true);
+    fireFireworksConfetti();
+    showCelebrationToast("🎉 WISH MADE! Digital candles blown out with celebratory fireworks! 🎂");
+    ["🎂", "✨", "🎉", "🥳", "💖"].forEach((emoji, idx) => {
+      setTimeout(() => {
+        setFloatingReactions((prev) => [
+          ...prev.slice(-20),
+          { id: Date.now() + Math.random(), emoji, left: 15 + idx * 18 },
+        ]);
+      }, idx * 120);
+    });
+  };
+
   // Open Studio for Birthday
   const handleOpenBirthdayStudio = (celebrant: BirthdayCelebrant) => {
     setSelectedCelebrant(celebrant);
     setSelectedFestival(null);
     setCustomWish(BIRTHDAY_AI_PRESETS[0]?.wish || "");
     setCandlesBlown(false);
+    setGiftUnboxed(false);
   };
 
   // Open Studio for Festival
@@ -330,6 +359,7 @@ export function EmployeeCelebrationBroadcastDeck() {
     setSelectedCelebrant(null);
     setCustomWish(festival.traditionalGreetings);
     setDiyaLit(false);
+    setGiftUnboxed(false);
   };
 
   // 1. Notify Celebrant Creatively (1-to-1 VIP Greeting)
@@ -1005,23 +1035,48 @@ export function EmployeeCelebrationBroadcastDeck() {
                         : "border-emerald-500/60 bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-950/60 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
                     }`}
                   >
-                    {/* Decorative Background Confetti/Glow */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/15 rounded-full blur-2xl pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/15 rounded-full blur-2xl pointer-events-none" />
+                    {/* Floating Animated Balloons in Background */}
+                    <span className="absolute top-3 left-4 text-2xl animate-balloon select-none pointer-events-none opacity-80">🎈</span>
+                    <span className="absolute top-4 right-4 text-2xl animate-balloon select-none pointer-events-none opacity-80" style={{ animationDelay: "1.5s" }}>🎈</span>
+
+                    {/* Floating Reactions Layer */}
+                    {floatingReactions.map((r) => (
+                      <div
+                        key={r.id}
+                        style={{ left: `${r.left}%` }}
+                        className="absolute bottom-6 text-2xl pointer-events-none animate-float-emoji z-40 select-none"
+                      >
+                        {r.emoji}
+                      </div>
+                    ))}
+
+                    {/* Decorative Ambient Background Glows */}
+                    <div className="absolute top-0 right-0 w-36 h-36 bg-pink-500/15 rounded-full blur-2xl pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-36 h-36 bg-cyan-500/15 rounded-full blur-2xl pointer-events-none" />
 
                     <div className="relative z-10 space-y-4">
                       <div className="flex items-center justify-between">
                         <Badge variant="brand" className="text-[10px] uppercase font-bold tracking-wider bg-white/15 text-white border-white/20">
                           {selectedCelebrant ? "🎂 Official Xorstack Birthday Card" : "✨ Cultural Holiday Broadcast"}
                         </Badge>
-                        <span className="text-xl">
-                          {selectedCelebrant ? "🎉" : selectedFestival?.accentEmoji}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fireCelebrationConfetti()}
+                            className="p-1 rounded-lg bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 text-pink-300 text-xs transition-all cursor-pointer"
+                            title="Pop Confetti Blast"
+                          >
+                            🎉 Pop
+                          </button>
+                          <span className="text-xl animate-pulse">
+                            {selectedCelebrant ? "🎂" : selectedFestival?.accentEmoji}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Celebrant Main Focus */}
-                      <div className="text-center py-2 space-y-1">
-                        <h2 className="text-xl font-extrabold gold-gradient-text">
+                      <div className="text-center py-1 space-y-1">
+                        <h2 className="text-2xl font-extrabold shimmer-gold-text">
                           {selectedCelebrant ? `Happy Birthday, ${selectedCelebrant.name}!` : selectedFestival?.title}
                         </h2>
                         <p className="text-xs text-muted-foreground">
@@ -1031,36 +1086,108 @@ export function EmployeeCelebrationBroadcastDeck() {
                         </p>
                       </div>
 
-                      {/* Interactive Cake / Diya Action */}
-                      <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 text-center space-y-2">
+                      {/* Interactive 3D Cake / Diya Action */}
+                      <div className="p-4 rounded-2xl bg-black/50 border border-white/10 text-center space-y-3 relative overflow-hidden backdrop-blur-md">
                         {selectedCelebrant ? (
-                          <div>
-                            <div className="flex items-center justify-center gap-2 mb-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCandlesBlown(!candlesBlown);
-                                  if (!candlesBlown) showCelebrationToast("🎉 WISH MADE! Digital candles blown out with celebratory sparklers! 🎂");
-                                }}
-                                className="group relative px-4 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 text-pink-300 font-bold transition-all active:scale-95 flex items-center gap-2 mx-auto"
-                              >
-                                <Flame className={`h-4 w-4 ${candlesBlown ? "text-muted-foreground opacity-30" : "text-amber-400 animate-bounce"}`} />
-                                <span>{candlesBlown ? "✨ Candles Blown Out & Wish Made!" : "🎂 Click to Blow Out Birthday Candles!"}</span>
-                              </button>
+                          <div className="space-y-3">
+                            {/* Layered Animated Cake Graphic */}
+                            <div className="flex flex-col items-center justify-center">
+                              {/* 3 Flickering Candles */}
+                              <div className="flex items-end justify-center gap-5 pb-0.5">
+                                {[1, 2, 3].map((candleIdx) => (
+                                  <div key={candleIdx} className="flex flex-col items-center">
+                                    {!candlesBlown ? (
+                                      <div className="h-5 w-3.5 bg-gradient-to-t from-amber-500 via-yellow-300 to-white rounded-full animate-flame shadow-[0_0_14px_rgba(245,158,11,1)]" />
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground animate-pulse">💨</span>
+                                    )}
+                                    <div className="h-1.5 w-0.5 bg-neutral-400" />
+                                    <div
+                                      className={`w-2.5 rounded-t-sm shadow-sm ${
+                                        candleIdx === 2
+                                          ? "bg-pink-400 h-8"
+                                          : candleIdx === 1
+                                          ? "bg-cyan-400 h-6"
+                                          : "bg-purple-400 h-6"
+                                      }`}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Cake Top Tier */}
+                              <div className="w-32 h-5 rounded-t-lg bg-gradient-to-r from-pink-300 via-rose-200 to-pink-300 border-t border-x border-pink-400/40 flex items-center justify-center text-[9px] font-bold text-pink-900 shadow-sm">
+                                🍓 Cream Frosting 🍓
+                              </div>
+                              {/* Cake Bottom Tier */}
+                              <div className="w-48 h-6 rounded-b-xl bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 border border-amber-600/30 flex items-center justify-center text-[9px] font-bold text-amber-200 shadow-inner">
+                                🍫 Chocolate Sponge Layer 🍫
+                              </div>
                             </div>
-                            <span className="text-[10px] text-muted-foreground">
-                              {candlesBlown ? "Sound & particle burst recorded!" : "Interactive animation for the celebrant"}
-                            </span>
+
+                            {/* Blow Out Action Button */}
+                            <div className="flex items-center justify-center gap-2">
+                              {!candlesBlown ? (
+                                <button
+                                  type="button"
+                                  onClick={handleBlowCandles}
+                                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-black text-xs transition-all shadow-[0_0_15px_rgba(244,63,94,0.4)] active:scale-95 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Flame className="h-4 w-4 text-amber-300 animate-flame" />
+                                  <span>Click to Blow Out Birthday Candles!</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCandlesBlown(false);
+                                    showCelebrationToast("🔥 Candles relit for celebration!");
+                                  }}
+                                  className="px-4 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Flame className="h-3.5 w-3.5 text-amber-400" />
+                                  <span>✨ Wish Granted! (Click to Relight Candles)</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Live Reaction Cannon Bar */}
+                            <div className="pt-1 border-t border-white/10 flex items-center justify-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-muted-foreground mr-1">Reaction Blast:</span>
+                              {["🥳", "🎂", "🎉", "💖", "🚀", "👑"].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => spawnReaction(emoji)}
+                                  className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 hover:border-pink-500/40 text-sm flex items-center justify-center transition-all hover:scale-125 active:scale-95 cursor-pointer"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         ) : (
-                          <div>
+                          <div className="space-y-3 py-2">
+                            <div className="flex items-center justify-center gap-3">
+                              <span className={`text-3xl ${diyaLit ? "animate-flame drop-shadow-[0_0_15px_rgba(245,158,11,0.9)]" : "opacity-60"}`}>
+                                🪔
+                              </span>
+                              <span className="text-2xl animate-pulse">✨</span>
+                              <span className={`text-3xl ${diyaLit ? "animate-flame drop-shadow-[0_0_15px_rgba(245,158,11,0.9)]" : "opacity-60"}`}>
+                                🪔
+                              </span>
+                            </div>
+
                             <button
                               type="button"
                               onClick={() => {
                                 setDiyaLit(!diyaLit);
-                                if (!diyaLit) showCelebrationToast("🪔 Ceremonial flame & festival lanterns illuminated! ✨");
+                                if (!diyaLit) {
+                                  fireFireworksConfetti();
+                                  showCelebrationToast("🪔 Ceremonial flame & festival lanterns illuminated! ✨");
+                                }
                               }}
-                              className="group relative px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold transition-all active:scale-95 flex items-center gap-2 mx-auto"
+                              className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold transition-all active:scale-95 flex items-center gap-2 mx-auto cursor-pointer"
                             >
                               <FlameKindling className={`h-4 w-4 ${diyaLit ? "text-amber-300 animate-pulse" : "text-amber-400"}`} />
                               <span>{diyaLit ? "🪔 Ceremonial Light Glowing Luminous!" : "🪔 Click to Light Festive Diya & Lanterns"}</span>
@@ -1074,11 +1201,33 @@ export function EmployeeCelebrationBroadcastDeck() {
                         "{customWish}"
                       </p>
 
-                      {/* Perk Attached Preview */}
-                      <div className="flex items-center justify-center gap-2 text-[11px] text-amber-300 font-semibold pt-1">
-                        <span>Attaching Perk:</span>
-                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-300 bg-amber-500/10">
-                          {DIGITAL_PERKS.find((p) => p.id === selectedPerk)?.title}
+                      {/* Interactive Unboxable Perk Preview */}
+                      <div
+                        onClick={() => {
+                          setGiftUnboxed(!giftUnboxed);
+                          if (!giftUnboxed) {
+                            fireCelebrationConfetti();
+                            showCelebrationToast("🎁 Perk Unboxed with Celebratory Confetti!");
+                          }
+                        }}
+                        className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-pink-500/10 to-amber-500/15 border border-amber-500/30 hover:border-amber-500/60 transition-all cursor-pointer group flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`text-2xl transition-transform duration-300 ${giftUnboxed ? "scale-125 rotate-12" : "group-hover:scale-110"}`}>
+                            {giftUnboxed ? "🎉" : "🎁"}
+                          </span>
+                          <div className="text-left">
+                            <span className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider block">
+                              {giftUnboxed ? "Unlocked Celebrant Perk" : "Attached Digital Perk (Click to Unbox)"}
+                            </span>
+                            <span className="text-xs font-bold text-amber-200">
+                              {DIGITAL_PERKS.find((p) => p.id === selectedPerk)?.title}
+                            </span>
+                          </div>
+                        </div>
+
+                        <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-300 bg-amber-500/10">
+                          {giftUnboxed ? "Unboxed ✓" : "Click to Open"}
                         </Badge>
                       </div>
                     </div>

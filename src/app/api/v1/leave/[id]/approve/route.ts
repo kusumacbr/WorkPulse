@@ -11,7 +11,7 @@ export async function POST(
     const { id } = await params;
     const { actor } = await getSessionActor(req);
     const body = await req.json().catch(() => ({}));
-    const isHr = actor.roles.includes("HR") || actor.roles.includes("ADMIN");
+    const isHr = actor.roles.includes("HR");
 
     let result;
     if (isHr) {

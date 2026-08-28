@@ -345,9 +345,9 @@ export function HRCommunicationReportingDeck({ onOpenExportModal }: { onOpenExpo
                     </span>
                     <strong className="text-emerald-400 font-mono">{anc.acknowledgementRate}%</strong>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="progress-track-line">
                     <div
-                      className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400"
+                      className="progress-track-fill-emerald"
                       style={{ width: `${anc.acknowledgementRate}%` }}
                     />
                   </div>

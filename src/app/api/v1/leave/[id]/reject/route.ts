@@ -12,7 +12,7 @@ export async function POST(
     const { actor } = await getSessionActor(req);
     const body = await req.json().catch(() => ({}));
     const reason = body.reason || "Application rejected";
-    const isHr = actor.roles.includes("HR") || actor.roles.includes("ADMIN");
+    const isHr = actor.roles.includes("HR");
 
     let result;
     if (isHr) {

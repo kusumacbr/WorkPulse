@@ -278,9 +278,9 @@ export function HRPerformanceGovernanceDeck() {
                         <span>Lead: {dept.teamLead.name}</span>
                         <strong className="text-purple-300 font-mono">{progress}% Complete</strong>
                       </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="progress-track-line">
                         <div
-                          className={`h-full rounded-full ${progress === 100 ? "bg-emerald-400" : "bg-purple-400"}`}
+                          className={`h-full rounded-full ${progress === 100 ? "progress-track-fill-emerald" : "progress-track-fill-purple"}`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>

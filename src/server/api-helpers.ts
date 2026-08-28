@@ -55,17 +55,13 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
 
     if (matched) {
       const role: RoleType =
-        normalizedEmail.includes("admin") || normalizedEmail.includes("director")
-          ? "ADMIN"
-          : normalizedEmail.includes("hr")
+        normalizedEmail.includes("hr") || normalizedEmail.includes("admin") || normalizedEmail.includes("director")
           ? "HR"
           : normalizedEmail.includes("lead") || normalizedEmail.includes("manager")
           ? "MANAGER"
           : "EMPLOYEE";
       const roles: RoleType[] =
-        role === "ADMIN"
-          ? ["ADMIN", "MANAGER", "HR", "EMPLOYEE"]
-          : role === "HR"
+        role === "HR"
           ? ["HR", "EMPLOYEE"]
           : role === "MANAGER"
           ? ["MANAGER", "EMPLOYEE"]
@@ -102,7 +98,7 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
         department: "Development",
         team: "Development Pod",
       };
-    } else if (normalizedEmail.includes("hr")) {
+    } else if (normalizedEmail.includes("hr") || normalizedEmail.includes("admin") || normalizedEmail.includes("director")) {
       user = {
         id: "hr-rachel",
         email,
@@ -112,17 +108,6 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
         designation: "Head of People Operations",
         department: "Human Resources",
         team: "Human Resources Pod",
-      };
-    } else if (normalizedEmail.includes("admin") || normalizedEmail.includes("director")) {
-      user = {
-        id: "admin-david",
-        email,
-        name: "David Director",
-        roles: ["ADMIN", "MANAGER", "HR", "EMPLOYEE"],
-        primaryRole: "ADMIN",
-        designation: "VP of Engineering & SuperAdmin",
-        department: "Executive",
-        team: "Executive Pod",
       };
     } else {
       user = {

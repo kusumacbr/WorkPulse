@@ -16,22 +16,22 @@ export async function GET(
     return apiError(`Employee '${id}' not found`, 404, "NOT_FOUND");
   }
 
-  // Authorization check: Self, assigned Manager, HR, Admin
+  // Authorization check: Self, assigned Manager, HR
   const isSelf = actor.employeeId === id || actor.userId === id;
   const isManager =
     actor.roles.includes("MANAGER") &&
     ((actor.directReportIds && actor.directReportIds.includes(id)) ||
       emp.teamLeadName.toLowerCase().includes("alex") ||
       emp.teamLeadName.toLowerCase().includes("lead"));
-  const isHrOrAdmin = actor.roles.includes("HR") || actor.roles.includes("ADMIN");
+  const isHR = actor.roles.includes("HR");
 
-  if (!isSelf && !isManager && !isHrOrAdmin) {
+  if (!isSelf && !isManager && !isHR) {
     return apiError("Forbidden: You lack authorization to view this employee profile.", 403, "FORBIDDEN");
   }
 
-  // Sensitive field filtering: emergency contact restricted to HR and Admin
+  // Sensitive field filtering: emergency contact restricted to HR
   const employeeData = { ...emp };
-  if (!isHrOrAdmin && !isSelf) {
+  if (!isHR && !isSelf) {
     delete (employeeData as any).emergencyContact;
   }
 
@@ -46,10 +46,10 @@ export async function PATCH(
   const { actor } = await getSessionActor(req);
 
   const isSelf = actor.employeeId === id || actor.userId === id;
-  const isHrOrAdmin = actor.roles.includes("HR") || actor.roles.includes("ADMIN");
+  const isHR = actor.roles.includes("HR");
   const isManager = actor.roles.includes("MANAGER");
 
-  if (!isSelf && !isHrOrAdmin && !isManager) {
+  if (!isSelf && !isHR && !isManager) {
     return apiError("Forbidden: Unauthorized to update this employee record.", 403, "FORBIDDEN");
   }
 
@@ -64,7 +64,7 @@ export async function PATCH(
 
     const updated = WorkpulseSharedStore.updateEmployee(
       id,
-      isHrOrAdmin
+      isHR
         ? body
         : {
             preferredName: body.preferredName,
@@ -122,8 +122,8 @@ export async function DELETE(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only HR and Admin can offboard/delete employee records.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can offboard/delete employee records.", 403, "FORBIDDEN");
   }
 
   const removed = WorkpulseSharedStore.deleteEmployee(id);

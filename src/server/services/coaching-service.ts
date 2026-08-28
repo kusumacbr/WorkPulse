@@ -39,7 +39,7 @@ export interface BlockerRecord {
 export interface BlockerEscalationRecord {
   id: string;
   blockerId: string;
-  escalatedToRole: string; // "MANAGER", "ADMIN"
+  escalatedToRole: string; // "MANAGER", "HR"
   escalatedAt: string;
   reason: string;
   acknowledgedAt?: string | null;
@@ -297,11 +297,11 @@ export class BlockerService {
           reason = `Medium blocker SLA breached (${elapsedHours.toFixed(1)}h >= 16h threshold). Escalated to Admin.`;
         }
 
-        if (shouldEscalateToAdmin && !blocker.escalations.some((e) => e.escalatedToRole === "ADMIN")) {
+        if (shouldEscalateToAdmin && !blocker.escalations.some((e) => e.escalatedToRole === "HR")) {
           const esc: BlockerEscalationRecord = {
             id: `esc-${crypto.randomUUID()}`,
             blockerId: blocker.id,
-            escalatedToRole: "ADMIN",
+            escalatedToRole: "HR",
             escalatedAt: new Date(now).toISOString(),
             reason,
           };
@@ -372,13 +372,12 @@ export class OneToOneService {
     if (params.input.developmentTopics !== undefined) meeting.developmentTopics = params.input.developmentTopics;
     if (params.input.sharedNotes !== undefined) meeting.sharedNotes = params.input.sharedNotes;
 
-    // Only manager author, HR, or Admin can set private manager notes
+    // Only manager author or HR can set private manager notes
     if (params.input.privateManagerNotes !== undefined) {
       if (
         params.actor.userId === meeting.managerId ||
         params.actor.employeeId === meeting.managerId ||
-        params.actor.roles.includes("HR") ||
-        params.actor.roles.includes("ADMIN")
+        params.actor.roles.includes("HR")
       ) {
         meeting.privateManagerNotes = params.input.privateManagerNotes;
       }
@@ -390,7 +389,7 @@ export class OneToOneService {
 
   /**
    * Query-level private notes access control:
-   * Strips privateManagerNotes unless the actor is the Author, HR, or Admin.
+   * Strips privateManagerNotes unless the actor is the Author or HR.
    * Employee querying own meeting receives privateManagerNotes as null/undefined.
    */
   static async getMeetingForActor(params: {
@@ -403,14 +402,13 @@ export class OneToOneService {
     const isAuthorOrManager =
       params.actor.userId === meeting.managerId ||
       params.actor.employeeId === meeting.managerId;
-    const isHrOrAdmin =
-      params.actor.roles.includes("HR") || params.actor.roles.includes("ADMIN");
+    const isHr = params.actor.roles.includes("HR");
 
     // Copy record
     const result: OneToOneMeetingRecord = { ...meeting };
 
     // Query-Level Stripping: Employee never receives private notes
-    if (!isAuthorOrManager && !isHrOrAdmin) {
+    if (!isAuthorOrManager && !isHr) {
       result.privateManagerNotes = null;
     }
 
@@ -614,7 +612,7 @@ export class ProbationService {
 
     review.hrDecision = params.decision;
     review.hrComments = params.comments;
-    review.status = "PENDING_ADMIN";
+    review.status = params.decision === "CONFIRM_EMPLOYMENT" ? "CONFIRMED" : "EXTENDED";
 
     await AuditService.record({
       actorId: params.actor.userId,
@@ -626,33 +624,10 @@ export class ProbationService {
 
     return review;
   }
-
-  static async adminConfirm(params: {
-    actor: AuthActor;
-    reviewId: string;
-    comments?: string;
-  }): Promise<ProbationReviewRecord> {
-    const review = inMemoryProbationReviews.get(params.reviewId);
-    if (!review) throw new Error(`Probation review ${params.reviewId} not found.`);
-
-    review.adminConfirmed = true;
-    review.adminComments = params.comments || "Confirmed by Admin.";
-    review.status = review.hrDecision === "CONFIRM_EMPLOYMENT" ? "CONFIRMED" : "EXTENDED";
-
-    await AuditService.record({
-      actorId: params.actor.userId,
-      action: "probation_admin_confirmed",
-      entity: "ProbationReview",
-      entityId: review.id,
-      reason: review.adminComments,
-    });
-
-    return review;
-  }
 }
 
 // ----------------------------------------------------
-// 6. PIP SERVICE (STRICT 4-ROLE ACCESS CONTROL)
+// 6. PIP SERVICE (STRICT ROLE ACCESS CONTROL)
 // ----------------------------------------------------
 
 export class PipService {
@@ -697,7 +672,7 @@ export class PipService {
   }
 
   /**
-   * Strictly limited to: Employee (self), assigned Manager, HR, and Admin.
+   * Strictly limited to: Employee (self), assigned Manager, and HR.
    * Unauthorized actors throw ForbiddenError.
    */
   static async getPipForActor(params: {
@@ -715,11 +690,10 @@ export class PipService {
       params.actor.userId === pip.managerId ||
       (params.actor.directReportIds && params.actor.directReportIds.includes(pip.employeeId));
     const isHr = params.actor.roles.includes("HR");
-    const isAdmin = params.actor.roles.includes("ADMIN");
 
-    if (!isSelf && !isAssignedManager && !isHr && !isAdmin) {
+    if (!isSelf && !isAssignedManager && !isHr) {
       throw new Error(
-        `Forbidden: PIP records are strictly confidential and restricted to the employee, assigned manager, HR, and Admin.`
+        `Forbidden: PIP records are strictly confidential and restricted to the employee, assigned manager, and HR.`
       );
     }
 

@@ -36,7 +36,7 @@ describe("Sensitive Visibility & Query-Level Access Control (Phase 5)", () => {
     userId: "user-admin",
     employeeId: "emp-admin",
     email: "admin@xorstack.com",
-    roles: ["ADMIN"],
+    roles: ["HR"],
     departmentId: "dept-core",
   };
 

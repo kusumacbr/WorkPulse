@@ -92,9 +92,7 @@ export function AdminUserIdentityDeck() {
     // 1. Add all employees from live store
     allEmployees.forEach((emp) => {
       const defaultRoles: RoleType[] =
-        emp.email === "director.test@xorstack.com" || emp.id === "admin-david"
-          ? ["ADMIN", "EMPLOYEE"]
-          : emp.email === "hr.test@xorstack.com" || emp.id === "hr-rachel"
+        emp.email === "director.test@xorstack.com" || emp.id === "admin-david" || emp.email === "hr.test@xorstack.com" || emp.id === "hr-rachel"
           ? ["HR", "EMPLOYEE"]
           : emp.id.startsWith("lead-") || emp.designation.includes("Lead")
           ? ["MANAGER", "EMPLOYEE"]
@@ -274,7 +272,6 @@ export function AdminUserIdentityDeck() {
               className="h-8 px-2.5 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
             >
               <option value="ALL">All Roles</option>
-              <option value="ADMIN">ADMIN</option>
               <option value="HR">HR</option>
               <option value="MANAGER">MANAGER</option>
               <option value="EMPLOYEE">EMPLOYEE</option>
@@ -287,8 +284,8 @@ export function AdminUserIdentityDeck() {
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
               <tr>
-                <th className="p-3">User & Email</th>
-                <th className="p-3">Department & Role</th>
+                <th className="p-3">User &amp; Email</th>
+                <th className="p-3">Department &amp; Role</th>
                 <th className="p-3">Reporting Line (Manager)</th>
                 <th className="p-3">Assigned RBAC Roles</th>
                 <th className="p-3 text-center">Status</th>
@@ -368,7 +365,7 @@ export function AdminUserIdentityDeck() {
                   {/* RBAC Role Badges & Toggles */}
                   <td className="p-3">
                     <div className="flex flex-wrap items-center gap-1">
-                      {(["ADMIN", "HR", "MANAGER", "EMPLOYEE"] as RoleType[]).map((r) => {
+                      {(["HR", "MANAGER", "EMPLOYEE"] as RoleType[]).map((r) => {
                         const active = user.roles.includes(r);
                         return (
                           <button
@@ -377,9 +374,7 @@ export function AdminUserIdentityDeck() {
                             onClick={() => handleToggleRole(user, r)}
                             className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
                               active
-                                ? r === "ADMIN"
-                                  ? "bg-red-500/20 text-red-300 border-red-500/40"
-                                  : r === "HR"
+                                ? r === "HR"
                                   ? "bg-pink-500/20 text-pink-300 border-pink-500/40"
                                   : r === "MANAGER"
                                   ? "bg-purple-500/20 text-purple-300 border-purple-500/40"

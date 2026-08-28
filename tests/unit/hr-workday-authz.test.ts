@@ -45,20 +45,12 @@ describe("HR SOD/EOD Lifecycle & ManagerAssignment Authorization Suite", () => {
     directReportIds: ["emp-sarah", "emp-jordan"],
   };
 
-  // Admin Actor (Organization-wide leadership)
-  const adminActor: AuthActor = {
-    userId: "user-david",
-    employeeId: "emp-david",
-    email: "admin@xorstack.com",
-    roles: ["ADMIN", "EMPLOYEE"],
-  };
-
-  // Configured Fallback Reviewer Admin
+  // Configured Fallback Reviewer HR
   const fallbackAdminActor: AuthActor = {
     userId: "user-fallback-admin",
     employeeId: "emp-fallback-admin",
     email: "fallback.admin@xorstack.com",
-    roles: ["ADMIN", "EMPLOYEE"],
+    roles: ["HR", "EMPLOYEE"],
   };
 
   // Unassigned HR employee (e.g. small org where HR reports to nobody formally)
@@ -211,7 +203,7 @@ describe("HR SOD/EOD Lifecycle & ManagerAssignment Authorization Suite", () => {
       expect(changed.requestedChanges?.message).toContain("Please specify the role");
     });
 
-    it("allows Admin to read and lock HR employee's workday", async () => {
+    it("allows assigned Team Lead to read and lock HR employee's workday", async () => {
       const sod = await WorkdayService.submitSOD({
         actor: hrEmployeeActor,
         input: {
@@ -233,13 +225,13 @@ describe("HR SOD/EOD Lifecycle & ManagerAssignment Authorization Suite", () => {
       });
 
       const locked = await WorkdayService.lockWorkday({
-        actor: adminActor,
+        actor: hrDirectorManagerActor,
         workdayId: sod.id,
-        reason: "Executive management sign-off",
+        reason: "Lead management sign-off",
       });
 
       expect(locked.status).toBe("LOCKED");
-      expect(locked.lockedById).toBe("user-david");
+      expect(locked.lockedById).toBe(hrDirectorManagerActor.userId);
     });
   });
 

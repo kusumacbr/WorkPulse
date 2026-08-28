@@ -5,8 +5,8 @@ import { AuditService } from "@/lib/audit/audit-service";
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only HR and Admin can import biometric attendance CSV files.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can import biometric attendance CSV files.", 403, "FORBIDDEN");
   }
 
   try {

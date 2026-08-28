@@ -24,7 +24,7 @@ describe("Asynchronous Exports & Row-Level Security (Phase 6)", () => {
     userId: "user-admin",
     employeeId: "emp-admin",
     email: "admin@xorstack.com",
-    roles: ["ADMIN"],
+    roles: ["HR"],
     departmentId: "dept-core",
   };
 

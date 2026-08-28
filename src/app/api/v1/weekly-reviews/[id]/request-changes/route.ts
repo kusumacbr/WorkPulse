@@ -9,8 +9,8 @@ export async function POST(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("MANAGER") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only managers and Admin can request review changes.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("MANAGER") && !actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only team leads and HR can request review changes.", 403, "FORBIDDEN");
   }
 
   const state = workpulseSharedStore.getState();

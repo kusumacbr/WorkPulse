@@ -292,9 +292,9 @@ export function HRTalentDevelopmentDesk() {
                     <span className="text-muted-foreground">Progress Completion:</span>
                     <strong className="text-amber-400 font-mono">{c.progressPercent}%</strong>
                   </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="progress-track-line">
                     <div
-                      className="h-full bg-amber-400 rounded-full"
+                      className="progress-track-fill-emerald"
                       style={{ width: `${c.progressPercent}%` }}
                     />
                   </div>
@@ -359,9 +359,9 @@ export function HRTalentDevelopmentDesk() {
                   </Badge>
                 </div>
 
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div className="progress-track-line">
                   <div
-                    className={`h-full rounded-full ${crs.completionRate === 100 ? "bg-emerald-400" : "bg-cyan-400"}`}
+                    className={crs.completionRate === 100 ? "progress-track-fill-emerald" : "progress-track-fill-cyan"}
                     style={{ width: `${crs.completionRate}%` }}
                   />
                 </div>

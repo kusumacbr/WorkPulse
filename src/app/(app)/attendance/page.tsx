@@ -9,15 +9,13 @@ import { AnimatedTabContent } from "@/components/animations/AnimatedTabContent";
 import { WhosWhereTodayBoard } from "@/features/attendance/components/WhosWhereTodayBoard";
 import { HolidayCalendarGrid } from "@/features/holidays/components/HolidayCalendarGrid";
 import { HREnterpriseAttendanceOversight } from "@/features/attendance/components/HREnterpriseAttendanceOversight";
+import { LeadAttendanceManager } from "@/features/attendance/components/LeadAttendanceManager";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import { WorkpulseApi } from "@/lib/api/api-client";
 import {
   Clock,
   Calendar,
   Users,
-  Radio,
-  Briefcase,
-  GraduationCap,
   ShieldCheck,
   CheckCircle2,
   Fingerprint,
@@ -25,10 +23,18 @@ import {
 
 export default function AttendancePage() {
   const user = useCurrentUser();
-  const isHR = user.roles.includes("HR") || user.primaryRole === "HR" || user.roles.includes("ADMIN");
+  const isHR =
+    user.roles.includes("HR") ||
+    user.primaryRole === "HR" ||
+    user.userEmail.toLowerCase().includes("hr");
+  const isLead =
+    !isHR &&
+    (user.roles.includes("MANAGER") ||
+      user.primaryRole === "MANAGER" ||
+      user.userEmail.toLowerCase().includes("lead"));
 
   const [activeTab, setActiveTab] = useState<"hr_oversight" | "directory" | "punches" | "holidays">(
-    isHR ? "hr_oversight" : "directory"
+    isHR ? "hr_oversight" : "punches"
   );
   const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("IN");
   const [punchTime, setPunchTime] = useState<string>("10:08 AM");
@@ -102,119 +108,109 @@ export default function AttendancePage() {
     },
   ];
 
+  if (isLead) {
+    return (
+      <PageTransition>
+        <div className="space-y-6">
+          <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Badge variant="brand" className="font-bold text-[10px] uppercase">
+                  <Users className="h-3 w-3 mr-1 text-indigo-400" />
+                  <span>Pod Attendance Oversight</span>
+                </Badge>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  Development Pod · 4 Direct Reports
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                Pod Attendance & Presence
+              </h2>
+
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Track direct report biometric punches, verify office vs. remote presence, and check shift grace compliance.
+              </p>
+            </div>
+          </Interactive3DCard>
+
+          <LeadAttendanceManager />
+        </div>
+      </PageTransition>
+    );
+  }
+
   return (
     <PageTransition>
-      {/* 3D Hero */}
-      <Interactive3DCard className="p-6 md:p-8 border border-cyan-500/30 bg-gradient-to-r from-card/80 via-card/60 to-cyan-500/10 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <Badge variant="brand" className="font-bold text-[10px] uppercase bg-cyan-500/15 border-cyan-500/30 text-cyan-300">
-                <Radio className="h-3 w-3 mr-1 animate-pulse text-cyan-400" />
-                Live Attendance Sync
-              </Badge>
-              <span className="text-xs text-muted-foreground font-mono">10:00 AM – 07:00 PM Shift</span>
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              {isHR ? "Enterprise Attendance & Shift Policy Control" : "Attendance, Logs & Presence Radar"}
+      {/* Simplified Clean Header */}
+      <Interactive3DCard className="p-5 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-black tracking-tight text-foreground">
+              Attendance
             </h2>
-
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              {isHR
-                ? "Organization-wide biometric punch telemetry, 10:00 AM – 07:00 PM shift compliance monitoring, missed swipe regularizations, and payroll muster roll audit."
-                : "Official company shift timings are 10:00 AM to 07:00 PM. Verify biometric punch transactions, monitor shift compliance, review office vs WFH distribution, and inspect public holidays."}
-            </p>
+            <Badge variant="outline" className="text-[11px] font-mono text-cyan-300 border-cyan-500/30 bg-cyan-500/10">
+              10:00 AM – 07:00 PM (10:15 AM Grace)
+            </Badge>
           </div>
 
-          {/* Tab Switcher in Glass Pill */}
-          <div className="flex items-center p-1 rounded-xl bg-background/50 border border-cyan-500/30 backdrop-blur-md overflow-x-auto shrink-0 shadow-sm gap-1">
+          {/* Simplified Tab Switcher */}
+          <div className="flex items-center p-1 rounded-xl bg-card/80 border border-border/80 backdrop-blur-md overflow-x-auto shrink-0 gap-1">
             {isHR && (
               <button
                 type="button"
                 onClick={() => setActiveTab("hr_oversight")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === "hr_oversight"
-                    ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white font-bold shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                 }`}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                <span>HR Oversight</span>
+                <span>Overview</span>
               </button>
             )}
 
             <button
               type="button"
-              onClick={() => setActiveTab("directory")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === "directory"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>Who&apos;s Where</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setActiveTab("punches")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                 activeTab === "punches"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
               <Clock className="h-3.5 w-3.5" />
-              <span>My Punches</span>
+              <span>{isHR ? "My Punch-In" : "My Punches"}</span>
             </button>
+
+            {!isHR && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("directory")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+                  activeTab === "directory"
+                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span>Who&apos;s Where</span>
+              </button>
+            )}
 
             <button
               type="button"
               onClick={() => setActiveTab("holidays")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                 activeTab === "holidays"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
               <Calendar className="h-3.5 w-3.5" />
               <span>Holidays</span>
             </button>
-          </div>
-        </div>
-
-        {/* OFFICIAL COMPANY TIMINGS & SCHEDULE POLICY BANNER */}
-        <div className="p-4 rounded-2xl bg-background/60 border border-cyan-500/30 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-cyan-400" />
-              <strong className="text-foreground text-sm">Company Timings: 10:00 AM – 07:00 PM</strong>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              9.0 Hrs Gross Span (8.0 Hrs Core Work + 1.0 Hr Break). Grace punch window up to 10:15 AM.
-            </p>
-          </div>
-
-          <div className="space-y-1 border-t md:border-t-0 md:border-l border-border/70 md:pl-4">
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-purple-400" />
-              <strong className="text-foreground text-sm">Full-Time Employees</strong>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              <strong className="text-purple-300">Monday to Friday</strong> (10 AM - 7 PM). <em>If work demands, work on Saturday.</em>
-            </p>
-          </div>
-
-          <div className="space-y-1 border-t md:border-t-0 md:border-l border-border/70 md:pl-4">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-amber-400" />
-              <strong className="text-foreground text-sm">Probation & Interns</strong>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              <strong className="text-amber-300">Monday to Saturday Full</strong> (10 AM - 7 PM). <span className="text-emerald-400 font-bold">Sunday Week Off for All</span>.
-            </p>
           </div>
         </div>
       </Interactive3DCard>

@@ -10,8 +10,8 @@ export async function POST(
   const { id } = await params;
   const { actor } = await getSessionActor(req);
 
-  if (!actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only Admin can configure manager assignments.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only HR can configure manager assignments.", 403, "FORBIDDEN");
   }
 
   try {

@@ -558,9 +558,9 @@ export function TeamMemberSODInspector() {
                       <span className="font-mono font-bold text-cyan-400">{task.completionPercentage}%</span>
                     </div>
 
-                    <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                    <div className="progress-track-line">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-[var(--brand-primary)] to-cyan-400 transition-all duration-300"
+                        className="progress-track-fill-cyan"
                         style={{ width: `${task.completionPercentage}%` }}
                       />
                     </div>

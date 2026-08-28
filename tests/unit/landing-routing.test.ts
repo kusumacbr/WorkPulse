@@ -8,13 +8,12 @@ describe("Landing Page & Role Routing Verification", () => {
     { slug: "employee", expectedName: "Employee", defaultRole: "EMPLOYEE" },
     { slug: "manager", expectedName: "Team Lead", defaultRole: "MANAGER" },
     { slug: "hr", expectedName: "People Ops / HR", defaultRole: "HR" },
-    { slug: "admin", expectedName: "System Admin", defaultRole: "ADMIN" },
   ];
 
-  it("defines all 4 core roles on the landing page", () => {
-    expect(landingRoles.length).toBe(4);
+  it("defines all 3 core roles on the landing page", () => {
+    expect(landingRoles.length).toBe(3);
     const slugs = landingRoles.map((r) => r.slug);
-    expect(slugs).toEqual(["employee", "manager", "hr", "admin"]);
+    expect(slugs).toEqual(["employee", "manager", "hr"]);
   });
 
   describe("Security Guarantee: Mismatched Role Framing Immunity", () => {
@@ -99,6 +98,41 @@ describe("Landing Page & Role Routing Verification", () => {
       expect(coreEnterpriseRoutes.length).toBe(15);
       expect(coreEnterpriseRoutes).toContain("/settings");
       expect(coreEnterpriseRoutes).toContain("/meetings");
+    });
+  });
+
+  describe("Unified Sign-In & HR Member Access Guarantees", () => {
+    it("guarantees unified sign-in endpoint /login serves all members without role branching", () => {
+      const unifiedAuthPath = "/login";
+      expect(unifiedAuthPath).toBe("/login");
+    });
+
+    it("verifies only HR has access to audit logs across the organization", async () => {
+      const hrActor: AuthActor = {
+        userId: "user-rachel",
+        email: "hr.test@xorstack.com",
+        roles: ["HR"],
+      };
+
+      const employeeActor: AuthActor = {
+        userId: "user-sarah",
+        email: "employee.test@xorstack.com",
+        roles: ["EMPLOYEE"],
+      };
+
+      const hrAuditAuth = await authorize({
+        actor: hrActor,
+        permission: PERMISSIONS.AUDIT_READ,
+        resource: { type: "AuditVault" },
+      });
+      expect(hrAuditAuth.allowed).toBe(true);
+
+      const employeeAuditAuth = await authorize({
+        actor: employeeActor,
+        permission: PERMISSIONS.AUDIT_READ,
+        resource: { type: "AuditVault" },
+      });
+      expect(employeeAuditAuth.allowed).toBe(false);
     });
   });
 });

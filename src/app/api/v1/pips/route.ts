@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   ];
 
   const visiblePips = pips.filter((p) => {
-    if (actor.roles.includes("HR") || actor.roles.includes("ADMIN")) return true;
+    if (actor.roles.includes("HR")) return true;
     if (actor.roles.includes("MANAGER") && p.managerId === actor.employeeId) return true;
     if (p.employeeId === actor.employeeId) return true;
     return false;
@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
-  if (!actor.roles.includes("MANAGER") && !actor.roles.includes("HR") && !actor.roles.includes("ADMIN")) {
-    return apiError("Forbidden: Only Managers, HR, and Admin can create PIP records.", 403, "FORBIDDEN");
+  if (!actor.roles.includes("MANAGER") && !actor.roles.includes("HR")) {
+    return apiError("Forbidden: Only Managers and HR can create PIP records.", 403, "FORBIDDEN");
   }
 
   try {

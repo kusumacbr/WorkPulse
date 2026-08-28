@@ -77,9 +77,9 @@ export function SelfVsLeadComparisonChart({
                 </div>
 
                 {/* Single High-Visibility Evaluated Progress Bar */}
-                <div className="w-full h-2 rounded-full bg-background overflow-hidden border border-border/50 flex">
+                <div className="progress-track-line">
                   <div
-                    className={`h-full bg-gradient-to-r ${item.color} transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.3)]`}
+                    className={`h-full bg-gradient-to-r ${item.color} rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.6)]`}
                     style={{ width: `${percentage}%` }}
                   />
                 </div>

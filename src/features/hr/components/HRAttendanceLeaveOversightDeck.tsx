@@ -700,9 +700,9 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                       <span>Available Staff</span>
                       <span className="font-mono font-bold text-foreground">{totalStaff - projectedOnLeave} / {totalStaff}</span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="progress-track-line">
                       <div
-                        className={`h-full ${capacityPct >= 80 ? "bg-emerald-400" : "bg-amber-400"}`}
+                        className={capacityPct >= 80 ? "progress-track-fill-emerald" : "progress-track-fill-cyan"}
                         style={{ width: `${capacityPct}%` }}
                       />
                     </div>

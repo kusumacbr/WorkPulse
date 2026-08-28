@@ -7,10 +7,7 @@ export async function GET(req: NextRequest) {
 
   // Compute permissions for active roles
   const permissions: string[] = [];
-  if (user.roles.includes("ADMIN")) {
-    permissions.push(...Object.values(PERMISSIONS));
-  } else {
-    if (user.roles.includes("EMPLOYEE")) {
+  if (user.roles.includes("EMPLOYEE")) {
       permissions.push(
         PERMISSIONS.PROFILE_READ,
         PERMISSIONS.PROFILE_UPDATE,
@@ -74,11 +71,9 @@ export async function GET(req: NextRequest) {
         PERMISSIONS.BADGE_MANAGE_DEF,
         PERMISSIONS.WEEKLY_REVIEW_APPROVE,
         PERMISSIONS.MONTHLY_REVIEW_REVIEW,
-        PERMISSIONS.MONTHLY_REVIEW_FINALIZE,
-        PERMISSIONS.ONE_TO_ONE_READ_PRIVATE
+        PERMISSIONS.MONTHLY_REVIEW_FINALIZE
       );
     }
-  }
 
   const uniquePermissions = Array.from(new Set(permissions));
 

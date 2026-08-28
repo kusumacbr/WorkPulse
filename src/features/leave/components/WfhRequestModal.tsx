@@ -96,13 +96,9 @@ export function WfhRequestModal({
           <div className="h-12 w-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-6 w-6" />
           </div>
-          <h3 className="text-lg font-bold text-foreground">
-            {isSelfMarked ? "WFH Self-Marked Instantly!" : "WFH Request Submitted!"}
-          </h3>
+          <h3 className="text-lg font-bold text-foreground">WFH Request Submitted!</h3>
           <p className="text-xs text-muted-foreground">
-            {isSelfMarked
-              ? "Your WFH status for today is active under your monthly self-mark threshold."
-              : "Your request has been routed to your Lead for single-stage approval."}
+            Your request is now in <span className="font-semibold text-foreground">Stage 1: Team Lead Review</span>. Once approved by your Lead, it will automatically move to HR for final Stage-2 authorization.
           </p>
           <Button variant="brand" size="sm" onClick={onClose}>
             Done
@@ -119,10 +115,10 @@ export function WfhRequestModal({
           <div>
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <Laptop className="h-4 w-4 text-[var(--brand-primary)]" />
-              Work From Home (WFH)
+              Request Work From Home (WFH)
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Single-stage manager approval or instant self-mark within monthly threshold
+              Two-stage approval: Team Lead Review &rarr; Final HR Authorization
             </CardDescription>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>

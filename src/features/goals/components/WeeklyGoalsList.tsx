@@ -467,9 +467,9 @@ export function WeeklyGoalsList() {
             </div>
           </div>
 
-          <div className="w-full h-3 rounded-full bg-slate-950 overflow-hidden flex border border-border/60">
+          <div className="progress-track-line">
             <div
-              className={`h-full transition-all duration-300 ${
+              className={`h-full transition-all duration-300 rounded-full ${
                 totalWeight === 100
                   ? "bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_12px_#10b981]"
                   : totalWeight > 100
@@ -549,9 +549,9 @@ export function WeeklyGoalsList() {
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">completed</span>
                   </div>
-                  <div className="w-36 h-2 rounded-full bg-muted overflow-hidden border border-border/50">
+                  <div className="progress-track-line w-36">
                     <div
-                      className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-300 shadow-[0_0_10px_#10b981]"
+                      className="progress-track-fill-emerald"
                       style={{ width: `${goal.progressPercentage}%` }}
                     />
                   </div>

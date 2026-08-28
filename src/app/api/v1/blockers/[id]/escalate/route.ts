@@ -14,7 +14,7 @@ export async function POST(
   const escalation = {
     id: `esc-${Date.now()}`,
     blockerId: id,
-    escalatedToRole: body.role || "ADMIN",
+    escalatedToRole: body.role || "HR",
     escalatedAt: new Date().toISOString(),
     reason: body.reason || "Manual escalation triggered by reviewer",
   };

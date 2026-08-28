@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       status: "SCHEDULED",
       agenda: "Weekly sprint sync & architecture check-in",
       sharedNotes: "Agreed on API route architecture and test coverage goals.",
-      privateManagerNotes: actor.roles.includes("EMPLOYEE") && !actor.roles.includes("MANAGER") && !actor.roles.includes("HR") && !actor.roles.includes("ADMIN") ? null : "High potential for lead engineer promotion.",
+      privateManagerNotes: actor.roles.includes("EMPLOYEE") && !actor.roles.includes("MANAGER") && !actor.roles.includes("HR") ? null : "High potential for lead engineer promotion.",
       employeeAcknowledgedAt: "2026-08-22T16:00:00Z",
     },
   ];
