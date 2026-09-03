@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     const appName = process.env.ADK_APP_NAME || "sample_agent";
     const FALLBACK_GEMINI_KEY = "AQ.Ab8RN6Lyd7A0EhW7_UmgbGD2v2pAxkq21Jq_vR6A2oawFHR9qw";
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || FALLBACK_GEMINI_KEY;
-    const requestedModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const requestedModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 
 
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
 
     // Candidate models to try in case the configured one is not available
     const modelsToTry = Array.from(
-      new Set([requestedModel, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"])
+      new Set([requestedModel, "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"])
     );
 
     let replyText: string | null = null;
