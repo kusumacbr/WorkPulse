@@ -341,7 +341,7 @@ export function HRPerformanceGovernanceDeck() {
                   <div className="flex items-center gap-3 sm:text-right shrink-0">
                     <div>
                       <span className="font-mono font-bold text-purple-300 text-sm">{avgScore} / 100</span>
-                      <span className="text-[10px] text-muted-foreground block">Pod Calibrated Score</span>
+                      <span className="text-[10px] text-muted-foreground block">Team Calibrated Score</span>
                     </div>
 
                     <Badge

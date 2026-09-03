@@ -184,8 +184,10 @@ export default function AssistantPage() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Integrated with <code className="font-mono text-cyan-400">sample_agent</code> at{" "}
-              <span className="font-mono text-muted-foreground/90">C:\Users\Victus\sample_agent</span>
+              Integrated with <code className="font-mono text-cyan-400">{status?.appName || "sample_agent"}</code>
+              {status?.agentPath && (
+                <> · <span className="font-mono text-muted-foreground/90">{status.agentPath}</span></>
+              )}
             </p>
           </div>
         </div>
@@ -239,20 +241,20 @@ export default function AssistantPage() {
               </div>
               <div className="flex justify-between py-1 border-b border-border/30">
                 <span className="text-muted-foreground">App Package</span>
-                <span className="font-mono font-medium text-cyan-400">sample_agent</span>
+                <span className="font-mono font-medium text-cyan-400">{status?.appName || "sample_agent"}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/30">
                 <span className="text-muted-foreground">Target Model</span>
-                <span className="font-mono font-medium text-foreground">{status?.model || "gemini-3.5-flash"}</span>
+                <span className="font-mono font-medium text-foreground">{status?.model || "gemini-2.5-flash"}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/30">
                 <span className="text-muted-foreground">ADK Server URI</span>
                 <span className="font-mono text-[11px] text-muted-foreground">{status?.agentUrl || "http://127.0.0.1:8000"}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/30">
-                <span className="text-muted-foreground">Local Path</span>
-                <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[170px]" title="C:\Users\Victus\sample_agent">
-                  ...\sample_agent
+                <span className="text-muted-foreground">Location / Path</span>
+                <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[170px]" title={status?.agentPath || "sample_agent"}>
+                  {status?.agentPath || "Cloud / Gemini Bridge"}
                 </span>
               </div>
             </div>

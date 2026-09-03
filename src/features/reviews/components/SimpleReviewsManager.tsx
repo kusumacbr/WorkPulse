@@ -83,7 +83,7 @@ const PAST_REVIEWS = [
     score: 86,
     status: "Completed",
     reviewer: "Alex Lead",
-    summary: "Successfully onboarded to core pod initiatives and completed initial certification.",
+    summary: "Successfully onboarded to core team initiatives and completed initial certification.",
   },
 ];
 
@@ -143,7 +143,7 @@ export function SimpleReviewsManager() {
             <div className="flex items-center gap-1.5">
               <strong className="text-foreground text-xs">Lead Reviewer: Alex Lead</strong>
               <Badge variant="outline" className="text-[9px] text-purple-300 border-purple-500/30">
-                Development Pod
+                Development Team
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground">
@@ -168,7 +168,7 @@ export function SimpleReviewsManager() {
             <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
           </div>
           <p className="text-2xl font-bold text-foreground">92 / 100</p>
-          <span className="text-[11px] text-emerald-400 font-semibold">Top 5% Pod Performance</span>
+          <span className="text-[11px] text-emerald-400 font-semibold">Top 5% Team Performance</span>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">

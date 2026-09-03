@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { LucideIcon, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -26,42 +25,8 @@ export function RoleCard3D({
   highlights,
 }: RoleCard3DProps) {
   const router = useRouter();
-  const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-      setReducedMotion(mediaQuery.matches);
-    }
-  }, []);
-
-  // Motion values for 3D cursor tilt
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  const springConfig = { damping: 20, stiffness: 200, mass: 0.5 };
-  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), springConfig);
-  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), springConfig);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (reducedMotion || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const xPct = (e.clientX - rect.left) / width - 0.5;
-    const yPct = (e.clientY - rect.top) / height - 0.5;
-    mouseX.set(xPct);
-    mouseY.set(yPct);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    mouseX.set(0);
-    mouseY.set(0);
-  };
 
   const handleClick = () => {
     setIsClicked(true);
@@ -71,30 +36,16 @@ export function RoleCard3D({
   };
 
   return (
-    <motion.div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
+    <div
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
-      style={{
-        rotateX: reducedMotion ? 0 : rotateX,
-        rotateY: reducedMotion ? 0 : rotateY,
-        transformStyle: "preserve-3d",
-      }}
-      whileHover={reducedMotion ? {} : { scale: 1.02 }}
-      whileTap={reducedMotion ? {} : { scale: 0.98 }}
-      className={`relative rounded-2xl p-6 text-left cursor-pointer transition-all duration-300 backdrop-blur-xl border flex flex-col justify-between h-full group select-none ${
+      className={`relative rounded-2xl p-6 text-left cursor-pointer transition-all duration-200 border flex flex-col justify-between h-full group select-none ${
         isHovered
-          ? "border-[var(--brand-primary)]/70 shadow-[0_12px_40px_rgba(208,172,100,0.18)] bg-card/90"
-          : "border-border/80 bg-card/60 hover:bg-card/80 shadow-lg"
-      } ${isClicked ? "ring-2 ring-[var(--brand-primary)] scale-95" : ""}`}
+          ? "border-primary shadow-md bg-card"
+          : "border-border/80 bg-card/90 shadow-sm"
+      } ${isClicked ? "ring-2 ring-primary scale-95" : ""}`}
     >
-      {/* Subtle Ambient Mouse Glow */}
-      {isHovered && !reducedMotion && (
-        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_50%_0%,rgba(208,172,100,0.15),transparent_70%)] pointer-events-none" />
-      )}
-
       <div className="space-y-4 relative z-10">
         {/* Header Icon + Role Badge */}
         <div className="flex items-center justify-between">
@@ -135,6 +86,6 @@ export function RoleCard3D({
           <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

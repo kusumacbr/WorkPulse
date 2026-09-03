@@ -1,28 +1,32 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/components/layout/UserContext";
-import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import {
+  useWorkpulseSharedStore,
+  WorkpulseSharedStore,
+  SharedLeaveRequest,
+  SharedWfhRequest,
+} from "@/lib/stores/workpulse-shared-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { MetricTile3D } from "@/components/3d/MetricTile3D";
 import { PageTransition } from "@/components/animations/PageTransition";
-import { fireCelebrationConfetti } from "@/lib/ui/confetti";
+import { DEFAULT_FRIENDLY_GOALS } from "@/features/goals/components/SimpleGoalsManager";
 import {
   Clock,
   Calendar,
   Users,
   Target,
   CheckCircle2,
-  Check,
-  X,
   ListTodo,
-  ArrowRight,
   UserCheck,
   Sun,
-  PartyPopper,
+  Sparkles,
+  ChevronRight,
+  Building2,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -40,98 +44,345 @@ export default function DashboardPage() {
 
   const {
     leaveRequests,
+    wfhRequests,
     allEmployees,
     departments,
-    hrApproveLeave,
-    hrRejectLeave,
   } = useWorkpulseSharedStore();
 
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  const pendingLeaves = leaveRequests.filter(
-    (r) => r.status.includes("PENDING") || r.status === "FORWARDED_TO_HR"
-  );
-
-  const cleanPodMembers = useMemo(() => {
-    return [
-      {
-        id: "emp-sarah",
-        name: "Sarah Dev",
-        designation: "Senior Backend Engineer",
-        avatar: "SD",
-        avatarBg: "bg-gradient-to-tr from-purple-500 to-pink-500 text-white",
-        workMode: "Office",
-        status: "Plan Approved",
-        progress: 90,
-      },
-      {
-        id: "emp-rohit",
-        name: "Rohit Sharma",
-        designation: "Frontend Engineer",
-        avatar: "RS",
-        avatarBg: "bg-gradient-to-tr from-cyan-500 to-blue-600 text-white",
-        workMode: "Office",
-        status: "Plan Approved",
-        progress: 85,
-      },
-      {
-        id: "emp-priya",
-        name: "Priya Patel",
-        designation: "QA & Test Lead",
-        avatar: "PP",
-        avatarBg: "bg-gradient-to-tr from-amber-500 to-orange-500 text-white",
-        workMode: "Remote (WFH)",
-        status: "Plan Pending",
-        progress: 75,
-      },
-      {
-        id: "emp-arjun",
-        name: "Arjun Kumar",
-        designation: "Fullstack Developer",
-        avatar: "AK",
-        avatarBg: "bg-gradient-to-tr from-emerald-500 to-teal-500 text-white",
-        workMode: "Office",
-        status: "Plan Pending",
-        progress: 70,
-      },
-    ];
+  useEffect(() => {
+    setMounted(true);
+    WorkpulseSharedStore.hydrateFromStorage();
   }, []);
 
-  const handleQuickApprove = (id: string, name: string) => {
-    hrApproveLeave(id, "Approved from Dashboard");
-    fireCelebrationConfetti();
-    setToastMsg(`✓ Leave request for ${name} authorized and balance updated.`);
-    setTimeout(() => setToastMsg(null), 3000);
-  };
+  // 1. Current Logged-in Employee Resolution
+  const currentEmp = useMemo(() => {
+    const emailLower = (user.userEmail || "").toLowerCase();
+    const nameLower = (user.userName || "").toLowerCase();
+    return (
+      allEmployees.find(
+        (e) =>
+          e.email.toLowerCase() === emailLower ||
+          e.id === user.userEmail ||
+          (emailLower === "employee.test@xorstack.com" && e.id === "emp-sarah") ||
+          e.name.toLowerCase() === nameLower
+      ) ||
+      allEmployees.find((e) => !e.email.toLowerCase().includes("lead") && !e.email.toLowerCase().includes("hr")) ||
+      allEmployees[0]
+    );
+  }, [allEmployees, user]);
 
-  const handleQuickReject = (id: string, name: string) => {
-    hrRejectLeave(id, "Rejected from Dashboard");
-    setToastMsg(`Leave request for ${name} declined.`);
-    setTimeout(() => setToastMsg(null), 3000);
-  };
+  // 2. Team Lead Direct Reports Resolution
+  const cleanTeamMembers = useMemo(() => {
+    const devEmployees = allEmployees.filter(
+      (e) =>
+        e.id !== "lead-alex" &&
+        !e.email?.toLowerCase().includes("lead") &&
+        !e.email?.toLowerCase().includes("hr") &&
+        (e.teamLeadId === "lead-alex" ||
+          e.departmentId === "dept-development" ||
+          e.departmentName?.toLowerCase().includes("development") ||
+          e.teamLeadName?.toLowerCase().includes("alex"))
+    );
+
+    let savedFeedback: Record<string, any> = {};
+    if (mounted && typeof window !== "undefined") {
+      try {
+        savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
+      } catch {}
+    }
+
+    const bgList = [
+      "bg-gradient-to-tr from-purple-500 to-pink-500 text-white",
+      "bg-gradient-to-tr from-cyan-500 to-blue-600 text-white",
+      "bg-gradient-to-tr from-amber-500 to-orange-500 text-white",
+      "bg-gradient-to-tr from-emerald-500 to-teal-500 text-white",
+      "bg-gradient-to-tr from-indigo-500 to-violet-500 text-white",
+    ];
+
+    return devEmployees.map((e, index) => {
+      const fb =
+        savedFeedback[e.id] ||
+        (e.email ? savedFeedback[e.email.toLowerCase()] : null) ||
+        (e.id === "emp-sarah" ? savedFeedback["employee.test@xorstack.com"] || savedFeedback["emp-sarah"] : null);
+
+      let localSodSubmitted = false;
+      if (typeof window !== "undefined") {
+        try {
+          localSodSubmitted = Boolean(
+            localStorage.getItem(`workpulse_morning_plan_submitted_${e.id}`) ||
+              (e.email && localStorage.getItem(`workpulse_morning_plan_submitted_${e.email.toLowerCase()}`))
+          );
+        } catch {}
+      }
+
+      const isSodVerified = Boolean(e.sodStatus === "VERIFIED" || (fb && fb.sodAcknowledged === true));
+      const isSodSubmitted = Boolean(e.sodStatus === "SUBMITTED" || isSodVerified || localSodSubmitted);
+      const isEodVerified = Boolean(e.eodStatus === "VERIFIED" || (fb && fb.eodAcknowledged === true));
+      const isEodSubmitted = Boolean(e.eodStatus === "SUBMITTED" || isEodVerified);
+
+      return {
+        id: e.id,
+        name: e.name,
+        email: e.email,
+        designation: e.designation,
+        avatar: e.avatar || e.name.slice(0, 2).toUpperCase(),
+        avatarBg: bgList[index % bgList.length],
+        workMode: e.workMode === "WFH" ? "Remote (WFH)" : "Office",
+        sodStatus: isSodVerified ? "VERIFIED" : isSodSubmitted ? "SUBMITTED" : "PENDING",
+        eodStatus: isEodVerified ? "VERIFIED" : isEodSubmitted ? "SUBMITTED" : "PENDING",
+        status: isSodVerified ? "Plan Verified" : isSodSubmitted ? "Verify Plan" : "Plan Pending",
+        progress: e.overallProgress || 0,
+      };
+    });
+  }, [allEmployees, mounted]);
+
+  // 3. Real-time Tasks for Logged-In Employee
+  const liveEmployeeTasks = useMemo(() => {
+    if (mounted && typeof window !== "undefined") {
+      try {
+        const key = currentEmp?.id ? `workpulse_simple_tasks_${currentEmp.id}` : "workpulse_simple_tasks";
+        const saved =
+          localStorage.getItem(key) ||
+          (currentEmp?.email ? localStorage.getItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`) : null) ||
+          localStorage.getItem("workpulse_simple_tasks");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return currentEmp?.plannedTasks || [];
+  }, [mounted, currentEmp]);
+
+  const myTasksCount = liveEmployeeTasks.length;
+  const myCompletedTasksCount = liveEmployeeTasks.filter(
+    (t: any) => t.status === "COMPLETED" || (t.progress || t.completionPercentage) === 100
+  ).length;
+  const myTaskProgressPercent = myTasksCount > 0 ? Math.round((myCompletedTasksCount / myTasksCount) * 100) : 0;
+
+  // 4. Real-time Leave & WFH Balances for Logged-In Employee
+  const myLeaveRequests = useMemo(() => {
+    return leaveRequests.filter(
+      (r: SharedLeaveRequest) =>
+        (currentEmp && (r.employeeId === currentEmp.id || r.employeeId === currentEmp.email)) ||
+        r.employeeName?.toLowerCase() === user.userName?.toLowerCase() ||
+        (user.userEmail?.toLowerCase().includes("employee.test") &&
+          (r.employeeId === "emp-sarah" || r.employeeName === "Sarah Dev"))
+    );
+  }, [leaveRequests, currentEmp, user]);
+
+  const myWfhRequests = useMemo(() => {
+    return wfhRequests.filter(
+      (r: SharedWfhRequest) =>
+        (currentEmp && (r.employeeId === currentEmp.id || r.employeeId === currentEmp.email)) ||
+        r.employeeName?.toLowerCase() === user.userName?.toLowerCase() ||
+        (user.userEmail?.toLowerCase().includes("employee.test") &&
+          (r.employeeId === "emp-sarah" || r.employeeName === "Sarah Dev"))
+    );
+  }, [wfhRequests, currentEmp, user]);
+
+  const approvedCasualDays = useMemo(() => {
+    return myLeaveRequests
+      .filter((r) => r.status === "APPROVED" && (r.leaveType === "CASUAL" || !r.leaveType))
+      .reduce((acc, r) => acc + (r.daysCount ?? 1.0), 0);
+  }, [myLeaveRequests]);
+
+  const casualLeaveBalance = useMemo(() => {
+    const base = currentEmp?.remainingLeaveBalance ?? 12.0;
+    return Math.max(0, Math.min(base, 12.0 - approvedCasualDays));
+  }, [currentEmp, approvedCasualDays]);
+
+  const approvedSickDays = useMemo(() => {
+    return myLeaveRequests
+      .filter((r) => r.status === "APPROVED" && r.leaveType === "SICK")
+      .reduce((acc, r) => acc + (r.daysCount ?? 1.0), 0);
+  }, [myLeaveRequests]);
+
+  const sickLeaveBalance = useMemo(() => {
+    return Math.max(0, 8.0 - approvedSickDays);
+  }, [approvedSickDays]);
+
+  const myWfhCount = myWfhRequests.reduce((acc, r) => acc + (r.daysCount ?? 1.0), 0);
+
+  // 5. Team Lead Metrics & Approvals Queue (Stage-1 Pending Only)
+  const pendingTeamLeaves = useMemo(() => {
+    return leaveRequests.filter((r) => {
+      const isPending =
+        (r.status as string) === "PENDING_TL_STAGE_1" ||
+        ((r.status as string).includes("PENDING") && r.status !== "FORWARDED_TO_HR");
+      return isPending;
+    });
+  }, [leaveRequests]);
+
+  const pendingTeamWfhs = useMemo(() => {
+    return wfhRequests.filter((r) => {
+      const isPending =
+        (r.status as string) === "PENDING_TL_STAGE_1" ||
+        ((r.status as string).includes("PENDING") && r.status !== "FORWARDED_TO_HR");
+      return isPending;
+    });
+  }, [wfhRequests]);
+
+  const totalTeamPending = pendingTeamLeaves.length + pendingTeamWfhs.length;
+
+  const allPendingTeamRequests = useMemo(() => {
+    const leaves = pendingTeamLeaves.map((r) => ({
+      id: r.id,
+      name: r.employeeName,
+      type: `${r.leaveType} Leave`,
+      badgeVariant: "rose" as const,
+      detail: `${r.daysCount} Day(s) · ${r.startDate}`,
+    }));
+    const wfhs = pendingTeamWfhs.map((r) => ({
+      id: r.id,
+      name: r.employeeName,
+      type: "WFH",
+      badgeVariant: "purple" as const,
+      detail: `Remote · ${r.startDate}`,
+    }));
+    return [...leaves, ...wfhs];
+  }, [pendingTeamLeaves, pendingTeamWfhs]);
+
+  const teamPresentCount = cleanTeamMembers.filter((m) => m.workMode !== "On Leave").length;
+
+  const teamMorningPlansCount = cleanTeamMembers.filter(
+    (m) =>
+      m.sodStatus === "SUBMITTED" ||
+      m.sodStatus === "VERIFIED" ||
+      m.status === "Plan Verified" ||
+      m.status === "Verify Plan"
+  ).length;
+
+  // 5b. Real-time Personal & Team Goals / OKRs
+  const liveEmployeeGoals = useMemo(() => {
+    if (mounted && typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("workpulse_simple_goals");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return DEFAULT_FRIENDLY_GOALS;
+  }, [mounted]);
+
+  const totalGoalsCount = liveEmployeeGoals.length;
+  const completedGoalsCount = liveEmployeeGoals.filter(
+    (g: any) => g.status === "COMPLETED" || (g.progress || 0) === 100
+  ).length;
+  const inProgressGoalsCount = totalGoalsCount - completedGoalsCount;
+  const overallGoalsProgress =
+    totalGoalsCount > 0
+      ? Math.round(
+          liveEmployeeGoals.reduce((sum: number, g: any) => sum + (Number(g.progress) || 0), 0) /
+            totalGoalsCount
+        )
+      : 0;
+
+  // 5c. Organization-wide Stage-2 HR Queue (Live & Filtered)
+  const stage2LeaveRequests = useMemo(
+    () => leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR"),
+    [leaveRequests]
+  );
+  const stage2WfhRequests = useMemo(
+    () => wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR"),
+    [wfhRequests]
+  );
+  const totalHRPending = stage2LeaveRequests.length + stage2WfhRequests.length;
+
+  const hrPendingRequests = useMemo(() => {
+    const leaves = stage2LeaveRequests.map((r) => ({
+      id: r.id,
+      name: r.employeeName,
+      type: `${r.leaveType || "Casual"} Leave`,
+      badgeVariant: "rose" as const,
+      detail: `${r.daysCount || 1} Day(s) · ${r.startDate}`,
+      statusText: "Stage-2 HR",
+    }));
+    const wfhs = stage2WfhRequests.map((r) => ({
+      id: r.id,
+      name: r.employeeName,
+      type: "WFH",
+      badgeVariant: "purple" as const,
+      detail: `Remote · ${r.startDate}`,
+      statusText: "Stage-2 HR",
+    }));
+    return [...leaves, ...wfhs];
+  }, [stage2LeaveRequests, stage2WfhRequests]);
+
+  // 5d. Real-time HR Headcount & Attendance/Presence Breakdown
+  const orgTotalStaff = allEmployees.length || 19;
+  const todayDateStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const onLeaveEmpIds = useMemo(() => {
+    const ids = new Set<string>();
+    leaveRequests.forEach((req) => {
+      if (req.status === "APPROVED") {
+        if (!req.startDate || req.startDate <= todayDateStr) {
+          if (!req.endDate || req.endDate >= todayDateStr) {
+            ids.add(req.employeeId);
+            if (req.employeeName) ids.add(req.employeeName.toLowerCase());
+          }
+        }
+      }
+    });
+    return ids;
+  }, [leaveRequests, todayDateStr]);
+
+  const onLeaveStaff = allEmployees.filter(
+    (e) => onLeaveEmpIds.has(e.id) || (e.email && onLeaveEmpIds.has(e.email.toLowerCase()))
+  ).length;
+  const inOfficeStaff = allEmployees.filter(
+    (e) =>
+      !onLeaveEmpIds.has(e.id) &&
+      (!e.email || !onLeaveEmpIds.has(e.email.toLowerCase())) &&
+      (e.workMode === "OFFICE" || e.workMode === "HYBRID" || !e.workMode)
+  ).length;
+  const remoteStaff = allEmployees.filter(
+    (e) =>
+      !onLeaveEmpIds.has(e.id) &&
+      (!e.email || !onLeaveEmpIds.has(e.email.toLowerCase())) &&
+      e.workMode === "WFH"
+  ).length;
+
+  const presentStaff = inOfficeStaff + remoteStaff;
+  const orgAttendanceRate =
+    orgTotalStaff > 0 ? Math.round((presentStaff / orgTotalStaff) * 100) : 100;
+
+  if (!mounted) {
+    return (
+      <div className="space-y-6 animate-pulse p-4">
+        <div className="h-32 rounded-3xl bg-card/40 border border-border/40" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
+          <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
+          <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
+          <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-80 rounded-3xl bg-card/40 border border-border/40" />
+          <div className="h-80 rounded-3xl bg-card/40 border border-border/40" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
-      <div className="space-y-6">
-        {/* Toast Feedback */}
-        {toastMsg && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span className="font-semibold">{toastMsg}</span>
-          </div>
-        )}
-
+      <div className="space-y-6 sm:space-y-8">
         {/* 1. Header Banner */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+        <Interactive3DCard className="p-6 sm:p-8 border border-border/80 bg-gradient-to-br from-card/95 via-card/75 to-card/50 shadow-sm relative overflow-hidden rounded-3xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <Badge
-                  variant={isHR ? "brand" : isLead ? "secondary" : "brand"}
-                  className={`text-[10px] uppercase font-bold ${
-                    isHR ? "bg-pink-500/15 border-pink-500/30 text-pink-300" : ""
-                  }`}
+                  variant={isHR ? "purple" : isLead ? "cyan" : "brand"}
+                  className="text-[11px] font-bold px-3 py-1 rounded-full shadow-sm"
                 >
+                  <Sparkles className="h-3 w-3 mr-1" />
                   {isHR
                     ? "HR & People Operations"
                     : isLead
@@ -139,40 +390,47 @@ export default function DashboardPage() {
                     : "Member Workspace"}
                 </Badge>
                 {isHR ? (
-                  <span className="text-[11px] text-muted-foreground font-medium">
-                    {departments.length || 6} Departments · {allEmployees.length || 19} Employees
+                  <span className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-1 rounded-full border border-border/60">
+                    {departments.length || 6} Departments · {orgTotalStaff} Employees
                   </span>
                 ) : isLead ? (
-                  <span className="text-[11px] text-muted-foreground font-medium">
-                    Development Pod · 4 Direct Reports
+                  <span className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-1 rounded-full border border-border/60">
+                    Development Team · {cleanTeamMembers.length} Direct Reports
                   </span>
-                ) : null}
+                ) : (
+                  <span className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-1 rounded-full border border-border/60">
+                    This Week
+                  </span>
+                )}
               </div>
 
-              <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-                Welcome back, {user.userName}
-              </h2>
+              <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">
+                Welcome back,{" "}
+                <span className="bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text">
+                  {user.userName}
+                </span>
+              </h1>
 
-              <p className="text-xs sm:text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 {isHR
-                  ? "Here is your organization summary, today's attendance, and pending employee requests."
+                  ? "Monitor real-time company attendance, employee leave authorizations, department velocity, and strategic OKRs."
                   : isLead
-                  ? "Here is your pod's attendance, daily updates, and pending leave requests."
-                  : "Here is your workday summary and priorities for today."}
+                  ? "Track your team's daily start-of-day plans, live attendance, deliverables, and pending approvals."
+                  : "Here is your workday execution dashboard, daily task priorities, weekly goals progress, and time-off summary."}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               {isHR ? (
                 <>
                   <Link href="/leave">
-                    <Button size="sm" variant="outline" className="text-xs font-semibold gap-1.5 h-9">
-                      <Calendar className="h-4 w-4 text-pink-400" />
+                    <Button size="default" variant="outline" className="text-xs font-bold gap-2 h-10 rounded-2xl">
+                      <Calendar className="h-4 w-4 text-pink-500" />
                       <span>Leave Oversight</span>
                     </Button>
                   </Link>
                   <Link href="/my-work">
-                    <Button size="sm" variant="brand" className="text-xs font-bold gap-1.5 h-9 bg-pink-600 hover:bg-pink-700 text-white shadow-sm">
+                    <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md">
                       <Users className="h-4 w-4" />
                       <span>Employee Roster</span>
                     </Button>
@@ -180,16 +438,16 @@ export default function DashboardPage() {
                 </>
               ) : isLead ? (
                 <Link href="/my-work">
-                  <Button size="sm" variant="brand" className="text-xs font-bold gap-1.5 h-9 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+                  <Button size="default" variant="cyan" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md">
                     <ListTodo className="h-4 w-4" />
-                    <span>View Team Updates</span>
+                    <span>Review Team Plans</span>
                   </Button>
                 </Link>
               ) : (
                 <Link href="/my-work">
-                  <Button size="sm" variant="brand" className="text-xs font-bold gap-1.5 h-9">
+                  <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md">
                     <ListTodo className="h-4 w-4" />
-                    <span>My Tasks</span>
+                    <span>Execute Daily Tasks</span>
                   </Button>
                 </Link>
               )}
@@ -197,341 +455,414 @@ export default function DashboardPage() {
           </div>
         </Interactive3DCard>
 
-        {/* 2. Top Summary Metric Cards */}
+        {/* 2. Top Glanceable Metrics (Live & Real-time) */}
         {isHR ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricTile3D
-              title="Total Headcount"
-              value={`${allEmployees.length || 19} Staff`}
-              subtitle={`Across ${departments.length || 6} departments`}
-              icon={Users}
-              badgeText="Active"
-              accent="cyan"
-            />
-            <MetricTile3D
-              title="Present Today"
-              value="18 / 19"
-              subtitle="95% Attendance rate"
-              icon={UserCheck}
-              badgeText="Normal"
-              accent="emerald"
-            />
-            <MetricTile3D
-              title="Pending Approvals"
-              value={`${pendingLeaves.length} Requests`}
-              subtitle="Leave & WFH applications"
-              icon={Calendar}
-              badgeText={pendingLeaves.length > 0 ? "Action Required" : "All Clear"}
-              accent="rose"
-            />
-            <MetricTile3D
-              title="Celebrations"
-              value="1 Birthday"
-              subtitle="Sara Dev today 🎉"
-              icon={PartyPopper}
-              badgeText="Celebrate"
-              accent="gold"
-            />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <Link href="/my-work" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Total Headcount"
+                value={`${orgTotalStaff} Staff`}
+                subtitle={`Across ${departments.length || 6} departments`}
+                icon={Users}
+                badgeText="Active Roster"
+                accent="cyan"
+                change={`${orgTotalStaff} Active`}
+                changePositive={true}
+                progress={100}
+              />
+            </Link>
+            <Link href="/attendance" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Present Today"
+                value={`${presentStaff} / ${orgTotalStaff}`}
+                subtitle={`${orgAttendanceRate}% Attendance rate`}
+                icon={UserCheck}
+                badgeText={presentStaff === orgTotalStaff ? "100% Present" : "Active Shift"}
+                accent="emerald"
+                change={`${presentStaff} on duty`}
+                changePositive={true}
+                progress={orgAttendanceRate}
+              />
+            </Link>
+            <Link href="/leave" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Pending Approvals"
+                value={`${totalHRPending} Requests`}
+                subtitle={
+                  totalHRPending > 0
+                    ? `${stage2LeaveRequests.length} Leave · ${stage2WfhRequests.length} WFH`
+                    : "Stage-2 Leave & WFH"
+                }
+                icon={Calendar}
+                badgeText={totalHRPending > 0 ? "Action Needed" : "All Clear"}
+                accent="rose"
+                change={totalHRPending > 0 ? `${totalHRPending} pending` : "0 pending"}
+                changePositive={totalHRPending === 0}
+                progress={totalHRPending > 0 ? 40 : 100}
+              />
+            </Link>
+            <Link href="/attendance" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="On Leave Today"
+                value={`${onLeaveStaff} Staff`}
+                subtitle={`${inOfficeStaff} In Office · ${remoteStaff} Remote`}
+                icon={Building2}
+                badgeText={onLeaveStaff === 0 ? "Full Staff" : `${onLeaveStaff} Away`}
+                accent="purple"
+                change={`${presentStaff} active`}
+                changePositive={true}
+                progress={Math.round((presentStaff / Math.max(1, orgTotalStaff)) * 100)}
+              />
+            </Link>
           </div>
         ) : isLead ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricTile3D
-              title="Team Attendance"
-              value="4 / 4 Present"
-              subtitle="All direct reports on duty"
-              icon={UserCheck}
-              badgeText="100% Present"
-              accent="emerald"
-            />
-            <MetricTile3D
-              title="Morning Plans"
-              value="4 / 4 Shared"
-              subtitle="All morning plans sent"
-              icon={Sun}
-              badgeText="Up to date"
-              accent="cyan"
-            />
-            <MetricTile3D
-              title="Leave Requests"
-              value={pendingLeaves.length > 0 ? `${pendingLeaves.length} Pending` : "0 Pending"}
-              subtitle="Needs your approval"
-              icon={Calendar}
-              badgeText={pendingLeaves.length > 0 ? "Action Required" : "All Clear"}
-              accent="rose"
-            />
-            <MetricTile3D
-              title="Sprint Goals"
-              value="85%"
-              subtitle="Pod milestones on track"
-              icon={Target}
-              badgeText="On Track"
-              accent="purple"
-            />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <Link href="/attendance" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Team Attendance"
+                value={`${teamPresentCount} / ${cleanTeamMembers.length} Present`}
+                subtitle="Direct reports on duty"
+                icon={UserCheck}
+                badgeText={`${Math.round((teamPresentCount / Math.max(1, cleanTeamMembers.length)) * 100)}% Present`}
+                accent="emerald"
+                change="On-time duty"
+                changePositive={true}
+                progress={Math.round((teamPresentCount / Math.max(1, cleanTeamMembers.length)) * 100)}
+              />
+            </Link>
+            <Link href="/my-work" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Morning Plans"
+                value={`${teamMorningPlansCount} / ${cleanTeamMembers.length} Shared`}
+                subtitle="Morning SOD plans sent"
+                icon={Sun}
+                badgeText={teamMorningPlansCount === cleanTeamMembers.length ? "All Submitted" : "In Progress"}
+                accent="cyan"
+                change={`${teamMorningPlansCount} Submitted`}
+                changePositive={true}
+                progress={Math.round((teamMorningPlansCount / Math.max(1, cleanTeamMembers.length)) * 100)}
+              />
+            </Link>
+            <Link href="/leave" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Leave Requests"
+                value={totalTeamPending > 0 ? `${totalTeamPending} Pending` : "0 Pending"}
+                subtitle={totalTeamPending > 0 ? `${pendingTeamLeaves.length} Leave · ${pendingTeamWfhs.length} WFH` : "Needs your approval"}
+                icon={Calendar}
+                badgeText={totalTeamPending > 0 ? "Action Needed" : "All Clear"}
+                accent="rose"
+                change={totalTeamPending > 0 ? `${totalTeamPending} requests` : "Up to date"}
+                changePositive={totalTeamPending === 0}
+                progress={totalTeamPending > 0 ? 50 : 100}
+              />
+            </Link>
+            <Link href="/goals" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Overall Goal Progress"
+                value={`${overallGoalsProgress}%`}
+                subtitle={`${completedGoalsCount} of ${totalGoalsCount} OKRs achieved`}
+                icon={Target}
+                badgeText="This Week"
+                accent="purple"
+                change={`${inProgressGoalsCount} in progress`}
+                changePositive={true}
+                progress={overallGoalsProgress}
+              />
+            </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricTile3D
-              title="Today's Attendance"
-              value="Present"
-              subtitle="Clocked in at 10:08 AM"
-              icon={Clock}
-              badgeText="Verified"
-              accent="cyan"
-            />
-            <MetricTile3D
-              title="My Tasks"
-              value="2 Tasks"
-              subtitle="1 in progress · 1 done"
-              icon={ListTodo}
-              badgeText="Active"
-              accent="gold"
-            />
-            <MetricTile3D
-              title="Sprint Goals"
-              value="78%"
-              subtitle="Milestones on track"
-              icon={Target}
-              badgeText="On Track"
-              accent="emerald"
-            />
-            <MetricTile3D
-              title="Leave Balance"
-              value="11 Days"
-              subtitle="Available time off"
-              icon={Calendar}
-              badgeText="Available"
-              accent="rose"
-            />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <Link href="/attendance" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Today's Attendance"
+                value="Present"
+                subtitle="Clocked in at 10:08 AM"
+                icon={Clock}
+                badgeText="Biometric Verified"
+                accent="cyan"
+                change="On Time"
+                changePositive={true}
+                progress={100}
+              />
+            </Link>
+            <Link href="/my-work" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="My Tasks"
+                value={`${myTasksCount} Tasks`}
+                subtitle={`${myCompletedTasksCount} completed`}
+                icon={ListTodo}
+                badgeText={myCompletedTasksCount === myTasksCount && myTasksCount > 0 ? "All Done" : `${myTaskProgressPercent}% Done`}
+                accent="gold"
+                change="In progress"
+                changePositive={true}
+                progress={myTaskProgressPercent}
+              />
+            </Link>
+            <Link href="/goals" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Overall Goal Progress"
+                value={`${overallGoalsProgress}%`}
+                subtitle={`${completedGoalsCount} of ${totalGoalsCount} OKRs achieved`}
+                icon={Target}
+                badgeText={completedGoalsCount === totalGoalsCount && totalGoalsCount > 0 ? "All Complete" : "This Week"}
+                accent="emerald"
+                change={`${inProgressGoalsCount} in progress`}
+                changePositive={true}
+                progress={overallGoalsProgress}
+              />
+            </Link>
+            <Link href="/leave" className="block transition-transform duration-200 hover:-translate-y-0.5">
+              <MetricTile3D
+                title="Leave Balance"
+                value={`${casualLeaveBalance} Days`}
+                subtitle="Available paid time off"
+                icon={Calendar}
+                badgeText="Available"
+                accent="rose"
+                change="Refreshed"
+                changePositive={true}
+                progress={Math.round((casualLeaveBalance / 12) * 100)}
+              />
+            </Link>
           </div>
         )}
 
-        {/* 3. Differentiated Content Sections */}
+        {/* 3. Essential Two-Card Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {isHR ? (
             <>
-              {/* HR Left Section: Pending Leave Approvals (Clean, 1-Click Authorize) */}
-              <div className="p-5 rounded-2xl border border-rose-500/30 bg-gradient-to-b from-rose-500/[0.04] to-card space-y-4 shadow-sm">
+              {/* HR Left: Pending Authorizations */}
+              <div className="p-6 rounded-3xl border border-rose-500/25 bg-gradient-to-b from-rose-500/[0.04] to-card/80 space-y-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
                       <Calendar className="h-4 w-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Pending Leave &amp; WFH Requests
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        Pending Leave &amp; WFH Authorizations
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Requires HR validation for payroll sync.
+                      </p>
+                    </div>
                   </div>
-                  <Link href="/leave" className="text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline">
+                  <Link href="/leave" className="text-xs font-bold text-rose-500 hover:text-rose-400 flex items-center gap-1 hover:underline">
                     <span>Leave Desk</span>
-                    <ArrowRight className="h-3 w-3" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
-                {pendingLeaves.length === 0 ? (
-                  <div className="p-8 text-center bg-background/50 rounded-xl border border-border/50 text-xs text-muted-foreground">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto mb-1.5" />
-                    <span>All clear! No employee leave requests waiting for HR.</span>
+                {hrPendingRequests.length === 0 ? (
+                  <div className="p-8 text-center bg-card/50 rounded-2xl border border-border/60 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-7 w-7 text-emerald-400 mx-auto mb-2" />
+                    <span className="font-semibold text-foreground block">All clear!</span>
+                    <span>No employee leave or WFH requests waiting for HR Stage-2 authorization.</span>
                   </div>
                 ) : (
-                  <div className="space-y-2.5 text-xs">
-                    {pendingLeaves.slice(0, 4).map((req) => (
-                      <div
+                  <div className="space-y-3 text-xs">
+                    {hrPendingRequests.slice(0, 4).map((req) => (
+                      <Link
                         key={req.id}
-                        className="p-3.5 rounded-xl bg-background/80 border border-rose-500/20 flex items-center justify-between gap-3 shadow-sm hover:border-rose-500/40 transition-all"
+                        href="/leave"
+                        className="p-3.5 rounded-2xl bg-card/80 border border-rose-500/20 flex items-center justify-between gap-3 shadow-sm hover:border-rose-500/40 transition-all"
                       >
                         <div className="space-y-0.5 min-w-0">
                           <div className="flex items-center gap-2">
-                            <strong className="text-foreground text-xs block truncate">
-                              {req.employeeName}
+                            <strong className="text-foreground text-xs font-bold block truncate">
+                              {req.name}
                             </strong>
-                            <Badge variant="outline" className="text-[9px] text-pink-300 border-pink-500/30 bg-pink-500/10">
-                              {req.leaveType}
+                            <Badge variant={req.badgeVariant} className="text-[10px] font-bold">
+                              {req.type}
                             </Badge>
                           </div>
                           <span className="text-[11px] text-muted-foreground block">
-                            {req.daysCount} Day(s) · {req.startDate} {req.endDate && req.endDate !== req.startDate ? `to ${req.endDate}` : ""}
+                            {req.detail}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            size="sm"
-                            variant="brand"
-                            onClick={() => handleQuickApprove(req.id, req.employeeName)}
-                            className="text-xs font-bold h-7 px-3 bg-pink-600 hover:bg-pink-700 text-white gap-1 shadow-sm"
-                          >
-                            <Check className="h-3 w-3" />
-                            <span>Authorize</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleQuickReject(req.id, req.employeeName)}
-                            className="text-xs font-semibold h-7 px-2 border-border text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+                        <Badge variant="outline" className="text-[10px] font-semibold text-amber-500 border-amber-500/30 shrink-0">
+                          {req.statusText}
+                        </Badge>
+                      </Link>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* HR Right Section: Today's Presence & Quick Insights (Clean & Friendly) */}
-              <div className="p-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/[0.04] to-card space-y-4 shadow-sm">
+              {/* HR Right: Presence */}
+              <div className="p-6 rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.04] to-card/80 space-y-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-500">
                       <UserCheck className="h-4 w-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Today&apos;s Workplace Presence
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        Today&apos;s Workplace Presence
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Real-time biometric shift status breakdown.
+                      </p>
+                    </div>
                   </div>
-                  <Link href="/attendance" className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline">
-                    <span>Attendance Logs</span>
-                    <ArrowRight className="h-3 w-3" />
+                  <Link href="/attendance" className="text-xs font-bold text-cyan-500 hover:text-cyan-400 flex items-center gap-1 hover:underline">
+                    <span>Logs</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
-                  <div className="p-3 rounded-xl bg-background/80 border border-emerald-500/20 space-y-1">
-                    <span className="text-[11px] text-muted-foreground block">In Office</span>
-                    <strong className="text-lg font-bold text-emerald-400">16 Staff</strong>
+                <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                  <div className="p-3.5 rounded-2xl bg-card/80 border border-emerald-500/25 space-y-1 shadow-sm">
+                    <span className="text-[11px] text-muted-foreground font-semibold block">In Office</span>
+                    <strong className="text-xl font-black text-emerald-500 dark:text-emerald-400">{inOfficeStaff} Staff</strong>
                   </div>
-                  <div className="p-3 rounded-xl bg-background/80 border border-cyan-500/20 space-y-1">
-                    <span className="text-[11px] text-muted-foreground block">Remote (WFH)</span>
-                    <strong className="text-lg font-bold text-cyan-400">2 Staff</strong>
+                  <div className="p-3.5 rounded-2xl bg-card/80 border border-cyan-500/25 space-y-1 shadow-sm">
+                    <span className="text-[11px] text-muted-foreground font-semibold block">Remote (WFH)</span>
+                    <strong className="text-xl font-black text-cyan-500 dark:text-cyan-400">{remoteStaff} Staff</strong>
                   </div>
-                  <div className="p-3 rounded-xl bg-background/80 border border-amber-500/20 space-y-1">
-                    <span className="text-[11px] text-muted-foreground block">On Leave</span>
-                    <strong className="text-lg font-bold text-amber-400">1 Staff</strong>
+                  <div className="p-3.5 rounded-2xl bg-card/80 border border-amber-500/25 space-y-1 shadow-sm">
+                    <span className="text-[11px] text-muted-foreground font-semibold block">On Leave</span>
+                    <strong className="text-xl font-black text-amber-500 dark:text-amber-400">{onLeaveStaff} Staff</strong>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-background/80 border border-border/60 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <PartyPopper className="h-4 w-4 text-amber-400 shrink-0" />
-                    <span className="text-foreground">Today: <strong>Sara Dev&apos;s Birthday</strong></span>
+                {/* Department Distribution */}
+                <div className="space-y-2.5 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-bold text-foreground">Department Rosters</span>
+                    <span className="text-[10px] text-muted-foreground">{departments.length} Active Teams</span>
                   </div>
-                  <Link href="/announcements" className="text-xs font-semibold text-pink-400 hover:underline">
-                    Send Wish 🎉
-                  </Link>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    {departments.map((dept) => (
+                      <div
+                        key={dept.id}
+                        className="p-2.5 rounded-xl bg-card/60 border border-border/60 flex items-center justify-between gap-1.5"
+                      >
+                        <span className="text-[11px] font-medium text-foreground truncate">{dept.name}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground shrink-0 font-mono">
+                          {dept.employees.length}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
           ) : isLead ? (
             <>
-              {/* Left Section: Development Pod Members (Themed in Indigo/Cyan) */}
-              <div className="p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-b from-indigo-500/[0.04] to-card space-y-4 shadow-sm">
+              {/* Team Lead Left: Development Team Direct Reports */}
+              <div className="p-6 rounded-3xl border border-indigo-500/25 bg-gradient-to-b from-indigo-500/[0.04] to-card/80 space-y-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-500">
                       <Users className="h-4 w-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Development Pod Members
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        Development Team Direct Reports
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Real-time morning plans &amp; work mode status.
+                      </p>
+                    </div>
                   </div>
-                  <Link href="/my-work" className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline">
+                  <Link href="/my-work" className="text-xs font-bold text-indigo-500 hover:text-indigo-400 flex items-center gap-1 hover:underline">
                     <span>Review Plans</span>
-                    <ArrowRight className="h-3 w-3" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
-                <div className="space-y-2.5 text-xs">
-                  {cleanPodMembers.map((member) => (
+                <div className="space-y-3 text-xs">
+                  {cleanTeamMembers.map((member) => (
                     <div
                       key={member.id}
-                      className="p-3 rounded-xl bg-background/80 border border-indigo-500/15 flex items-center justify-between gap-3 hover:border-indigo-500/40 transition-all shadow-sm"
+                      className="p-3.5 rounded-2xl bg-card/80 border border-border/70 flex items-center justify-between gap-3 shadow-sm"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`h-8 w-8 rounded-full ${member.avatarBg} flex items-center justify-center font-bold text-xs shrink-0 shadow-sm`}>
+                        <div
+                          className={`h-9 w-9 rounded-2xl ${member.avatarBg} flex items-center justify-center font-black text-xs shrink-0 shadow-md`}
+                        >
                           {member.avatar}
                         </div>
                         <div className="min-w-0">
-                          <strong className="text-foreground text-xs block truncate">{member.name}</strong>
+                          <strong className="text-foreground text-xs font-bold block truncate">
+                            {member.name}
+                          </strong>
                           <span className="text-[11px] text-muted-foreground">{member.designation}</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-[10px]">
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <Badge variant="outline" className="text-[10px] font-semibold">
                           {member.workMode}
                         </Badge>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            member.status === "Plan Approved"
-                              ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-                              : "text-amber-300 border-amber-500/30 bg-amber-500/10"
-                          }`}
+                        <Badge
+                          variant={member.status === "Plan Verified" ? "success" : member.status === "Verify Plan" ? "cyan" : "amber"}
+                          className="text-[10px] font-bold"
                         >
                           {member.status}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Right Section: Pending Leave & WFH Requests (Themed in Rose/Amber) */}
-              <div className="p-5 rounded-2xl border border-rose-500/30 bg-gradient-to-b from-rose-500/[0.04] to-card space-y-4 shadow-sm">
+              {/* Team Lead Right: Pending Leave & WFH Requests */}
+              <div className="p-6 rounded-3xl border border-rose-500/25 bg-gradient-to-b from-rose-500/[0.04] to-card/80 space-y-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
                       <Calendar className="h-4 w-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Pending Leave &amp; WFH Requests
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        Pending Leave &amp; WFH Requests
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Direct report applications requiring team lead sign-off.
+                      </p>
+                    </div>
                   </div>
-                  <Link href="/leave" className="text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline">
-                    <span>All Requests</span>
-                    <ArrowRight className="h-3 w-3" />
+                  <Link href="/leave" className="text-xs font-bold text-rose-500 hover:text-rose-400 flex items-center gap-1 hover:underline">
+                    <span>View in Leave Desk</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
-                {pendingLeaves.length === 0 ? (
-                  <div className="p-8 text-center bg-background/50 rounded-xl border border-border/50 text-xs text-muted-foreground">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto mb-1.5" />
-                    <span>All caught up! No pending leave requests.</span>
+                {allPendingTeamRequests.length === 0 ? (
+                  <div className="p-8 text-center bg-card/50 rounded-2xl border border-border/60 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-7 w-7 text-emerald-400 mx-auto mb-2" />
+                    <span className="font-semibold text-foreground block">All caught up!</span>
+                    <span>No pending leave or WFH requests from team members.</span>
                   </div>
                 ) : (
-                  <div className="space-y-2.5 text-xs">
-                    {pendingLeaves.slice(0, 4).map((req) => (
-                      <div
+                  <div className="space-y-3 text-xs">
+                    {allPendingTeamRequests.slice(0, 4).map((req) => (
+                      <Link
                         key={req.id}
-                        className="p-3 rounded-xl bg-background/80 border border-rose-500/15 flex items-center justify-between gap-3 shadow-sm"
+                        href="/leave"
+                        className="p-3.5 rounded-2xl bg-card/80 border border-rose-500/20 flex items-center justify-between gap-3 shadow-sm hover:border-rose-500/40 transition-all"
                       >
                         <div className="space-y-0.5 min-w-0">
-                          <strong className="text-foreground text-xs block truncate">
-                            {req.employeeName}
-                          </strong>
-                          <span className="text-[11px] text-muted-foreground">
-                            {req.leaveType} · {req.daysCount} day(s) · {req.startDate}
+                          <div className="flex items-center gap-2">
+                            <strong className="text-foreground text-xs font-bold block truncate">
+                              {req.name}
+                            </strong>
+                            <Badge variant={req.badgeVariant} className="text-[10px] font-bold">
+                              {req.type}
+                            </Badge>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground block">
+                            {req.detail}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            size="sm"
-                            variant="brand"
-                            onClick={() => handleQuickApprove(req.id, req.employeeName)}
-                            className="text-xs font-bold h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shadow-sm"
-                          >
-                            <Check className="h-3 w-3" />
-                            <span>Approve</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleQuickReject(req.id, req.employeeName)}
-                            className="text-xs font-semibold h-7 px-2 border-border text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
+                        <Badge variant="outline" className="text-[10px] font-semibold text-rose-400 border-rose-500/30 shrink-0">
+                          Pending Sign-Off
+                        </Badge>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -539,313 +870,111 @@ export default function DashboardPage() {
             </>
           ) : (
             <>
-              {/* Employee Left Section: Today's Tasks (Themed in Cyan/Blue) */}
-              <div className="p-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/[0.04] to-card space-y-4 shadow-sm">
+              {/* Employee Left: Today's Work & Priorities */}
+              <div className="p-6 rounded-3xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.04] to-card/80 space-y-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-500">
                       <ListTodo className="h-4 w-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-foreground">Today&apos;s Work &amp; Tasks</h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">Today&apos;s Work &amp; Priorities</h3>
+                      <p className="text-[11px] text-muted-foreground">Start of Day execution items.</p>
+                    </div>
                   </div>
-                  <Link href="/my-work" className="text-xs font-semibold text-cyan-400 hover:underline flex items-center gap-1">
+                  <Link href="/my-work" className="text-xs font-bold text-cyan-500 hover:underline flex items-center gap-1">
                     <span>Manage</span>
-                    <ArrowRight className="h-3 w-3" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
-                <div className="space-y-2.5 text-xs">
-                  <div className="p-3 rounded-xl bg-background/80 border border-cyan-500/15 flex items-center justify-between gap-2 shadow-sm">
-                    <span className="text-foreground font-medium">Implement Task Carryover Workflow</span>
-                    <Badge variant="brand" className="text-[10px]">In Progress (80%)</Badge>
+                {liveEmployeeTasks.length === 0 ? (
+                  <div className="p-8 text-center bg-card/50 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
+                    <ListTodo className="h-7 w-7 text-cyan-400 mx-auto" />
+                    <span className="font-semibold text-foreground block">No tasks planned yet</span>
+                    <span>Click &quot;Manage&quot; to plan your workday and submit your morning SOD.</span>
                   </div>
-                  <div className="p-3 rounded-xl bg-background/80 border border-cyan-500/15 flex items-center justify-between gap-2 shadow-sm">
-                    <span className="text-foreground font-medium">Review Weekly Deliverables &amp; Goals</span>
-                    <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">Completed</Badge>
+                ) : (
+                  <div className="space-y-3 text-xs">
+                    {liveEmployeeTasks.slice(0, 5).map((task: any) => (
+                      <Link
+                        key={task.id}
+                        href="/my-work"
+                        className="p-3.5 rounded-2xl bg-card/80 border border-border/70 flex items-center justify-between gap-2 shadow-sm hover:border-cyan-500/40 transition-all"
+                      >
+                        <div className="min-w-0">
+                          <span className="text-foreground font-semibold block truncate">{task.title}</span>
+                          <span className="text-[10px] text-muted-foreground">{task.category || task.project || "Operations"}</span>
+                        </div>
+                        <Badge
+                          variant={
+                            task.status === "COMPLETED" || (task.progress || task.completionPercentage) === 100
+                              ? "success"
+                              : (task.progress || task.completionPercentage) > 0
+                              ? "cyan"
+                              : "outline"
+                          }
+                          className="text-[10px] font-bold shrink-0"
+                        >
+                          {task.status === "COMPLETED" || (task.progress || task.completionPercentage) === 100
+                            ? "Completed"
+                            : `${task.progress || task.completionPercentage || 0}%`}
+                        </Badge>
+                      </Link>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Employee Right Section: Leave & Attendance Summary (Themed in Teal/Emerald) */}
-              <div className="p-5 rounded-2xl border border-teal-500/30 bg-gradient-to-b from-teal-500/[0.04] to-card space-y-4 shadow-sm">
+              {/* Employee Right: Leave & Time Off Summary */}
+              <div className="p-6 rounded-3xl border border-teal-500/25 bg-gradient-to-b from-teal-500/[0.04] to-card/80 space-y-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-teal-500/15 text-teal-400">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-2xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-500">
                       <Calendar className="h-4 w-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-foreground">Leave &amp; Time Off</h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">Leave &amp; Time Off</h3>
+                      <p className="text-[11px] text-muted-foreground">Annual quota and approver details.</p>
+                    </div>
                   </div>
-                  <Link href="/leave" className="text-xs font-semibold text-teal-400 hover:underline flex items-center gap-1">
+                  <Link href="/leave" className="text-xs font-bold text-teal-500 hover:underline flex items-center gap-1">
                     <span>Request Leave</span>
-                    <ArrowRight className="h-3 w-3" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
-                <div className="p-4 rounded-xl bg-background/80 border border-teal-500/15 space-y-2 text-xs shadow-sm">
+                <div className="p-4 rounded-2xl bg-card/80 border border-border/70 space-y-3 text-xs shadow-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Available Balance:</span>
-                    <strong className="text-teal-300 font-mono font-bold text-sm">11 Days</strong>
+                    <span className="text-muted-foreground font-medium">Available Paid Balance:</span>
+                    <strong className="text-teal-500 dark:text-teal-400 font-mono font-bold text-sm">
+                      {casualLeaveBalance} Days
+                    </strong>
                   </div>
+
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Manager / Lead Approver:</span>
-                    <span className="text-foreground font-medium">Alex Lead</span>
+                    <span className="text-muted-foreground font-medium">Sick Leave Available:</span>
+                    <strong className="text-cyan-500 dark:text-cyan-400 font-mono font-bold text-sm">
+                      {sickLeaveBalance} Days
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Manager / Lead Approver:</span>
+                    <span className="text-foreground font-bold">{currentEmp?.teamLeadName || "Alex Lead"}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                    <span className="text-muted-foreground font-medium">WFH This Month:</span>
+                    <span className="text-purple-400 font-semibold">{myWfhCount} Days ({myWfhRequests.length} sessions)</span>
                   </div>
                 </div>
               </div>
             </>
           )}
         </div>
-
-        {/* 4. Differentiated Goals & OKRs Section */}
-        {isHR && (
-          <div className="p-5 rounded-2xl border border-pink-500/30 bg-gradient-to-b from-pink-500/[0.04] to-card space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-pink-500/15 text-pink-400">
-                  <Target className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    Organization Strategic OKRs &amp; Department Alignment
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Company-wide strategic performance targets and departmental alignment health.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/goals"
-                className="text-xs font-semibold text-pink-400 hover:text-pink-300 flex items-center gap-1 hover:underline shrink-0"
-              >
-                <span>Full Strategic OKRs</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-              <div className="p-3.5 rounded-xl bg-background/80 border border-emerald-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Talent Acquisition Turnaround
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-500/30">
-                    Exceeded
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Time-to-Hire: 18.5 Days</span>
-                  <strong className="text-emerald-400 font-bold">92%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-emerald" style={{ width: "92%" }} />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-background/80 border border-cyan-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Shift Punctuality Adherence
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30">
-                    On Track
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Within Grace: 98.2%</span>
-                  <strong className="text-cyan-400 font-bold">98%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-cyan" style={{ width: "98%" }} />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-background/80 border border-purple-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Culture &amp; eNPS Retention
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-purple-300 border-purple-500/30">
-                    88 Score
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">High Satisfaction</span>
-                  <strong className="text-purple-400 font-bold">94%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-purple" style={{ width: "94%" }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isLead && (
-          <div className="p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-b from-indigo-500/[0.04] to-card space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400">
-                  <Target className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    Pod Sprint 34 Goals &amp; Member OKRs
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Active deliverables and key result progress for Development Pod direct reports.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/goals"
-                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline shrink-0"
-              >
-                <span>Manage Pod OKRs</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-              <div className="p-3.5 rounded-xl bg-background/80 border border-indigo-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Core Platform &amp; Role Isolation
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-indigo-300 border-indigo-500/30">
-                    80% Done
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Lead: Alex Lead</span>
-                  <strong className="text-indigo-400 font-bold">Sprint 34</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-indigo" style={{ width: "80%" }} />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-background/80 border border-cyan-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Sarah Dev: Task Carryover State
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30">
-                    On Track
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Backend Lead Goal</span>
-                  <strong className="text-cyan-400 font-bold">80%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-cyan" style={{ width: "80%" }} />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-background/80 border border-emerald-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Priya Patel: Auth Permission Matrix
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-500/30">
-                    Completed
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">QA Matrix Signed Off</span>
-                  <strong className="text-emerald-400 font-bold">100%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-emerald" style={{ width: "100%" }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!isHR && !isLead && (
-          <div className="p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.04] to-card space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400">
-                  <Target className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    My Goals &amp; Quarterly Key Results
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Personal performance targets, skill milestones, and quarterly objectives.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/goals"
-                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 hover:underline shrink-0"
-              >
-                <span>View &amp; Update Goals</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-              <div className="p-3.5 rounded-xl bg-background/80 border border-emerald-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Customer Inquiry Response Speed
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-emerald-400 border-emerald-500/30">
-                    75% Done
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Target: Under 2 Hours</span>
-                  <strong className="text-emerald-400 font-bold">75%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-emerald" style={{ width: "75%" }} />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-background/80 border border-cyan-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Quarterly Training Program
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30">
-                    In Progress
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Modules: 3 of 4 Done</span>
-                  <strong className="text-cyan-400 font-bold">60%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-cyan" style={{ width: "60%" }} />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-background/80 border border-teal-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    Monthly Invoice Processing
-                  </span>
-                  <Badge variant="outline" className="text-[9px] text-teal-300 border-teal-500/30">
-                    Completed
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-muted-foreground">Turnaround: 1 Day</span>
-                  <strong className="text-teal-300 font-bold">100%</strong>
-                </div>
-                <div className="progress-track-line">
-                  <div className="progress-track-fill-teal" style={{ width: "100%" }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </PageTransition>
   );
 }
+

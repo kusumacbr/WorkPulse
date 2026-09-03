@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { useCurrentUser } from "@/components/layout/UserContext";
 import { WorkpulseApi } from "@/lib/api/api-client";
 import {
   Calendar,
@@ -29,10 +30,17 @@ export function LeaveRequestModal({
   onSuccess,
   remainingBalance = 12.0,
 }: LeaveRequestModalProps) {
+  const user = useCurrentUser();
   const { addLeaveRequest, allEmployees } = useWorkpulseSharedStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const currentEmp = allEmployees.find(
+    (e) =>
+      e.email.toLowerCase() === user.userEmail.toLowerCase() ||
+      e.name.toLowerCase() === user.userName.toLowerCase()
+  ) || allEmployees.find(e => e.id === "emp-sarah") || allEmployees[0];
 
   const defaultBackupId = allEmployees.find(e => e.id === "emp-rohit")?.id || allEmployees[0]?.id || "emp-rohit";
 
@@ -59,6 +67,11 @@ export function LeaveRequestModal({
 
       // 1. Immediately add to reactive store for instant Stage-1 Lead queue display
       addLeaveRequest({
+        employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
+        employeeName: currentEmp?.name || user.userName || "Sarah Dev",
+        departmentId: currentEmp?.departmentId || "dept-development",
+        departmentName: currentEmp?.departmentName || "Development",
+        designation: currentEmp?.designation || "Senior Backend Engineer",
         leaveType: values.leaveType,
         startDate: values.startDate,
         endDate: values.endDate,
@@ -121,7 +134,7 @@ export function LeaveRequestModal({
               Apply for Leave
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Two-stage approval: Team Lead Review $\rightarrow$ Final HR Sign-off
+              Two-stage approval: Team Lead Review → Final HR Sign-off
             </CardDescription>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>

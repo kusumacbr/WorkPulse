@@ -16,7 +16,7 @@ export default function TeamOneToOnesPage() {
       scheduledAt: "Today at 03:30 PM",
       duration: "30 Mins",
       status: "SCHEDULED",
-      agenda: "Sprint 34 deliverables, biometric edge connector architecture, and Q4 career growth",
+      agenda: "Weekly deliverables, biometric edge connector architecture, and Q4 career growth",
     },
     {
       id: "121-team-2",

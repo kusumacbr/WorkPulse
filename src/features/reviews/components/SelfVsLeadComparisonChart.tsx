@@ -50,7 +50,7 @@ export function SelfVsLeadComparisonChart({
         <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 text-xs flex items-start gap-2.5">
           <MessageSquare className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
           <p className="text-muted-foreground leading-relaxed">
-            <span className="font-semibold text-foreground">Lead Evaluation Note:</span> Ratings are calibrated against the Platform Pod engineering matrix and updated continuously during weekly sprint sign-offs.
+            <span className="font-semibold text-foreground">Lead Evaluation Note:</span> Ratings are calibrated against the Platform Team engineering matrix and updated continuously during weekly sprint sign-offs.
           </p>
         </div>
 

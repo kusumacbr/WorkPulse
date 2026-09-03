@@ -39,7 +39,7 @@ export default function TaskDetailPage({
               Implement dedicated SOD Carryover section with rolled-over task pile-up
             </h2>
             <p className="text-xs text-muted-foreground">
-              Project: <strong className="text-cyan-300 font-mono">Frontend & UI Pod</strong> · Priority: <strong className="text-amber-300">HIGH</strong>
+              Project: <strong className="text-cyan-300 font-mono">Frontend & UI Team</strong> · Priority: <strong className="text-amber-300">HIGH</strong>
             </p>
           </div>
 

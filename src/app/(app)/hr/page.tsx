@@ -160,7 +160,7 @@ export default function HrCommandCenterPage() {
         {activeTab === "directory" && (
           <HRPeopleOperationsDeck
             defaultSubTab={(subTabFilter as any) || "directory"}
-            allowedSubTabs={["directory", "org_tree"]}
+            allowedSubTabs={["directory", "profile_queries", "org_tree"]}
           />
         )}
 

@@ -64,6 +64,9 @@ export function useRealtimeSync() {
 
             // Synchronize local shared store
             WorkpulseSharedStore.hydrateFromStorage();
+            if (data.type?.startsWith("employee:") || data.type?.startsWith("leave:") || data.type?.startsWith("wfh:")) {
+              WorkpulseSharedStore.syncWithSupabase();
+            }
 
             // Broadcast to other tabs
             if (broadcastChannelRef.current) {
@@ -128,6 +131,119 @@ export function useRealtimeSync() {
             { event: "*", schema: "public", table: "workdays" },
             (payload) => {
               console.log("[Supabase Realtime] Workday change received:", payload.eventType);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "feedbacks" },
+            (payload) => {
+              console.log("[Supabase Realtime] Feedback/Notice change received:", payload.eventType);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          // 4. Supabase Culture & Announcements Live Broadcast Channel
+          .on(
+            "broadcast",
+            { event: "announcement:new" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live announcement broadcast received:", payload);
+              const data = payload.payload || payload;
+              setLastEvent({ type: "announcement:new", payload: data });
+              setEventCount((c) => c + 1);
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "celebration:broadcast" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live celebration broadcast received:", payload);
+              const data = payload.payload || payload;
+              setLastEvent({ type: "celebration:broadcast", payload: data });
+              setEventCount((c) => c + 1);
+            }
+          )
+          // 5. Employee CRUD Live Broadcast Handlers
+          .on(
+            "broadcast",
+            { event: "employee:created" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live employee created broadcast:", payload);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "employee:updated" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live employee updated broadcast:", payload);
+              const data = payload.payload || payload;
+              if (data?.id) {
+                WorkpulseSharedStore.updateEmployee(data.id, data);
+              }
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "employee:deleted" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live employee deleted broadcast:", payload);
+              const data = payload.payload || payload;
+              if (data?.id) {
+                WorkpulseSharedStore.deleteEmployee(data.id);
+              }
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          // 6. Leave & WFH Realtime Sync
+          .on(
+            "broadcast",
+            { event: "leave:updated" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live leave update broadcast:", payload);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "wfh:updated" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live WFH update broadcast:", payload);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          // 7. Attendance & Workday Realtime Sync
+          .on(
+            "broadcast",
+            { event: "attendance:punched" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live attendance punch broadcast:", payload);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "workday:sod_submitted" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live SOD submission broadcast:", payload);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "workday:eod_submitted" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live EOD submission broadcast:", payload);
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          // 8. Performance Reviews Realtime Sync
+          .on(
+            "broadcast",
+            { event: "review:updated" },
+            (payload) => {
+              console.log("[Supabase Realtime] Live review update broadcast:", payload);
               WorkpulseSharedStore.syncWithSupabase();
             }
           )

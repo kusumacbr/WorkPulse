@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { realtimeEventBus } from "@/server/realtime/event-bus";
+import { broadcastServerEvent } from "@/lib/supabase/broadcast";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +64,7 @@ export async function PATCH(
       body = text ? JSON.parse(text) : {};
     }
 
-    const updated = WorkpulseSharedStore.updateEmployee(
+    let updated = WorkpulseSharedStore.updateEmployee(
       id,
       isHR
         ? body
@@ -73,11 +75,31 @@ export async function PATCH(
           }
     );
 
+    // Fallback: Search allEmployees by ID or Email
     if (!updated) {
-      return apiError(`Employee '${id}' not found`, 404, "NOT_FOUND");
+      const all = WorkpulseSharedStore.getAllEmployees();
+      const match = all.find(
+        (e) =>
+          e.id.toLowerCase() === id.toLowerCase() ||
+          e.email.toLowerCase() === id.toLowerCase()
+      );
+      if (match) {
+        updated = WorkpulseSharedStore.updateEmployee(match.id, isHR ? body : { preferredName: body.preferredName, phoneNumber: body.phoneNumber });
+      }
     }
 
-    // Persist changes to Supabase public.employees
+    // Secondary fallback: Add/upsert if missing
+    if (!updated && (body.name || body.designation || body.email)) {
+      updated = WorkpulseSharedStore.addEmployee({
+        id,
+        name: body.name || "Employee",
+        email: body.email || `${id}@xorstack.com`,
+        designation: body.designation || body.role_title || "Engineer",
+        ...body,
+      });
+    }
+
+    // Persist changes to Supabase if table exists
     try {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabaseAdmin = createAdminClient();
@@ -85,15 +107,15 @@ export async function PATCH(
         await supabaseAdmin
           .from("employees")
           .update({
-            name: updated.name,
-            role_title: updated.designation,
-            department: updated.departmentName,
-            department_id: updated.departmentId,
-            work_mode: updated.workMode,
-            status: updated.status,
-            phone_number: updated.phoneNumber,
-            location: updated.location,
-            leave_balance: updated.remainingLeaveBalance,
+            name: body.name || undefined,
+            role_title: body.designation || body.role_title || undefined,
+            department: body.departmentName || body.department || undefined,
+            department_id: body.departmentId || undefined,
+            work_mode: body.workMode || body.work_mode || undefined,
+            status: body.status || undefined,
+            phone_number: body.phoneNumber || undefined,
+            location: body.location || undefined,
+            leave_balance: body.remainingLeaveBalance || undefined,
             updated_at: new Date().toISOString(),
           })
           .eq("id", id);
@@ -101,6 +123,14 @@ export async function PATCH(
     } catch (err: any) {
       console.warn("Supabase employee update sync warning:", err.message);
     }
+
+    if (!updated) {
+      return apiError(`Employee '${id}' not found`, 404, "NOT_FOUND");
+    }
+
+    // Broadcast real-time update across Supabase Realtime channel and server event bus
+    await broadcastServerEvent("employee:updated", updated);
+    realtimeEventBus.emit("employee:updated", updated);
 
     return apiSuccess({ employee: updated, message: "Employee profile updated successfully." });
   } catch (err: any) {
@@ -126,10 +156,7 @@ export async function DELETE(
     return apiError("Forbidden: Only HR can offboard/delete employee records.", 403, "FORBIDDEN");
   }
 
-  const removed = WorkpulseSharedStore.deleteEmployee(id);
-  if (!removed) {
-    return apiError(`Employee '${id}' not found or could not be removed`, 404, "NOT_FOUND");
-  }
+  let removed = WorkpulseSharedStore.deleteEmployee(id);
 
   // Hard delete from Supabase public.employees & associated tables
   try {
@@ -147,20 +174,28 @@ export async function DELETE(
       ]);
 
       // Delete the employee row from Supabase
-      const { error: delErr } = await supabaseAdmin
+      const { data: delRow, error: delErr } = await supabaseAdmin
         .from("employees")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select()
+        .maybeSingle();
+
+      if (delRow && !removed) {
+        removed = { id: delRow.id, name: delRow.name } as any;
+      }
 
       if (delErr) {
         console.warn("Supabase employee delete error:", delErr.message);
-      } else {
-        console.log(`[Supabase] Successfully deleted employee '${id}' from public.employees`);
       }
     }
   } catch (err: any) {
     console.warn("Supabase employee delete sync warning:", err.message);
   }
 
-  return apiSuccess({ employee: removed, message: `Employee '${id}' successfully removed from Supabase and application roster.` });
+  // Broadcast real-time deletion across Supabase Realtime channel and server event bus
+  await broadcastServerEvent("employee:deleted", { id });
+  realtimeEventBus.emit("employee:deleted", { id });
+
+  return apiSuccess({ employee: removed || { id }, message: `Employee '${id}' successfully removed from Supabase and application roster.` });
 }

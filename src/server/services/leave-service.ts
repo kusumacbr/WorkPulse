@@ -189,6 +189,27 @@ export class LeaveService {
 
     inMemoryLeaveRequests.set(requestId, request);
 
+    // Persist to Supabase public.leave_requests
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("leave_requests").upsert({
+          id: request.id,
+          employee_id: request.employeeId,
+          leave_type: request.leaveType,
+          start_date: request.startDate,
+          end_date: request.endDate,
+          days_count: request.daysCount,
+          reason: request.reason,
+          status: request.status,
+          created_at: request.createdAt,
+        });
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("leave:updated", request);
+    } catch {}
+
     await AuditService.record({
       actorId: params.actor.userId,
       action: "leave_request_submitted",
@@ -243,6 +264,25 @@ export class LeaveService {
       request.status = "PENDING_HR";
     }
 
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase
+          .from("leave_requests")
+          .update({
+            status: request.status,
+            tl_approver_name: params.actor.userId,
+            tl_approved_at: now,
+            tl_comment: request.managerComment,
+            rejection_reason: request.rejectionReason,
+          })
+          .eq("id", request.id);
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("leave:updated", request);
+    } catch {}
+
     await AuditService.record({
       actorId: params.actor.userId,
       action: `leave_manager_${params.input.action.toLowerCase()}`,
@@ -291,6 +331,7 @@ export class LeaveService {
     request.hrComment = params.input.comment || null;
     request.updatedAt = now;
 
+    let balance: any = null;
     if (params.input.action === "REJECT") {
       request.status = "REJECTED";
       request.rejectionReason = params.input.rejectionReason || "Rejected by HR";
@@ -298,7 +339,7 @@ export class LeaveService {
       request.status = "APPROVED";
 
       // Decrement Leave Balance only on final HR approval
-      const balance = await this.getLeaveBalance({
+      balance = await this.getLeaveBalance({
         employeeId: request.employeeId,
         leaveType: request.leaveType,
       });
@@ -306,6 +347,34 @@ export class LeaveService {
       balance.usedDays += request.daysCount;
       balance.remainingDays = Math.max(0, balance.annualAllotment - balance.usedDays);
     }
+
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase
+          .from("leave_requests")
+          .update({
+            status: request.status,
+            hr_approver_name: params.actor.userId,
+            hr_approved_at: now,
+            hr_comment: request.hrComment,
+            rejection_reason: request.rejectionReason,
+          })
+          .eq("id", request.id);
+
+        if (request.status === "APPROVED" && balance) {
+          await supabase
+            .from("employees")
+            .update({
+              leave_balance: balance.remainingDays,
+            })
+            .eq("id", request.employeeId);
+        }
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("leave:updated", request);
+    } catch {}
 
     await AuditService.record({
       actorId: params.actor.userId,
@@ -398,6 +467,29 @@ export class LeaveService {
 
     inMemoryWfhRequests.set(requestId, wfhRecord);
 
+    // Persist to Supabase public.wfh_requests
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("wfh_requests").upsert({
+          id: wfhRecord.id,
+          employee_id: wfhRecord.employeeId,
+          start_date: wfhRecord.startDate,
+          end_date: wfhRecord.endDate,
+          days_count: wfhRecord.daysCount,
+          reason: wfhRecord.reason,
+          availability_hours: wfhRecord.availabilityHours,
+          contact_method: wfhRecord.contactMethod,
+          planned_deliverables: wfhRecord.plannedDeliverables,
+          status: wfhRecord.status,
+          created_at: wfhRecord.createdAt,
+        });
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("wfh:updated", wfhRecord);
+    } catch {}
+
     await AuditService.record({
       actorId: params.actor.userId,
       action: status === "APPROVED" ? "wfh_self_marked_auto_approved" : "wfh_request_submitted",
@@ -443,6 +535,24 @@ export class LeaveService {
     } else {
       request.status = "APPROVED";
     }
+
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase
+          .from("wfh_requests")
+          .update({
+            status: request.status,
+            tl_approver_name: params.actor.userId,
+            tl_approved_at: now,
+            rejection_reason: request.rejectionReason,
+          })
+          .eq("id", request.id);
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("wfh:updated", request);
+    } catch {}
 
     await AuditService.record({
       actorId: params.actor.userId,

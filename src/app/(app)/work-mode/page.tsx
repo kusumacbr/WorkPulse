@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { useCurrentUser } from "@/components/layout/UserContext";
 import {
   Laptop,
   CheckCircle2,
@@ -15,41 +17,66 @@ import {
 } from "lucide-react";
 
 export default function WorkModePage() {
-  const [startDate, setStartDate] = useState("2026-08-25");
-  const [endDate, setEndDate] = useState("2026-08-25");
+  const user = useCurrentUser();
+  const { wfhRequests, addWfhRequest } = useWorkpulseSharedStore();
+
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]!);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]!);
   const [workMode, setWorkMode] = useState<"WFH" | "HYBRID" | "CLIENT_SITE">("WFH");
   const [reason, setReason] = useState("");
   const [deliverables, setDeliverables] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [requests, setRequests] = useState([
-    {
-      id: "wfh-sample",
-      startDate: "2026-08-20",
-      endDate: "2026-08-20",
-      workMode: "WFH",
-      reason: "Home electrical inspection and broadband maintenance",
-      status: "APPROVED",
-      leadApprover: "Alex Lead",
-      hrApprover: "Rachel HR",
-    },
-  ]);
+  useEffect(() => {
+    fetch("/api/v1/leave/wfh")
+      .then((res) => res.json())
+      .catch(() => {});
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const myWfhRequests = wfhRequests.filter(
+    (w) =>
+      w.employeeName?.toLowerCase() === user.userName.toLowerCase() ||
+      w.employeeId === "emp-sarah"
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (reason.trim()) {
-      const newReq = {
-        id: `wfh-${Date.now()}`,
+    if (!reason.trim()) return;
+
+    setLoading(true);
+    try {
+      // 1. Submit via API
+      const res = await fetch("/api/v1/leave/wfh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          reason,
+          plannedDeliverables: deliverables || "Sprint deliverables",
+          availabilityHours: "10:00 AM – 07:00 PM",
+          contactMethod: "Slack & Google Meet",
+        }),
+      });
+
+      if (res.ok) {
+        setSubmitted(true);
+        setReason("");
+        setDeliverables("");
+      }
+    } catch (e) {
+      console.warn("Failed to submit WFH via API:", e);
+      // Fallback to store
+      addWfhRequest({
         startDate,
         endDate,
-        workMode,
         reason,
-        status: "PENDING_TL_STAGE_1",
-        leadApprover: "Pending",
-        hrApprover: "Pending",
-      };
-      setRequests([newReq, ...requests]);
+        plannedDeliverables: deliverables || "Sprint deliverables",
+      });
       setSubmitted(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -139,9 +166,9 @@ export default function WorkModePage() {
                 />
               </div>
 
-              <Button type="submit" variant="brand" className="w-full h-9 text-xs font-bold bg-gradient-to-r from-teal-500 to-emerald-600 text-white gap-1.5">
+              <Button type="submit" disabled={loading} variant="brand" className="w-full h-9 text-xs font-bold bg-gradient-to-r from-teal-500 to-emerald-600 text-white gap-1.5">
                 <Send className="h-3.5 w-3.5" />
-                <span>Submit WFH Request</span>
+                <span>{loading ? "Submitting..." : "Submit WFH Request"}</span>
               </Button>
             </form>
           )}
@@ -155,23 +182,50 @@ export default function WorkModePage() {
           </h3>
 
           <div className="space-y-2.5 text-xs">
-            {requests.map((req) => (
-              <div key={req.id} className="p-3.5 rounded-xl bg-card border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <strong className="text-foreground font-mono">{req.startDate} {req.startDate !== req.endDate ? `to ${req.endDate}` : ""}</strong>
-                    <Badge variant="outline" className="text-[10px] text-teal-300 border-teal-500/30 font-bold">{req.workMode}</Badge>
-                  </div>
-                  <span className="text-muted-foreground block">{req.reason}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge variant={req.status === "APPROVED" ? "brand" : "outline"} className={`text-[10px] ${req.status === "APPROVED" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "text-amber-300 border-amber-500/30"}`}>
-                    {req.status === "APPROVED" ? "Approved by HR" : "Stage-1 Pending"}
-                  </Badge>
-                </div>
+            {myWfhRequests.length === 0 ? (
+              <div className="p-6 text-center text-muted-foreground text-xs">
+                No remote work requests submitted yet.
               </div>
-            ))}
+            ) : (
+              myWfhRequests.map((req) => (
+                <div key={req.id} className="p-3.5 rounded-xl bg-card border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <strong className="text-foreground font-mono">
+                        {req.startDate} {req.startDate !== req.endDate ? `to ${req.endDate}` : ""}
+                      </strong>
+                      <Badge variant="outline" className="text-[10px] text-teal-300 border-teal-500/30 font-bold">
+                        WFH ({req.daysCount || 1}d)
+                      </Badge>
+                    </div>
+                    <span className="text-muted-foreground block">{req.reason}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-bold ${
+                        req.status === "APPROVED"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          : req.status === "FORWARDED_TO_HR"
+                          ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
+                          : req.status === "REJECTED"
+                          ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                          : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                      }`}
+                    >
+                      {req.status === "APPROVED"
+                        ? "Approved by HR ✓"
+                        : req.status === "FORWARDED_TO_HR"
+                        ? "Stage-2 HR Review"
+                        : req.status === "REJECTED"
+                        ? "Declined"
+                        : "Stage-1 Pending"}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </Interactive3DCard>
       </div>

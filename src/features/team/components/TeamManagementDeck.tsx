@@ -39,7 +39,7 @@ export function TeamManagementDeck() {
   const [newTaskEstMinutes, setNewTaskEstMinutes] = useState(120);
 
   const [oneToOneDate, setOneToOneDate] = useState("Tomorrow at 11:00 AM");
-  const [oneToOneAgenda, setOneToOneAgenda] = useState("Sprint 34 deliverables review & architectural alignment");
+  const [oneToOneAgenda, setOneToOneAgenda] = useState("This week's deliverables review & architectural alignment");
 
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackSentiment, setFeedbackSentiment] = useState<"EXCELLENT" | "GOOD" | "COACHING_REQUIRED">("EXCELLENT");
@@ -50,7 +50,7 @@ export function TeamManagementDeck() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Direct reports (Platform Pod & all assigned direct reports)
+  // Direct reports (Platform Team & all assigned direct reports)
   const directReports = useMemo(() => {
     if (allEmployees.length > 0) {
       return allEmployees;
@@ -124,7 +124,7 @@ export function TeamManagementDeck() {
         </div>
       )}
 
-      {/* Pod Team Management Hero */}
+      {/* Team Management Hero */}
       <Interactive3DCard className="p-6 border border-indigo-500/30 bg-gradient-to-r from-card/90 via-card/70 to-indigo-500/10 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">

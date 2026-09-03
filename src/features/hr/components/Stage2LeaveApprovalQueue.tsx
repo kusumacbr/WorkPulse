@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createClient } from "@/lib/supabase/client";
 import {
   CheckCircle2,
   XCircle,
@@ -40,6 +41,14 @@ export function Stage2LeaveApprovalQueue() {
     const comment = hrCommentInputs[id] || "Final HR sign-off granted by Rachel HR.";
     hrApproveLeave(id, comment);
     setToastMsg(`Final Stage-2 HR approval granted for ${name}'s leave request! 🎉`);
+    try {
+      const supabase = createClient();
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: "leave:updated",
+        payload: { id, status: "APPROVED" },
+      });
+    } catch {}
     setTimeout(() => setToastMsg(null), 3500);
   };
 
@@ -47,6 +56,14 @@ export function Stage2LeaveApprovalQueue() {
     const reason = hrCommentInputs[id] || "Rejected during final HR compliance check.";
     hrRejectLeave(id, reason);
     setToastMsg(`Leave request for ${name} rejected by HR.`);
+    try {
+      const supabase = createClient();
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: "leave:updated",
+        payload: { id, status: "REJECTED" },
+      });
+    } catch {}
     setTimeout(() => setToastMsg(null), 3500);
   };
 
@@ -54,6 +71,14 @@ export function Stage2LeaveApprovalQueue() {
     const comment = hrCommentInputs[id] || "Final HR approval granted for remote workday.";
     hrApproveWfh(id, comment);
     setToastMsg(`Final Stage-2 HR approval granted for ${name}'s WFH request! 🏠`);
+    try {
+      const supabase = createClient();
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: "wfh:updated",
+        payload: { id, status: "APPROVED" },
+      });
+    } catch {}
     setTimeout(() => setToastMsg(null), 3500);
   };
 
@@ -61,6 +86,14 @@ export function Stage2LeaveApprovalQueue() {
     const reason = hrCommentInputs[id] || "Rejected during HR policy check.";
     hrRejectWfh(id, reason);
     setToastMsg(`WFH request for ${name} rejected by HR.`);
+    try {
+      const supabase = createClient();
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: "wfh:updated",
+        payload: { id, status: "REJECTED" },
+      });
+    } catch {}
     setTimeout(() => setToastMsg(null), 3500);
   };
 

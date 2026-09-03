@@ -56,12 +56,16 @@ export function SODSubmissionForm({
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Simulating / calling server action / API endpoint
-      await fetch("/api/v1/workdays/sod", {
+      const res = await fetch("/api/v1/workdays/sod", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
-      }).catch(() => null);
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.message || json?.error?.message || "Failed to submit Start-of-Day plan.");
+      }
 
       setSubmitSuccess(true);
       if (onSuccess) onSuccess(values);

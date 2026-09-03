@@ -18,7 +18,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-export interface PodEvaluation {
+export interface TeamEvaluation {
   id: string;
   name: string;
   role: string;
@@ -35,7 +35,7 @@ export interface PodEvaluation {
   status: "EVALUATED" | "PENDING_REVIEW";
 }
 
-const DEFAULT_POD_EVALUATIONS: PodEvaluation[] = [
+const DEFAULT_TEAM_EVALUATIONS: TeamEvaluation[] = [
   {
     id: "pe-1",
     name: "Sarah Dev",
@@ -103,22 +103,22 @@ const DEFAULT_POD_EVALUATIONS: PodEvaluation[] = [
 ];
 
 type LeadReviewTab =
-  | "POD_EVALUATIONS"
+  | "TEAM_EVALUATIONS"
   | "ONE_ON_ONE"
   | "PROBATION"
   | "GIVE_FEEDBACK"
   | "DIRECTOR_REVIEW";
 
 export function LeadReviewsManager() {
-  const [activeTab, setActiveTab] = useState<LeadReviewTab>("POD_EVALUATIONS");
-  const [evaluations, setEvaluations] = useState<PodEvaluation[]>(() => {
+  const [activeTab, setActiveTab] = useState<LeadReviewTab>("TEAM_EVALUATIONS");
+  const [evaluations, setEvaluations] = useState<TeamEvaluation[]>(() => {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("workpulse_lead_evaluations");
         if (saved) return JSON.parse(saved);
       } catch {}
     }
-    return DEFAULT_POD_EVALUATIONS;
+    return DEFAULT_TEAM_EVALUATIONS;
   });
 
   // Give feedback state with the 4 sections
@@ -184,7 +184,7 @@ export function LeadReviewsManager() {
 
     setFeedbackNote("");
     setActionItem("");
-    setActiveTab("POD_EVALUATIONS");
+    setActiveTab("TEAM_EVALUATIONS");
     showToast(`✓ Comprehensive 4-Section Feedback & Score (${calculatedScore}/100) saved for ${selectedRecipient}!`);
   };
 
@@ -207,11 +207,11 @@ export function LeadReviewsManager() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Pod Average Score</span>
+            <span>Team Average Score</span>
             <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
           </div>
           <p className="text-2xl font-bold text-foreground">90.0 / 100</p>
-          <span className="text-[11px] text-emerald-400 font-semibold">Top Performing Pod</span>
+          <span className="text-[11px] text-emerald-400 font-semibold">Top Performing Team</span>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
@@ -248,9 +248,9 @@ export function LeadReviewsManager() {
           {/* TAB 1: Team Evaluations */}
           <button
             type="button"
-            onClick={() => setActiveTab("POD_EVALUATIONS")}
+            onClick={() => setActiveTab("TEAM_EVALUATIONS")}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
-              activeTab === "POD_EVALUATIONS"
+              activeTab === "TEAM_EVALUATIONS"
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
             }`}
@@ -319,8 +319,8 @@ export function LeadReviewsManager() {
 
       {/* 3. Tab Contents */}
 
-      {/* TAB 1: POD MEMBER EVALUATIONS */}
-      {activeTab === "POD_EVALUATIONS" && (
+      {/* TAB 1: TEAM MEMBER EVALUATIONS */}
+      {activeTab === "TEAM_EVALUATIONS" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {evaluations.map((member) => (
@@ -401,7 +401,7 @@ export function LeadReviewsManager() {
               role: "Senior Backend Engineer",
               avatarBg: "bg-gradient-to-tr from-purple-500 to-pink-500 text-white",
               time: "Today at 03:30 PM",
-              topic: "Sprint 34 Architecture Progress & Senior Track Milestone",
+              topic: "Weekly Architecture Progress & Senior Track Milestone",
               status: "Upcoming",
               statusBg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
             },
@@ -593,7 +593,7 @@ export function LeadReviewsManager() {
             {/* Recipient Selector + Live Calculated Score */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="font-semibold text-foreground">Select Pod Member</label>
+                <label className="font-semibold text-foreground">Select Team Member</label>
                 <select
                   value={selectedRecipient}
                   onChange={(e) => handleSelectRecipient(e.target.value)}
@@ -760,7 +760,7 @@ export function LeadReviewsManager() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setActiveTab("POD_EVALUATIONS")}
+              onClick={() => setActiveTab("TEAM_EVALUATIONS")}
               className="text-xs h-8"
             >
               Cancel
@@ -795,7 +795,7 @@ export function LeadReviewsManager() {
 
           <div className="p-4 rounded-xl bg-background/80 border border-border/70 space-y-2 text-xs">
             <p className="text-foreground leading-relaxed italic">
-              &quot;Alex has demonstrated exceptional technical leadership in Sprint 34. The Development Pod has sustained high velocity, zero security regressions, and exemplary collaboration. High recommendation for Senior Engineering Lead track.&quot;
+              &quot;Alex has demonstrated exceptional technical leadership this week. The Development Team has sustained high velocity, zero security regressions, and exemplary collaboration. High recommendation for Senior Engineering Lead track.&quot;
             </p>
             <span className="text-[11px] text-rose-300 font-bold block pt-1">
               — David Director, Head of Engineering (Evaluated Aug 20, 2026)

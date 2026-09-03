@@ -26,7 +26,7 @@ export default function MyWorkPage() {
       user.primaryRole === "MANAGER" ||
       user.userEmail.toLowerCase().includes("lead"));
 
-  const podMemberCount =
+  const teamMemberCount =
     allEmployees.filter(
       (e) =>
         e.id !== "lead-alex" &&
@@ -67,7 +67,7 @@ export default function MyWorkPage() {
                 </span>
               ) : isLead ? (
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  Development Pod · {podMemberCount} Direct Reports
+                  Development Team · {teamMemberCount} Direct Reports
                 </span>
               ) : null}
             </div>

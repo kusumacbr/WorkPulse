@@ -3,14 +3,54 @@
 import { useState, useEffect } from "react";
 import { WorkpulseSharedStore, subscribeToSharedStore } from "./workpulse-shared-store";
 
+let isGlobalListenerSetup = false;
+
+function setupGlobalWindowListeners() {
+  if (typeof window === "undefined" || isGlobalListenerSetup) return;
+  isGlobalListenerSetup = true;
+
+  const handleRealtimeUpdate = () => {
+    WorkpulseSharedStore.hydrateFromStorage();
+  };
+
+  const events = [
+    "storage",
+    "workpulse:lead_feedback_updated",
+    "workday:sod_submitted",
+    "workday:sod_verified",
+    "workday:sod_changes_requested",
+    "workday:eod_submitted",
+    "workday:eod_verified",
+    "workday:task_assigned",
+    "workday:help_requested",
+    "workday:help_acknowledged",
+    "workday:help_resolved",
+    "attendance:punched",
+    "attendance:presence_verified",
+    "attendance:all_presence_verified",
+    "workpulse_sync",
+    "leave:status_updated",
+    "leave:deleted",
+    "wfh:status_updated",
+    "wfh:deleted",
+  ];
+
+  events.forEach((evt) => {
+    try {
+      window.addEventListener(evt, handleRealtimeUpdate);
+    } catch {}
+  });
+}
+
 export function useWorkpulseSharedStore() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    // Hydrate store from localStorage and sync with Supabase
-    WorkpulseSharedStore.hydrateFromStorage();
-    WorkpulseSharedStore.syncWithSupabase();
-    return subscribeToSharedStore(() => setTick((t) => t + 1));
+    setupGlobalWindowListeners();
+    const unsubscribe = subscribeToSharedStore(() => setTick((t) => t + 1));
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return {
@@ -22,12 +62,14 @@ export function useWorkpulseSharedStore() {
     updateLeadFeedback: WorkpulseSharedStore.updateLeadFeedback,
     leaveRequests: WorkpulseSharedStore.getLeaveRequests(),
     addLeaveRequest: WorkpulseSharedStore.addLeaveRequest,
+    deleteLeaveRequest: WorkpulseSharedStore.deleteLeaveRequest,
     tlApproveLeave: WorkpulseSharedStore.tlApproveLeave,
     tlRejectLeave: WorkpulseSharedStore.tlRejectLeave,
     hrApproveLeave: WorkpulseSharedStore.hrApproveLeave,
     hrRejectLeave: WorkpulseSharedStore.hrRejectLeave,
     wfhRequests: WorkpulseSharedStore.getWfhRequests(),
     addWfhRequest: WorkpulseSharedStore.addWfhRequest,
+    deleteWfhRequest: WorkpulseSharedStore.deleteWfhRequest,
     tlApproveWfh: WorkpulseSharedStore.tlApproveWfh,
     tlRejectWfh: WorkpulseSharedStore.tlRejectWfh,
     hrApproveWfh: WorkpulseSharedStore.hrApproveWfh,
@@ -35,6 +77,19 @@ export function useWorkpulseSharedStore() {
     addEmployee: WorkpulseSharedStore.addEmployee,
     updateEmployee: WorkpulseSharedStore.updateEmployee,
     deleteEmployee: WorkpulseSharedStore.deleteEmployee,
+    profileQueries: WorkpulseSharedStore.getProfileQueries(),
+    submitProfileQuery: WorkpulseSharedStore.submitProfileQuery,
+    hrApproveProfileQuery: WorkpulseSharedStore.hrApproveProfileQuery,
+    hrRejectProfileQuery: WorkpulseSharedStore.hrRejectProfileQuery,
+    helpRequests: WorkpulseSharedStore.getHelpRequests(),
+    requestLeadHelp: WorkpulseSharedStore.requestLeadHelp,
+    acknowledgeHelpRequest: WorkpulseSharedStore.acknowledgeHelpRequest,
+    resolveHelpRequest: WorkpulseSharedStore.resolveHelpRequest,
+    cancelHelpRequest: WorkpulseSharedStore.cancelHelpRequest,
+    teamPresence: WorkpulseSharedStore.getTeamPresence(),
+    verifyMemberPresence: WorkpulseSharedStore.verifyMemberPresence,
+    verifyAllMemberPresence: WorkpulseSharedStore.verifyAllMemberPresence,
+    unverifyMemberPresence: WorkpulseSharedStore.unverifyMemberPresence,
     resetToDefaults: WorkpulseSharedStore.resetToDefaults,
     syncWithSupabase: WorkpulseSharedStore.syncWithSupabase,
   };

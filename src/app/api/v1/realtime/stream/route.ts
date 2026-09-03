@@ -8,42 +8,53 @@ export async function GET(req: NextRequest) {
 
   const stream = new ReadableStream({
     start(controller) {
+      let isClosed = false;
+
+      const safeEnqueue = (data: string) => {
+        if (isClosed) return;
+        try {
+          controller.enqueue(encoder.encode(data));
+        } catch {
+          isClosed = true;
+        }
+      };
+
       // 1. Send initial connected event
       const initialPayload = JSON.stringify({
         type: "connected",
         message: "WorkPulse Real-Time Event Stream Established",
         timestamp: new Date().toISOString(),
       });
-      controller.enqueue(encoder.encode(`data: ${initialPayload}\n\n`));
+      safeEnqueue(`data: ${initialPayload}\n\n`);
 
       // 2. Subscribe to server RealtimeEventBus
       const unsubscribe = realtimeEventBus.subscribe((event: RealtimeEvent) => {
+        if (isClosed) return;
         try {
           const chunk = `data: ${JSON.stringify(event)}\n\n`;
-          controller.enqueue(encoder.encode(chunk));
+          safeEnqueue(chunk);
         } catch {
-          // Stream might be closed
+          isClosed = true;
         }
       });
 
       // 3. Heartbeat ping every 15 seconds to prevent client timeout
       const heartbeatInterval = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(`: heartbeat\n\n`));
-        } catch {
+        if (isClosed) {
           clearInterval(heartbeatInterval);
+          return;
         }
+        safeEnqueue(`: heartbeat\n\n`);
       }, 15000);
 
       // 4. Handle client disconnect / cancellation
       req.signal.addEventListener("abort", () => {
+        isClosed = true;
         clearInterval(heartbeatInterval);
         unsubscribe();
         try {
           controller.close();
-        } catch {
-          // Already closed
-        }
+        } catch {}
       });
     },
   });

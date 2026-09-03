@@ -1,29 +1,74 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/components/layout/UserContext";
-import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
-import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
+import { useWorkpulseSharedStore, sanitizePodToTeam } from "@/lib/stores/workpulse-shared-store";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Mail,
-  Briefcase,
   Clock,
-  Globe,
-  ShieldCheck,
-  Edit3,
   CheckCircle2,
-  Lock,
-  HeartHandshake,
   Users,
+  Phone,
+  MessageSquarePlus,
+  Send,
+  X,
+  Building,
+  ArrowLeft,
+  Briefcase,
+  MapPin,
 } from "lucide-react";
 
 export default function ProfilePage() {
   const user = useCurrentUser();
-  const { allEmployees, updateEmployee } = useWorkpulseSharedStore();
+  const router = useRouter();
+  const { allEmployees, profileQueries, submitProfileQuery } = useWorkpulseSharedStore();
+
+  const [previousRoute, setPreviousRoute] = useState<string | null>(null);
+  const [showQueryModal, setShowQueryModal] = useState(false);
+  const [queryCategory, setQueryCategory] = useState("Personal Contact Details (Phone, Mobile)");
+  const [requestedChange, setRequestedChange] = useState("");
+  const [queryReason, setQueryReason] = useState("");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const fromParam = new URLSearchParams(window.location.search).get("from");
+      const stored = sessionStorage.getItem("workpulse_last_active_route");
+      const target = (fromParam && fromParam !== "/profile" && fromParam !== "/settings")
+        ? fromParam
+        : (stored && stored !== "/profile" && stored !== "/settings")
+        ? stored
+        : "/dashboard";
+      setPreviousRoute(target);
+    }
+  }, []);
+
+  const handleGoBack = () => {
+    if (previousRoute) {
+      router.push(previousRoute);
+    } else if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  const isHR =
+    user.roles.includes("HR") ||
+    user.primaryRole === "HR" ||
+    user.userEmail.toLowerCase().includes("hr") ||
+    user.userEmail.toLowerCase().includes("admin") ||
+    user.userEmail.toLowerCase().includes("director");
+
+  const isLead =
+    user.roles.includes("MANAGER") ||
+    user.primaryRole === "MANAGER" ||
+    user.userEmail.toLowerCase().includes("lead");
 
   const matchedEmp = allEmployees.find(
     (e) =>
@@ -32,215 +77,273 @@ export default function ProfilePage() {
       (user.userEmail === "employee.test@xorstack.com" && e.id === "emp-sarah")
   );
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [preferredName, setPreferredName] = useState(user.userName || "Sara Dev");
-  const [phoneNumber, setPhoneNumber] = useState(matchedEmp?.phoneNumber || "+91 98450 12345");
-  const [emergencyPhone, setEmergencyPhone] = useState("+91 98450 99999");
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const myQueries = profileQueries.filter(
+    (q) =>
+      q.employeeEmail.toLowerCase() === user.userEmail.toLowerCase() ||
+      q.employeeId === (matchedEmp?.id || "emp-sarah") ||
+      q.employeeName.toLowerCase() === user.userName.toLowerCase()
+  );
 
-  const handleSave = () => {
-    setIsEditing(false);
-    if (matchedEmp) {
-      updateEmployee(matchedEmp.id, {
-        name: preferredName,
-        phoneNumber: phoneNumber,
-      });
-    }
-    setToastMsg("Profile information updated and synchronized across all dashboards! ✓");
-    setTimeout(() => setToastMsg(null), 3000);
+  const handleSubmitQuery = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestedChange.trim()) return;
+
+    const created = submitProfileQuery({
+      employeeId: matchedEmp?.id || "emp-sarah",
+      employeeName: user.userName || matchedEmp?.name || "Sarah Dev",
+      employeeEmail: user.userEmail,
+      departmentName: user.department || matchedEmp?.departmentName || "Development",
+      category: queryCategory,
+      requestedChange: requestedChange.trim(),
+      reason: queryReason.trim() || "Profile update request.",
+    });
+
+    setShowQueryModal(false);
+    setRequestedChange("");
+    setQueryReason("");
+    setToastMsg(`✓ Request #${created.ticketNumber} submitted to HR`);
+    setTimeout(() => setToastMsg(null), 3500);
   };
+
+  const displayName = matchedEmp?.name || user.userName || (isHR ? "Rachel HR" : isLead ? "Alex Lead" : "Sarah Dev");
+  const displayPhone = matchedEmp?.phoneNumber || "+91 98450 12345";
+  const displayDept = matchedEmp?.departmentName || user.department || (isHR ? "HR & Operations" : isLead ? "Development" : "Development");
+  const displayDesignation = matchedEmp?.designation || user.designation || (isHR ? "Head of HR" : isLead ? "Engineering Lead" : "Senior Backend Engineer");
+  const displayLead = isHR
+    ? "Leadership Team"
+    : isLead
+    ? "David Director (VP)"
+    : matchedEmp?.teamLeadName || "Alex Lead (Manager)";
+  const rawLocation = matchedEmp?.workLocation || matchedEmp?.location || (matchedEmp?.workMode === "WFH" ? "Remote (WFH)" : "Bangalore HQ (Floor 4, Team Bay B)");
+  const displayLocation = sanitizePodToTeam(rawLocation);
 
   return (
     <PageTransition>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-5 max-w-3xl mx-auto">
+        {/* Top Header: My Profile on Left, Back button on Right */}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <h1 className="text-xl font-bold text-foreground">My Profile</h1>
+
+          <button
+            type="button"
+            onClick={handleGoBack}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-card border border-border/80 text-xs font-bold text-muted-foreground hover:text-foreground hover:border-primary/50 transition-all shadow-sm group cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" />
+            <span>Back</span>
+          </button>
+        </div>
+
+        {/* Toast Notification */}
         {toastMsg && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span className="font-bold">{toastMsg}</span>
+          <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2 animate-in fade-in shadow-sm">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            <span className="font-semibold">{toastMsg}</span>
           </div>
         )}
 
-        {/* Master Profile Header Card */}
-        <Interactive3DCard className="p-6 md:p-8 border border-cyan-500/30 bg-gradient-to-r from-card/90 via-card/70 to-cyan-500/10 space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-2xl bg-gradient-to-tr from-cyan-500 to-purple-600 border-2 border-cyan-400/50 flex items-center justify-center text-white text-2xl font-black shadow-xl">
-                {user.userName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-black text-foreground">{user.userName}</h2>
-                  <Badge variant="brand" className="bg-cyan-500/15 border-cyan-500/30 text-cyan-300 text-[10px] font-bold uppercase">
-                    {user.primaryRole}
-                  </Badge>
-                  <Badge variant="outline" className="text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                    ACTIVE
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground flex items-center gap-2 font-mono">
-                  <span>EMP Code: <strong>EMP-0012</strong></span>
-                  <span>·</span>
-                  <span>Biometric: <strong>BIO-101</strong></span>
-                </p>
-                <p className="text-xs text-cyan-300 font-semibold">{user.designation} · {user.department}</p>
-              </div>
+        {/* Main Profile Header Card */}
+        <div className="p-6 rounded-2xl border border-border/80 bg-card/70 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white text-lg font-black shadow-md shrink-0">
+              {displayName.slice(0, 2).toUpperCase()}
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-              className="text-xs h-9 px-4 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 gap-1.5 shrink-0"
-            >
-              {isEditing ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-              <span>{isEditing ? "Save Changes" : "Edit Profile"}</span>
-            </Button>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-foreground">{displayName}</h2>
+                <Badge variant={isHR ? "purple" : isLead ? "cyan" : "brand"} className="text-[10px] font-bold">
+                  {isHR ? "HR Operations" : isLead ? "Team Lead" : "Core Member"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {displayDesignation} · {displayDept}
+              </p>
+            </div>
           </div>
-        </Interactive3DCard>
 
-        {/* Profile Field Sections (Section 2.1 Specification) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 1. Official Employment & Organizational Details */}
-          <Interactive3DCard className="p-6 border border-border/80 space-y-4 bg-card/60">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-cyan-400" />
-              Organizational Hierarchy & Role
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground">Department</span>
-                <strong className="text-foreground">{user.department}</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground">Designation</span>
-                <strong className="text-foreground">{user.designation}</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground">Team / Pod</span>
-                <strong className="text-cyan-300">{user.team}</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Users className="h-3 w-3 text-purple-400" />
-                  Primary Reporting Manager
-                </span>
-                <strong className="text-foreground">Alex Lead (Engineering Manager)</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground">Employment Type</span>
-                <Badge variant="outline" className="text-[10px] text-foreground">FULL_TIME (Permanent)</Badge>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground">Date of Joining</span>
-                <span className="font-mono text-foreground">August 01, 2025</span>
-              </div>
-            </div>
-          </Interactive3DCard>
-
-          {/* 2. Contact & Personal Profile */}
-          <Interactive3DCard className="p-6 border border-border/80 space-y-4 bg-card/60">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Mail className="h-4 w-4 text-emerald-400" />
-              Contact Details & Shift Preferences
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1 p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground text-[11px]">Official Email</span>
-                <div className="font-mono font-bold text-foreground">{user.userEmail}</div>
-              </div>
-
-              <div className="space-y-1 p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground text-[11px]">Preferred Name</span>
-                {isEditing ? (
-                  <Input
-                    value={preferredName}
-                    onChange={(e) => setPreferredName(e.target.value)}
-                    className="h-7 text-xs mt-1"
-                  />
-                ) : (
-                  <div className="font-semibold text-foreground">{preferredName}</div>
-                )}
-              </div>
-
-              <div className="space-y-1 p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground text-[11px]">Contact Number</span>
-                {isEditing ? (
-                  <Input
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="h-7 text-xs mt-1"
-                  />
-                ) : (
-                  <div className="font-mono text-foreground">{phoneNumber}</div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-sky-400" />
-                  Default Shift Window
-                </span>
-                <span className="font-mono text-cyan-300 font-bold">10:00 AM – 07:00 PM</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-border/60">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Globe className="h-3 w-3 text-amber-400" />
-                  Timezone
-                </span>
-                <span className="font-mono text-foreground">Asia/Kolkata (UTC+05:30)</span>
-              </div>
-            </div>
-          </Interactive3DCard>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowQueryModal(true)}
+            className="text-xs font-bold h-8.5 px-3.5 gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer shrink-0 self-start sm:self-center"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            <span>Request Change</span>
+          </Button>
         </div>
 
-        {/* 3. Sensitive & Compliance Data (DPDP & Emergency Contact - Restricted) */}
-        <Interactive3DCard className="p-6 border border-rose-500/30 bg-card/60 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <HeartHandshake className="h-4 w-4 text-rose-400" />
-              Emergency Contact & Confidential Fields (Restricted to HR / Admin)
-            </h3>
-            <Badge variant="outline" className="text-[10px] text-rose-300 border-rose-500/30 flex items-center gap-1">
-              <Lock className="h-2.5 w-2.5" />
-              <span>RBAC Scoped</span>
-            </Badge>
+        {/* Simplified Info Grid */}
+        <div className="p-6 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Briefcase className="h-3.5 w-3.5 text-primary" />
+            <span>Employment &amp; Contact Information</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-[11px] flex items-center gap-1">
+                <Mail className="h-3 w-3 text-cyan-400" />
+                Work Email
+              </span>
+              <p className="font-mono font-semibold text-foreground">{user.userEmail}</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-[11px] flex items-center gap-1">
+                <Phone className="h-3 w-3 text-emerald-400" />
+                Phone Number
+              </span>
+              <p className="font-mono font-semibold text-foreground">{displayPhone}</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-[11px] flex items-center gap-1">
+                <Building className="h-3 w-3 text-purple-400" />
+                Department
+              </span>
+              <p className="font-semibold text-foreground">{displayDept}</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-[11px] flex items-center gap-1">
+                <Users className="h-3 w-3 text-indigo-400" />
+                Reporting Lead
+              </span>
+              <p className="font-semibold text-foreground">{displayLead}</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-[11px] flex items-center gap-1">
+                <MapPin className="h-3 w-3 text-rose-400" />
+                Work Location
+              </span>
+              <p className="font-semibold text-foreground">{displayLocation}</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-[11px] flex items-center gap-1">
+                <Clock className="h-3 w-3 text-amber-400" />
+                Shift Hours
+              </span>
+              <p className="font-mono font-semibold text-foreground">10:00 AM – 07:00 PM (IST)</p>
+            </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div className="p-3 rounded-xl bg-card border border-border/60 space-y-1">
-              <span className="text-muted-foreground text-[11px]">Contact Person</span>
-              <div className="font-bold text-foreground">Anita Dev (Spouse)</div>
+        {/* Change Requests Section (Compact) */}
+        {myQueries.length > 0 && (
+          <div className="p-5 rounded-2xl border border-border/80 bg-card/40 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Recent Change Requests ({myQueries.length})</span>
+              </h3>
             </div>
 
-            <div className="p-3 rounded-xl bg-card border border-border/60 space-y-1">
-              <span className="text-muted-foreground text-[11px]">Emergency Phone</span>
-              {isEditing ? (
-                <Input
-                  value={emergencyPhone}
-                  onChange={(e) => setEmergencyPhone(e.target.value)}
-                  className="h-7 text-xs"
-                />
-              ) : (
-                <div className="font-mono text-foreground">{emergencyPhone}</div>
-              )}
-            </div>
+            <div className="space-y-2">
+              {myQueries.map((qry) => (
+                <div
+                  key={qry.id}
+                  className="p-3 rounded-xl bg-card border border-border/60 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-primary">{qry.ticketNumber}</span>
+                      <span className="text-muted-foreground">· {qry.category}</span>
+                    </div>
+                    <p className="text-foreground truncate font-medium">{qry.requestedChange}</p>
+                  </div>
 
-            <div className="p-3 rounded-xl bg-card border border-border/60 space-y-1">
-              <span className="text-muted-foreground text-[11px]">Privacy Protection</span>
-              <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                <ShieldCheck className="h-3.5 w-3.5" /> DPDP Act 2023 Compliant
+                  <Badge
+                    variant={qry.status === "APPROVED" ? "success" : qry.status === "REJECTED" ? "destructive" : "cyan"}
+                    className="text-[10px] font-bold shrink-0"
+                  >
+                    {qry.status === "APPROVED" ? "✓ Approved" : qry.status === "REJECTED" ? "Declined" : "Under Review"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Request Change */}
+        {showQueryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full max-w-md rounded-2xl bg-card border border-border/80 shadow-2xl p-5 space-y-4 animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                <h3 className="text-sm font-bold text-foreground">Request Profile Update</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowQueryModal(false)}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
+
+              <form onSubmit={handleSubmitQuery} className="space-y-3 text-xs">
+                <div>
+                  <label className="text-foreground font-semibold block mb-1">Category</label>
+                  <select
+                    value={queryCategory}
+                    onChange={(e) => setQueryCategory(e.target.value)}
+                    className="w-full h-8.5 px-2.5 rounded-xl border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:border-primary"
+                  >
+                    <option value="Personal Contact Details (Phone, Mobile)">Phone / Contact Details</option>
+                    <option value="Emergency Contact Information">Emergency Contact</option>
+                    <option value="Department / Designation Correction">Designation / Role</option>
+                    <option value="Shift Timing / Work Location Query">Location / Shift</option>
+                    <option value="Other HR Profile Query">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-foreground font-semibold block mb-1">
+                    Requested Details <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    value={requestedChange}
+                    onChange={(e) => setRequestedChange(e.target.value)}
+                    placeholder="e.g. Update phone to +91 98450 12345"
+                    className="h-8.5 text-xs"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-foreground font-semibold block mb-1">Reason (Optional)</label>
+                  <Input
+                    value={queryReason}
+                    onChange={(e) => setQueryReason(e.target.value)}
+                    placeholder="Brief reason for update"
+                    className="h-8.5 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowQueryModal(false)}
+                    className="text-xs h-8 px-3"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="brand"
+                    size="sm"
+                    className="text-xs h-8 px-3.5 font-bold gap-1 rounded-xl"
+                  >
+                    <Send className="h-3 w-3" />
+                    <span>Submit</span>
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
-        </Interactive3DCard>
+        )}
       </div>
     </PageTransition>
   );

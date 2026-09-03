@@ -5,8 +5,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const adkUrl = process.env.ADK_AGENT_URL || "http://127.0.0.1:8000";
   const appName = process.env.ADK_APP_NAME || "sample_agent";
-  const apiKeyConfigured = Boolean(process.env.GOOGLE_API_KEY);
-  const configuredModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  const apiKeyConfigured = Boolean(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
+  const configuredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const isProduction = process.env.NODE_ENV === "production";
 
   let isConnected = false;
   let apps: string[] = [];
@@ -37,7 +38,7 @@ export async function GET() {
     connected: isConnected,
     appName,
     agentUrl: adkUrl,
-    agentPath: "C:\\Users\\Victus\\sample_agent",
+    agentPath: process.env.ADK_AGENT_PATH || (isProduction ? "Cloud / Gemini Bridge" : "C:\\Users\\Victus\\sample_agent"),
     model: configuredModel,
     availableApps: apps,
     latencyMs: isConnected ? latencyMs : null,
@@ -46,6 +47,8 @@ export async function GET() {
       ? "ADK Live Server Online"
       : apiKeyConfigured
       ? "Direct Gemini Bridge Ready (ADK Offline)"
+      : isProduction
+      ? "Configuration Required (Add GOOGLE_API_KEY in Hosting Env)"
       : "Agent Configuration Pending",
   });
 }

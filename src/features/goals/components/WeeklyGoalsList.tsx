@@ -53,7 +53,7 @@ const GOAL_TEMPLATES = [
     priority: "HIGH" as const,
     targetValue: 0,
     targetUnit: "Vulnerabilities",
-    project: "Security Pod",
+    project: "Security Team",
     evidenceRequired: true,
     managerApprovalRequired: true,
   },
@@ -231,10 +231,10 @@ export function WeeklyGoalsList() {
               <span className="text-xs text-muted-foreground font-mono">11-Field Weekly Schema</span>
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-foreground">
-              Add New Weekly Sprint Goal
+              Add New Weekly Goal
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Define measurable outcomes, sprint weights (1–100%), delivery dates, and verification flags for Sprint 34.
+              Define measurable outcomes, goal weights (1–100%), delivery dates, and verification flags for this week.
             </p>
           </div>
 
@@ -278,7 +278,7 @@ export function WeeklyGoalsList() {
             </label>
             <textarea
               rows={2}
-              placeholder="Detailed technical specifications, requirements, and Pod alignment..."
+              placeholder="Detailed technical specifications, requirements, and Team alignment..."
               {...form.register("description")}
               className="w-full p-3 rounded-xl border border-input bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400 leading-relaxed"
             />
@@ -442,7 +442,7 @@ export function WeeklyGoalsList() {
                   <Target className="h-3 w-3 mr-1 text-cyan-400" />
                   2. Display Goals
                 </Badge>
-                <span className="text-xs text-muted-foreground font-mono">Sprint 34 Active Deliverables</span>
+                <span className="text-xs text-muted-foreground font-mono">This Week's Deliverables</span>
               </div>
               <h3 className="text-lg font-black text-foreground mt-0.5">
                 Active Weekly Goals ({goals.length})

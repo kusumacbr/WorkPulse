@@ -18,7 +18,7 @@ export default function MonthlyReviewsPage() {
     { name: "Quality of Work", weight: "20%", score: 4.9, calculated: "19.6 / 20", desc: "Zero high-priority regressions and robust test coverage" },
     { name: "Timely Delivery", weight: "15%", score: 4.6, calculated: "13.8 / 15", desc: "On-time PR submission and sprint SLA adherence" },
     { name: "Communication & Reporting", weight: "10%", score: 4.5, calculated: "9.0 / 10", desc: "Timely SOD/EOD logging and proactive blocker escalation" },
-    { name: "Collaboration & Support", weight: "10%", score: 4.7, calculated: "9.4 / 10", desc: "Peer reviews, unblocking teammates, and cross-pod syncs" },
+    { name: "Collaboration & Support", weight: "10%", score: 4.7, calculated: "9.4 / 10", desc: "Peer reviews, unblocking teammates, and cross-team syncs" },
     { name: "Initiative & Learning", weight: "5%", score: 4.8, calculated: "4.8 / 5", desc: "Skill development goals and architectural innovations" },
   ];
 

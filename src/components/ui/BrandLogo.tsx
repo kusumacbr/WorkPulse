@@ -6,6 +6,7 @@ import { Activity } from "lucide-react";
 interface BrandLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  lightText?: boolean;
   showCompany?: boolean;
   withPulseAnimation?: boolean;
 }
@@ -13,6 +14,7 @@ interface BrandLogoProps {
 export function BrandLogo({
   size = "md",
   className = "",
+  lightText = false,
 }: BrandLogoProps) {
   const sizeMap = {
     sm: {
@@ -44,27 +46,27 @@ export function BrandLogo({
   const currentSize = sizeMap[size];
 
   return (
-    <div className={`flex items-center gap-2.5 select-none ${className}`}>
+    <div className={`flex items-center gap-3 select-none ${className}`}>
       {/* Single High-Resolution WorkPulse Emblem */}
       <div
-        className={`${currentSize.box} bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0`}
+        className={`${currentSize.box} bg-gradient-to-tr from-cyan-400 via-blue-500 to-indigo-600 border border-cyan-300/40 flex items-center justify-center shadow-lg shadow-cyan-500/30 shrink-0`}
       >
         <Activity className={`${currentSize.icon} text-white animate-pulse`} />
       </div>
 
       {/* Single Unified Brand Name */}
       <div className="flex items-center">
-        <span className={`${currentSize.text} text-foreground`}>
+        <span className={`${currentSize.text} ${lightText ? "text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]" : "text-foreground"}`}>
           Work
         </span>
         <span
-          className={`${currentSize.text} text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 drop-shadow-[0_0_12px_rgba(56,189,248,0.35)]`}
+          className={`${currentSize.text} text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-200 to-cyan-400 drop-shadow-[0_0_16px_rgba(56,189,248,0.5)]`}
         >
           Pulse
         </span>
-        <span className={`relative flex ${currentSize.dot} ml-1`}>
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-full w-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
+        <span className={`relative flex ${currentSize.dot} ml-1.5`}>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-85" />
+          <span className="relative inline-flex rounded-full h-full w-full bg-cyan-400 shadow-[0_0_10px_#38bdf8]" />
         </span>
       </div>
     </div>

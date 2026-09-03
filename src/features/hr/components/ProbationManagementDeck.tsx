@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createClient } from "@/lib/supabase/client";
 import {
   UserCheck,
   Clock,
@@ -111,6 +112,14 @@ export function ProbationManagementDeck() {
       );
       if (matchedEmp) {
         updateEmployee(matchedEmp.id, { status: "Full-Time" });
+        try {
+          const supabase = createClient();
+          supabase.channel("workpulse-supabase-live-channel").send({
+            type: "broadcast",
+            event: "employee:updated",
+            payload: { id: matchedEmp.id, status: "Full-Time" },
+          });
+        } catch {}
       }
     }
     setConfirmedCount((c) => c + 1);

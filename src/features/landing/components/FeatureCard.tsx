@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 interface FeatureCardProps {
   title: string;
   badge: string;
-  badgeVariant?: "brand" | "secondary" | "outline" | "destructive";
+  badgeVariant?: "brand" | "secondary" | "outline" | "destructive" | "cyan" | "emerald" | "amber" | "purple";
   icon: LucideIcon;
   description: string;
   highlights?: string[];
@@ -39,8 +39,8 @@ export function FeatureCard({
   const mouseY = useMotionValue(0);
 
   const springConfig = { damping: 20, stiffness: 200, mass: 0.5 };
-  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [7, -7]), springConfig);
-  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-7, 7]), springConfig);
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [6, -6]), springConfig);
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-6, 6]), springConfig);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (reducedMotion || !cardRef.current) return;
@@ -71,49 +71,45 @@ export function FeatureCard({
         transformStyle: "preserve-3d",
       }}
       whileHover={reducedMotion ? {} : { scale: 1.02 }}
-      className={`relative rounded-2xl p-6 text-left transition-all duration-300 backdrop-blur-xl border flex flex-col justify-between h-full select-none ${
+      className={`relative rounded-3xl p-6 sm:p-7 text-left transition-all duration-200 border flex flex-col justify-between h-full select-none ${
         isHovered
-          ? "border-cyan-500/50 shadow-[0_12px_40px_rgba(6,182,212,0.15)] bg-card/85"
-          : "border-border/80 bg-card/60 shadow-md"
+          ? "border-cyan-500/50 shadow-lg bg-card/90"
+          : "border-border/80 bg-card/65 shadow-md"
       }`}
     >
-      {isHovered && !reducedMotion && (
-        <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.12),transparent_70%)] pointer-events-none" />
-      )}
-
       <div className="space-y-4 relative z-10">
         <div className="flex items-center justify-between">
           <div
-            className="h-11 w-11 rounded-xl flex items-center justify-center border shadow-inner transition-transform group-hover:scale-105"
+            className="h-12 w-12 rounded-2xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-110"
             style={{
               backgroundColor: `${accentColor}18`,
               borderColor: `${accentColor}40`,
               color: accentColor,
             }}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className="h-6 w-6" />
           </div>
 
-          <Badge variant={badgeVariant} className="text-[10px] uppercase font-bold tracking-wider">
+          <Badge variant={badgeVariant} className="text-[10px] font-bold px-3 py-1 rounded-full">
             {badge}
           </Badge>
         </div>
 
         <div>
-          <h3 className="text-base font-bold text-foreground">
+          <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight">
             {title}
           </h3>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-relaxed">
             {description}
           </p>
         </div>
 
         {highlights && highlights.length > 0 && (
-          <div className="space-y-1.5 pt-3 border-t border-border/60">
+          <div className="space-y-2 pt-3.5 border-t border-border/60">
             {highlights.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <div key={idx} className="flex items-center gap-2.5 text-xs text-muted-foreground font-medium">
                 <span
-                  className="h-1.5 w-1.5 rounded-full shrink-0"
+                  className="h-2 w-2 rounded-full shrink-0 shadow-sm"
                   style={{ backgroundColor: accentColor }}
                 />
                 <span className="truncate">{item}</span>
@@ -125,3 +121,4 @@ export function FeatureCard({
     </motion.div>
   );
 }
+

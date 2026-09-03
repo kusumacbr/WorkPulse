@@ -5,34 +5,37 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
-import { MetricTile3D } from "@/components/3d/MetricTile3D";
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
 import {
   Target,
   CheckCircle2,
   Plus,
   Trash2,
-  Search,
   Building2,
-  TrendingUp,
-  Award,
   Calendar,
   Sparkles,
   Check,
-  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  Headphones,
+  GraduationCap,
+  Zap,
+  Layers,
+  Trophy,
+  Clock,
 } from "lucide-react";
 
 export interface SimpleGoalItem {
   id: string;
   title: string;
-  category: string;
+  category: "Customer Service" | "Professional Growth" | "Operations" | "Organization" | string;
   progress: number;
   status: "IN_PROGRESS" | "COMPLETED";
   targetDate: string;
   description?: string;
 }
 
-const DEFAULT_FRIENDLY_GOALS: SimpleGoalItem[] = [
+export const DEFAULT_FRIENDLY_GOALS: SimpleGoalItem[] = [
   {
     id: "goal-1",
     title: "Improve customer inquiry response time",
@@ -57,7 +60,7 @@ const DEFAULT_FRIENDLY_GOALS: SimpleGoalItem[] = [
     category: "Operations",
     progress: 100,
     status: "COMPLETED",
-    targetDate: "Sprint 34",
+    targetDate: "This Week",
     description: "Reduced average vendor invoice processing time from 5 days to 1 day.",
   },
   {
@@ -103,13 +106,72 @@ const COMPANY_OKRS: CompanyOKRItem[] = [
   },
 ];
 
-type GoalTab = "ALL" | "IN_PROGRESS" | "COMPLETED" | "COMPANY_OKRS";
+type GoalTab = "ALL" | "IN_PROGRESS" | "COMPLETED";
 
-const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  Operations: { bg: "bg-teal-500/15", text: "text-teal-400", border: "border-teal-500/30" },
-  "Customer Service": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30" },
-  "Professional Growth": { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/30" },
-  Organization: { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/30" },
+// Visual configurations for differentiating goal types
+interface GoalCategoryStyle {
+  icon: React.ComponentType<{ className?: string }>;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  cardBorderLeft: string;
+  cardGlow: string;
+  progressGradient: string;
+  activeText: string;
+}
+
+const DEFAULT_CATEGORY_STYLE: GoalCategoryStyle = {
+  icon: Zap,
+  badgeBg: "bg-amber-500/15",
+  badgeText: "text-amber-400",
+  badgeBorder: "border-amber-500/30",
+  cardBorderLeft: "border-l-4 border-l-amber-500",
+  cardGlow: "hover:border-amber-500/30 hover:bg-amber-500/[0.02]",
+  progressGradient: "bg-gradient-to-r from-amber-500 to-orange-400",
+  activeText: "text-amber-400",
+};
+
+const GOAL_CATEGORY_CONFIG: Record<string, GoalCategoryStyle> = {
+  "Customer Service": {
+    icon: Headphones,
+    badgeBg: "bg-emerald-500/15",
+    badgeText: "text-emerald-400",
+    badgeBorder: "border-emerald-500/30",
+    cardBorderLeft: "border-l-4 border-l-emerald-500",
+    cardGlow: "hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]",
+    progressGradient: "bg-gradient-to-r from-emerald-500 to-teal-400",
+    activeText: "text-emerald-400",
+  },
+  "Professional Growth": {
+    icon: GraduationCap,
+    badgeBg: "bg-cyan-500/15",
+    badgeText: "text-cyan-400",
+    badgeBorder: "border-cyan-500/30",
+    cardBorderLeft: "border-l-4 border-l-cyan-500",
+    cardGlow: "hover:border-cyan-500/30 hover:bg-cyan-500/[0.02]",
+    progressGradient: "bg-gradient-to-r from-cyan-500 to-blue-500",
+    activeText: "text-cyan-400",
+  },
+  Operations: {
+    icon: Zap,
+    badgeBg: "bg-amber-500/15",
+    badgeText: "text-amber-400",
+    badgeBorder: "border-amber-500/30",
+    cardBorderLeft: "border-l-4 border-l-amber-500",
+    cardGlow: "hover:border-amber-500/30 hover:bg-amber-500/[0.02]",
+    progressGradient: "bg-gradient-to-r from-amber-500 to-orange-400",
+    activeText: "text-amber-400",
+  },
+  Organization: {
+    icon: Layers,
+    badgeBg: "bg-purple-500/15",
+    badgeText: "text-purple-400",
+    badgeBorder: "border-purple-500/30",
+    cardBorderLeft: "border-l-4 border-l-purple-500",
+    cardGlow: "hover:border-purple-500/30 hover:bg-purple-500/[0.02]",
+    progressGradient: "bg-gradient-to-r from-purple-500 to-indigo-500",
+    activeText: "text-purple-400",
+  },
 };
 
 export function SimpleGoalsManager() {
@@ -123,23 +185,12 @@ export function SimpleGoalsManager() {
     return DEFAULT_FRIENDLY_GOALS;
   });
 
-  const [companyOkrs] = useState<CompanyOKRItem[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_company_okrs");
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
-    return COMPANY_OKRS;
-  });
-
   const [activeTab, setActiveTab] = useState<GoalTab>("ALL");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showCompanyOkrs, setShowCompanyOkrs] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("Operations");
   const [newTargetDate, setNewTargetDate] = useState("This Month");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -152,6 +203,7 @@ export function SimpleGoalsManager() {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("workpulse_simple_goals", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
   };
@@ -174,7 +226,9 @@ export function SimpleGoalsManager() {
     saveGoals(updated);
     const toggled = updated.find((g) => g.id === id);
     if (toggled?.status === "COMPLETED") {
-      showToast("🎉 Great work! Goal marked as completed.");
+      showToast("🎉 Goal marked as completed!");
+    } else {
+      showToast("Goal marked as in progress.");
     }
   };
 
@@ -189,7 +243,7 @@ export function SimpleGoalsManager() {
     saveGoals(updated);
     if (clamped === 100) {
       fireCelebrationConfetti();
-      showToast("🎉 Goal reached 100% and marked completed!");
+      showToast("🎉 Goal reached 100% and completed!");
     }
   };
 
@@ -204,7 +258,6 @@ export function SimpleGoalsManager() {
       progress: 0,
       status: "IN_PROGRESS",
       targetDate: newTargetDate,
-      description: "Personal milestone target.",
     };
 
     const updated = [newGoal, ...goals];
@@ -226,465 +279,426 @@ export function SimpleGoalsManager() {
   const completedGoals = goals.filter((g) => g.status === "COMPLETED");
   const averageProgress = totalGoals > 0 ? Math.round(goals.reduce((acc, g) => acc + g.progress, 0) / totalGoals) : 0;
 
+  // SVG Radial Gauge Calculations
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (averageProgress / 100) * circumference;
+
   const filteredGoals = useMemo(() => {
     return goals.filter((g) => {
-      if (activeTab === "IN_PROGRESS" && g.status !== "IN_PROGRESS") return false;
-      if (activeTab === "COMPLETED" && g.status !== "COMPLETED") return false;
-      if (selectedCategory !== "ALL" && g.category !== selectedCategory) return false;
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return g.title.toLowerCase().includes(q) || g.category.toLowerCase().includes(q);
-      }
+      if (activeTab === "IN_PROGRESS") return g.status === "IN_PROGRESS";
+      if (activeTab === "COMPLETED") return g.status === "COMPLETED";
       return true;
     });
-  }, [goals, activeTab, selectedCategory, searchQuery]);
-
-  const categories = ["ALL", "Operations", "Customer Service", "Professional Growth", "Organization"];
+  }, [goals, activeTab]);
 
   return (
     <div className="space-y-6">
       {/* Toast Feedback */}
       {toastMsg && (
-        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+        <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span className="font-semibold">{toastMsg}</span>
         </div>
       )}
 
-      {/* Team Lead Pod Alignment Banner */}
-      <div className="p-4 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-card/80 to-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center font-extrabold text-xs shrink-0 shadow-sm">
-            AL
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <strong className="text-foreground text-xs">Pod Lead: Alex Lead</strong>
-              <Badge variant="outline" className="text-[9px] text-emerald-300 border-emerald-500/30 bg-emerald-500/10">
-                Development Pod
-              </Badge>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Your milestone targets and OKRs are aligned with the Development Pod sprint objectives.
-            </p>
-          </div>
-        </div>
-
-        <div className="text-left sm:text-right shrink-0">
-          <span className="text-emerald-300 font-bold block text-[11px]">Sprint 34 Alignment</span>
-          <span className="text-muted-foreground text-[10px]">Reviewed by Alex Lead</span>
-        </div>
-      </div>
-
-      {/* 1. 3D Key Metrics Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricTile3D
-          title="Total Goals"
-          value={totalGoals}
-          subtitle="Active milestone targets"
-          icon={Target}
-          accent="cyan"
-          badgeText="Active"
-        />
-        <MetricTile3D
-          title="Average Progress"
-          value={`${averageProgress}%`}
-          subtitle="Overall completion"
-          icon={TrendingUp}
-          accent="emerald"
-          badgeText="On Track"
-        />
-        <MetricTile3D
-          title="In Progress"
-          value={inProgressGoals.length}
-          subtitle="Currently underway"
-          icon={Sparkles}
-          accent="purple"
-          badgeText="Underway"
-        />
-        <MetricTile3D
-          title="Completed"
-          value={completedGoals.length}
-          subtitle="Achieved milestones"
-          icon={Award}
-          accent="gold"
-          badgeText="Achieved"
-        />
-      </div>
-
-      {/* 2. Segregation Tabs & Add Form Button */}
-      <Interactive3DCard className="p-3 border border-border/80 bg-card/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Segregation Tabs */}
-          <div className="flex items-center p-1 rounded-xl bg-background/60 border border-border/60 overflow-x-auto gap-1 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setActiveTab("ALL")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-                activeTab === "ALL"
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              }`}
-            >
-              <span>All Goals</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                activeTab === "ALL" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-              }`}>
-                {totalGoals}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("IN_PROGRESS")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-                activeTab === "IN_PROGRESS"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              }`}
-            >
-              <span>In Progress</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                activeTab === "IN_PROGRESS" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-              }`}>
-                {inProgressGoals.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("COMPLETED")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-                activeTab === "COMPLETED"
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              }`}
-            >
-              <span>Completed</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                activeTab === "COMPLETED" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-              }`}>
-                {completedGoals.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("COMPANY_OKRS")}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-                activeTab === "COMPANY_OKRS"
-                  ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              }`}
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              <span>Company Strategic OKRs</span>
-            </button>
-          </div>
-
-          {/* Add Goal Button */}
-          {activeTab !== "COMPANY_OKRS" && (
-            <Button
-              size="sm"
-              variant="brand"
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="text-xs font-bold gap-1.5 h-9 px-4 shrink-0 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-500/20"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{showAddForm ? "Close Form" : "Add Goal"}</span>
-            </Button>
-          )}
-        </div>
-
-        {/* 3. Add Goal Form */}
-        {showAddForm && (
-          <form onSubmit={handleAddGoal} className="mt-4 p-5 rounded-2xl bg-background/90 border border-emerald-500/40 space-y-4 animate-in fade-in slide-in-from-top-2 shadow-lg">
-            <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-400" />
-              <span>Create New Personal Goal</span>
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[11px] font-semibold text-muted-foreground">What is your goal?</label>
-                <Input
-                  type="text"
-                  placeholder="e.g., Deliver new client onboarding package"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="h-10 text-xs rounded-xl"
-                  required
+      {/* 1. Distinct Radial Gauge & Milestone Progress Hub */}
+      <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card via-card/90 to-card/60 shadow-md">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          {/* Left: Circular Radial Progress Dial */}
+          <div className="flex items-center gap-5 shrink-0">
+            <div className="relative w-24 h-24 flex items-center justify-center">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                {/* Background Ring */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  className="stroke-muted/40"
+                  strokeWidth="8"
+                  fill="transparent"
                 />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-muted-foreground">Category</label>
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none"
-                >
-                  <option value="Operations">Operations</option>
-                  <option value="Customer Service">Customer Service</option>
-                  <option value="Professional Growth">Professional Growth</option>
-                  <option value="Organization">Organization</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-border/60">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold text-muted-foreground">Target Timeline:</span>
-                <select
-                  value={newTargetDate}
-                  onChange={(e) => setNewTargetDate(e.target.value)}
-                  className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground"
-                >
-                  <option value="This Month">This Month</option>
-                  <option value="End of Quarter">End of Quarter</option>
-                  <option value="Sprint 34">Sprint 34</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddForm(false)}
-                  className="text-xs h-9 rounded-xl"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" variant="brand" className="text-xs font-bold h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                  Create Goal
-                </Button>
+                {/* Dynamic Gradient Stroke */}
+                <defs>
+                  <linearGradient id="goalProgressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#10b981" />
+                    <stop offset="50%" stopColor="#06b6d4" />
+                    <stop offset="100%" stopColor="#6366f1" />
+                  </linearGradient>
+                </defs>
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  stroke="url(#goalProgressGrad)"
+                  strokeWidth="8"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  fill="transparent"
+                  className="transition-all duration-700 ease-out"
+                />
+              </svg>
+              {/* Inner Center Text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                <span className="font-mono font-black text-xl text-foreground tracking-tight">
+                  {averageProgress}%
+                </span>
+                <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
+                  Pace
+                </span>
               </div>
             </div>
-          </form>
-        )}
 
-        {/* 4. Search & Filter Bar */}
-        {activeTab !== "COMPANY_OKRS" && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs border-t border-border/60 mt-3">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-foreground tracking-tight">
+                  Overall Goals Progress
+                </h3>
+                <Badge variant="outline" className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                  This Week
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Average milestone completion across active personal OKRs.
+              </p>
+            </div>
+          </div>
+
+          {/* Middle: 3 Quick Metric Pills */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3 flex-1 max-w-md">
+            <div className="p-3 rounded-2xl bg-card border border-border/70 text-center space-y-0.5 shadow-sm">
+              <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground font-semibold">
+                <Target className="h-3.5 w-3.5 text-primary" />
+                <span>Total</span>
+              </div>
+              <strong className="text-base font-black text-foreground block">{totalGoals}</strong>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-card border border-cyan-500/20 text-center space-y-0.5 shadow-sm">
+              <div className="flex items-center justify-center gap-1 text-[11px] text-cyan-400 font-semibold">
+                <Clock className="h-3.5 w-3.5" />
+                <span>In Progress</span>
+              </div>
+              <strong className="text-base font-black text-cyan-400 block">{inProgressGoals.length}</strong>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-card border border-emerald-500/20 text-center space-y-0.5 shadow-sm">
+              <div className="flex items-center justify-center gap-1 text-[11px] text-emerald-400 font-semibold">
+                <Trophy className="h-3.5 w-3.5" />
+                <span>Done</span>
+              </div>
+              <strong className="text-base font-black text-emerald-400 block">{completedGoals.length}</strong>
+            </div>
+          </div>
+
+          {/* Right: Add Goal Action */}
+          <Button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="h-11 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs gap-2 shrink-0 shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.02]"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{showAddForm ? "Close Form" : "Add Goal"}</span>
+          </Button>
+        </div>
+      </Interactive3DCard>
+
+      {/* 2. Add Goal Form */}
+      {showAddForm && (
+        <form onSubmit={handleAddGoal} className="p-5 rounded-3xl bg-card border border-emerald-500/30 space-y-4 shadow-lg animate-in fade-in slide-in-from-top-2">
+          <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-400" />
+            <span>Create New Milestone Goal</span>
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2 space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground">What is your goal?</label>
               <Input
                 type="text"
-                placeholder="Search goals..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-xs rounded-xl bg-background/50"
+                placeholder="e.g. Deliver new client onboarding package"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+                required
+                autoFocus
               />
             </div>
 
-            <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold text-xs whitespace-nowrap transition-all ${
-                    selectedCategory === cat
-                      ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                      : "bg-muted/30 text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground">Category</label>
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none"
+              >
+                <option value="Customer Service">Customer Service</option>
+                <option value="Professional Growth">Professional Growth</option>
+                <option value="Operations">Operations</option>
+                <option value="Organization">Organization</option>
+              </select>
             </div>
           </div>
-        )}
-      </Interactive3DCard>
 
-      {/* 5. Main Content: Goals List or Company OKRs */}
-      {activeTab === "COMPANY_OKRS" ? (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-card/60 border border-border/80 flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between pt-2 border-t border-border/60">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-muted-foreground">Target Timeline:</span>
+              <select
+                value={newTargetDate}
+                onChange={(e) => setNewTargetDate(e.target.value)}
+                className="h-8 rounded-lg border border-input bg-background px-2 text-xs text-foreground"
+              >
+                <option value="This Week">This Week</option>
+                <option value="Next Week">Next Week</option>
+                <option value="This Month">This Month</option>
+                <option value="End of Quarter">End of Quarter</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddForm(false)}
+                className="text-xs h-9 rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="text-xs font-bold h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white">
+                Save Goal
+              </Button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* 3. Simple Tab Pills */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/40 border border-border/60 text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("ALL");
+              setShowCompanyOkrs(false);
+            }}
+            className={`px-4 py-1.5 rounded-xl font-bold transition-all ${
+              !showCompanyOkrs && activeTab === "ALL"
+                ? "bg-card text-foreground shadow-sm border border-border/60"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All Goals ({totalGoals})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("IN_PROGRESS");
+              setShowCompanyOkrs(false);
+            }}
+            className={`px-4 py-1.5 rounded-xl font-bold transition-all ${
+              !showCompanyOkrs && activeTab === "IN_PROGRESS"
+                ? "bg-card text-foreground shadow-sm border border-border/60"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            In Progress ({inProgressGoals.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("COMPLETED");
+              setShowCompanyOkrs(false);
+            }}
+            className={`px-4 py-1.5 rounded-xl font-bold transition-all ${
+              !showCompanyOkrs && activeTab === "COMPLETED"
+                ? "bg-card text-foreground shadow-sm border border-border/60"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Completed ({completedGoals.length})
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowCompanyOkrs(!showCompanyOkrs)}
+          className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${
+            showCompanyOkrs
+              ? "bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-sm"
+              : "border-border/70 text-muted-foreground hover:text-foreground bg-card/60"
+          }`}
+        >
+          <Building2 className="h-3.5 w-3.5 text-purple-400" />
+          <span>Company OKRs</span>
+          {showCompanyOkrs ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+      </div>
+
+      {/* When Company OKRs is selected: keep only Company OKRs view */}
+      {showCompanyOkrs ? (
+        <div className="p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-b from-purple-500/[0.06] to-card space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between text-xs font-bold text-foreground">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-purple-400" />
-              <strong className="text-foreground">Company Strategic Objectives (Q3 2026)</strong>
+              <span className="text-sm">Company Strategic Objectives (Q3 2026)</span>
             </div>
-            <span className="text-muted-foreground">Organizational Alignment</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {companyOkrs.map((okr) => (
-              <Interactive3DCard
-                key={okr.id}
-                className="p-5 border border-border/80 bg-card/70 space-y-3 hover:border-purple-500/40 transition-all shadow-sm"
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] text-purple-400 border-purple-500/30">
+                Organization-Wide OKRs
+              </Badge>
+              <button
+                type="button"
+                onClick={() => setShowCompanyOkrs(false)}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-lg hover:bg-muted/40 transition-colors"
               >
-                <div className="space-y-1">
-                  <Badge variant="outline" className="text-[10px] text-purple-400 border-purple-500/30 bg-purple-500/10">
-                    {okr.department}
-                  </Badge>
-                  <h4 className="text-sm font-bold text-foreground pt-1">{okr.objective}</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {okr.keyResult}
-                  </p>
+                ✕ Close
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {COMPANY_OKRS.map((okr) => (
+              <div key={okr.id} className="p-4 rounded-2xl bg-card border border-border/70 space-y-2 shadow-sm hover:border-purple-500/30 transition-all">
+                <Badge variant="outline" className="text-[10px] text-purple-400 border-purple-500/30">
+                  {okr.department}
+                </Badge>
+                <h5 className="text-xs font-bold text-foreground">{okr.objective}</h5>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">{okr.keyResult}</p>
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <span className="text-muted-foreground">Progress:</span>
+                  <span className="text-purple-400 font-bold">{okr.progress}%</span>
                 </div>
-
-                <div className="space-y-1.5 pt-2 border-t border-border/60">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Progress:</span>
-                    <strong className="text-purple-400 font-mono font-bold">{okr.progress}%</strong>
-                  </div>
-                  <div className="progress-track-line">
-                    <div
-                      className="progress-track-fill-purple"
-                      style={{ width: `${okr.progress}%` }}
-                    />
-                  </div>
-                </div>
-              </Interactive3DCard>
+              </div>
             ))}
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        /* 4. Differentiated Goal Cards List (Shown only when Company OKRs is not open) */
+        <div className="space-y-3.5">
           {filteredGoals.length === 0 ? (
-            <div className="p-12 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
-              <Target className="h-8 w-8 text-muted-foreground mx-auto" />
-              <p className="font-semibold text-sm text-foreground">No goals in this view</p>
-              <p>Click &quot;Add Goal&quot; to set a new milestone target.</p>
+            <div className="p-12 text-center bg-card/40 rounded-3xl border border-border/60 text-xs text-muted-foreground space-y-2">
+              <Target className="h-7 w-7 text-muted-foreground mx-auto" />
+              <p className="font-semibold text-foreground">No goals in this view</p>
+              <p>Click &quot;Add Goal&quot; above to create a new goal.</p>
             </div>
           ) : (
             filteredGoals.map((goal) => {
               const isDone = goal.status === "COMPLETED";
-              const catStyle = CATEGORY_COLORS[goal.category] || {
-                bg: "bg-emerald-500/15",
-                text: "text-emerald-400",
-                border: "border-emerald-500/30",
-              };
+              const config = GOAL_CATEGORY_CONFIG[goal.category] || DEFAULT_CATEGORY_STYLE;
+              const CategoryIcon = config.icon;
 
               return (
-                <Interactive3DCard
+                <div
                   key={goal.id}
-                  className={`p-6 border transition-all duration-300 ${
+                  className={`p-4 sm:p-5 rounded-3xl border transition-all ${
                     isDone
-                      ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/[0.04] via-card/90 to-card/80 shadow-sm"
-                      : "border-border/80 bg-gradient-to-r from-card/95 via-card/80 to-card/60 hover:border-primary/50 shadow-md"
-                  }`}
+                      ? "border-emerald-500/30 bg-emerald-500/[0.03] border-l-4 border-l-emerald-500"
+                      : `border-border/80 bg-card ${config.cardBorderLeft} ${config.cardGlow}`
+                  } space-y-3.5 shadow-sm`}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="space-y-3 flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h3 className="text-base font-extrabold text-foreground tracking-tight">
-                          {goal.title}
-                        </h3>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
-                        >
-                          {goal.category}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/30 px-2.5 py-0.5 rounded-full border border-border/60">
-                          <Calendar className="h-3 w-3 text-emerald-400" />
-                          <span>{goal.targetDate}</span>
-                        </div>
-                        {isDone && (
-                          <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5 gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Completed</span>
-                          </Badge>
-                        )}
-                      </div>
+                  {/* Header: Checkbox + Differentiated Category Icon/Badge + Title + Target Timeline + Delete */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      {/* Completion Checkbox */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleComplete(goal.id)}
+                        className={`h-6 w-6 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+                          isDone
+                            ? "bg-emerald-500 border-emerald-500 text-white shadow-sm"
+                            : "border-muted-foreground/40 hover:border-emerald-400"
+                        }`}
+                        title={isDone ? "Mark as in progress" : "Mark as completed"}
+                      >
+                        {isDone && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                      </button>
 
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {goal.description}
-                      </p>
-
-                      <div className="space-y-2 pt-1 max-w-xl">
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span className="text-muted-foreground">My Progress:</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`font-mono text-sm font-extrabold ${isDone ? "text-emerald-400" : "text-cyan-400"}`}>
-                              {goal.progress}%
-                            </span>
-                            {isDone && <span className="text-emerald-400 text-[11px] font-bold">✓ Target Reached</span>}
-                          </div>
-                        </div>
-
-                        <div className="progress-track-line">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              isDone
-                                ? "progress-track-fill-emerald"
-                                : "progress-track-fill-cyan"
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Goal Title */}
+                          <h4
+                            className={`text-sm font-bold text-foreground ${
+                              isDone ? "line-through text-muted-foreground font-medium" : ""
                             }`}
-                            style={{ width: `${goal.progress}%` }}
-                          />
+                          >
+                            {goal.title}
+                          </h4>
+
+                          {/* Distinct Category Badge with Icon */}
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border flex items-center gap-1 ${config.badgeBg} ${config.badgeText} ${config.badgeBorder}`}
+                          >
+                            <CategoryIcon className="h-3 w-3" />
+                            <span>{goal.category}</span>
+                          </Badge>
+
+                          {/* Target Date Pill */}
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1 bg-muted/30 px-2 py-0.5 rounded-full border border-border/50">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <span>{goal.targetDate}</span>
+                          </span>
+
+                          {isDone && (
+                            <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold px-2 py-0.5">
+                              ✓ Completed
+                            </Badge>
+                          )}
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 pt-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground uppercase font-bold mr-1">Quick Set:</span>
-                            {[25, 50, 75, 100].map((pct) => (
-                              <button
-                                key={pct}
-                                type="button"
-                                onClick={() => handleSetProgress(goal.id, pct)}
-                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono transition-all border ${
-                                  goal.progress === pct
-                                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                    : "bg-muted/40 text-muted-foreground border-border hover:text-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {pct}%
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              step="5"
-                              value={goal.progress}
-                              onChange={(e) => handleSetProgress(goal.id, Number(e.target.value))}
-                              className="w-28 sm:w-36 h-2.5 cursor-pointer accent-cyan-400"
-                              title="Fine-tune progress"
-                            />
-                          </div>
-                        </div>
+                        {goal.description && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">{goal.description}</p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex lg:flex-col items-center lg:items-end justify-between gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-border/60">
-                      <Button
-                        size="sm"
-                        onClick={() => handleToggleComplete(goal.id)}
-                        className={`text-xs font-bold h-9 px-4 gap-1.5 shadow-sm transition-all rounded-xl ${
-                          isDone
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
-                            : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/20"
-                        }`}
-                      >
-                        {isDone ? (
-                          <>
-                            <RotateCcw className="h-3.5 w-3.5" />
-                            <span>Reopen</span>
-                          </>
-                        ) : (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            <span>Mark Complete</span>
-                          </>
-                        )}
-                      </Button>
+                    {/* Delete Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      className="p-1.5 rounded-xl text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+                      title="Delete Goal"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
 
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteGoal(goal.id)}
-                        className="h-8 px-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
-                        title="Remove goal"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                        <span className="text-[11px]">Delete</span>
-                      </Button>
+                  {/* Progress Control Row with Differentiated Category Gradients */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-border/40 text-xs">
+                    <div className="flex items-center gap-3 flex-1 max-w-md">
+                      <span className="text-muted-foreground font-semibold text-[11px] shrink-0">Progress:</span>
+                      <div className="flex-1 h-2 rounded-full bg-muted/60 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            isDone ? "bg-emerald-500" : config.progressGradient
+                          }`}
+                          style={{ width: `${goal.progress}%` }}
+                        />
+                      </div>
+                      <span className={`font-mono font-bold text-xs w-9 text-right shrink-0 ${isDone ? "text-emerald-400" : config.activeText}`}>
+                        {goal.progress}%
+                      </span>
+                    </div>
+
+                    {/* 1-Click Quick Percentage Stepper Pills */}
+                    <div className="flex items-center gap-1">
+                      {[25, 50, 75, 100].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => handleSetProgress(goal.id, pct)}
+                          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold font-mono transition-all border ${
+                            goal.progress === pct
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-muted/30 text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </Interactive3DCard>
+                </div>
               );
             })
           )}

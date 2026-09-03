@@ -73,27 +73,29 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const userEmailLower = (user?.email || devEmail || "").toLowerCase();
 
-  // Determine role based on known personas or lead status
-  const isLead =
-    userEmailLower === "lead.test@xorstack.com" ||
-    userEmailLower.includes("alex.lead") ||
-    departments.some(
-      (d) =>
-        d.teamLead.email.toLowerCase() === userEmailLower ||
-        (user && d.teamLead.id === user.id) ||
-        (userEmailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex")
-    );
-
+  // Determine role based strictly on authenticated email credentials
   const isHR =
     userEmailLower === "hr.test@xorstack.com" ||
+    userEmailLower === "rachel.hr@xorstack.com" ||
     userEmailLower === "director.test@xorstack.com" ||
+    userEmailLower === "david.director@xorstack.com" ||
+    userEmailLower === "admin.test@xorstack.com" ||
     userEmailLower === "admin@xorstack.com" ||
-    userEmailLower.includes("hr.rachel") ||
-    role === "HR";
+    (role === "HR" && !userEmailLower.includes("employee") && !userEmailLower.includes("lead") && !userEmailLower.includes("rohit") && !userEmailLower.includes("sara"));
+
+  const isLead =
+    !isHR &&
+    (userEmailLower === "lead.test@xorstack.com" ||
+      userEmailLower === "alex.lead@xorstack.com" ||
+      userEmailLower === "lead.devops@xorstack.com" ||
+      userEmailLower === "marcus.vance@xorstack.com" ||
+      userEmailLower === "lead.data@xorstack.com" ||
+      userEmailLower === "vikram.rao@xorstack.com" ||
+      (role === "MANAGER" && !userEmailLower.includes("employee") && !userEmailLower.includes("rohit") && !userEmailLower.includes("sara")));
 
   const effectivePrimaryRole: RoleType = isHR
     ? "HR"
-    : isLead || role === "MANAGER"
+    : isLead
     ? "MANAGER"
     : "EMPLOYEE";
 
@@ -117,7 +119,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
       primaryRole: effectivePrimaryRole,
       designation: matchedEmployee.designation,
       department: matchedEmployee.departmentName,
-      team: `${matchedEmployee.departmentName} Pod`,
+      team: `${matchedEmployee.departmentName} Team`,
       avatarUrl,
     };
   }
@@ -138,7 +140,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
       primaryRole: effectivePrimaryRole,
       designation: matchedLead.teamLead.designation,
       department: matchedLead.name,
-      team: `${matchedLead.name} Pod`,
+      team: `${matchedLead.name} Team`,
       avatarUrl,
     };
   }
@@ -152,7 +154,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     primaryRole: effectivePrimaryRole,
     designation: effectivePrimaryRole === "MANAGER" ? "Engineering Lead" : "",
     department: effectivePrimaryRole === "MANAGER" ? "Development" : "",
-    team: effectivePrimaryRole === "MANAGER" ? "Platform Pod" : "",
+    team: effectivePrimaryRole === "MANAGER" ? "Platform Team" : "",
     avatarUrl,
   };
 }

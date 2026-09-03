@@ -48,7 +48,7 @@ export function TeamLeadLeaveApprovals() {
                 <Calendar className="h-3 w-3 mr-1 text-amber-400" />
                 Stage 1 · Team Lead Review
               </Badge>
-              <span className="text-xs text-muted-foreground font-mono">Platform Pod</span>
+              <span className="text-xs text-muted-foreground font-mono">Platform Team</span>
             </div>
             <h3 className="text-xl font-bold text-foreground">
               Direct Report Leave Applications

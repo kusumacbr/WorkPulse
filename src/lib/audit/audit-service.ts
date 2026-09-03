@@ -1,5 +1,3 @@
-import { prisma } from "../db/prisma";
-
 export interface AuditRecordParams {
   actorId?: string | null;
   action: string;
@@ -51,26 +49,26 @@ export class AuditService {
     // Buffer in-memory
     inMemoryAuditLogs.push(logEntry);
 
-    // Persist to Prisma PostgreSQL when explicitly configured and not in isolated test mode
+    // Persist to Supabase when explicitly configured and not in isolated test mode
     const isTest = typeof process !== "undefined" && (process.env.NODE_ENV === "test" || process.env.VITEST !== undefined);
-    if (process.env.DATABASE_URL && process.env.PERSIST_AUDIT === "true" && !isTest) {
+    if (process.env.PERSIST_AUDIT === "true" && !isTest) {
       try {
-        if (prisma && typeof prisma.auditLog?.create === "function") {
-          await prisma.auditLog.create({
-            data: {
-              id: logEntry.id,
-              actorId: logEntry.actorId,
-              action: logEntry.action,
-              entity: logEntry.entity,
-              entityId: logEntry.entityId,
-              timestamp: logEntry.timestamp,
-              ipAddress: logEntry.ipAddress,
-              userAgent: logEntry.userAgent,
-              correlationId: logEntry.correlationId,
-              reason: logEntry.reason,
-              beforeState: logEntry.beforeState ? (logEntry.beforeState as any) : undefined,
-              afterState: logEntry.afterState ? (logEntry.afterState as any) : undefined,
-            },
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const supabase = createAdminClient();
+        if (supabase) {
+          await supabase.from("audit_logs").insert({
+            id: logEntry.id,
+            actor_id: logEntry.actorId,
+            action: logEntry.action,
+            entity: logEntry.entity,
+            entity_id: logEntry.entityId,
+            timestamp: logEntry.timestamp.toISOString(),
+            ip_address: logEntry.ipAddress,
+            user_agent: logEntry.userAgent,
+            correlation_id: logEntry.correlationId,
+            reason: logEntry.reason,
+            before_state: logEntry.beforeState,
+            after_state: logEntry.afterState,
           });
         }
       } catch {

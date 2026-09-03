@@ -24,9 +24,9 @@ interface TeamMemberRecord {
   designation: string;
   avatar: string;
   workMode: "OFFICE" | "WFH" | "HYBRID";
-  sodStatus: "SUBMITTED" | "PENDING";
+  sodStatus: "SUBMITTED" | "PENDING" | "VERIFIED" | "CHANGES_REQUESTED";
   sodTime: string;
-  eodStatus: "SUBMITTED" | "IN_PROGRESS" | "PENDING";
+  eodStatus: "SUBMITTED" | "IN_PROGRESS" | "PENDING" | "VERIFIED";
   eodTime?: string;
   overallProgress: number;
   plannedTasks: {
@@ -47,39 +47,79 @@ interface TeamMemberRecord {
 const TEAM_MEMBERS: TeamMemberRecord[] = [
   {
     id: "emp-sarah",
-    name: "Sara Dev",
+    name: "Sarah Dev",
     designation: "Senior Backend Engineer",
     avatar: "SD",
     workMode: "OFFICE",
     sodStatus: "SUBMITTED",
     sodTime: "10:15 AM",
     eodStatus: "IN_PROGRESS",
-    overallProgress: 80,
+    overallProgress: 70,
     plannedTasks: [
       {
-        id: "st-1",
-        title: "Implement dedicated SOD Carryover section with rolled-over task pile-up",
-        project: "Frontend & UI",
-        priority: "HIGH",
-        estimatedMinutes: 180,
-        completionPercentage: 80,
-        status: "IN_PROGRESS",
-        expectedOutput: "Zero carryover leak across sprint boundaries",
-      },
-      {
-        id: "st-2",
-        title: "Enforce manager assignment RBAC policies on profile editing endpoints",
-        project: "Security & Auth",
+        id: "task-1",
+        title: "Prepare and finalize weekly team report",
+        project: "Operations",
         priority: "HIGH",
         estimatedMinutes: 120,
+        completionPercentage: 75,
+        status: "IN_PROGRESS",
+        expectedOutput: "Weekly team report compiled and shared with team",
+      },
+      {
+        id: "task-2",
+        title: "Execute Stage-2 Leave & WFH Final Approvals",
+        project: "Operations",
+        priority: "HIGH",
+        estimatedMinutes: 90,
+        completionPercentage: 80,
+        status: "IN_PROGRESS",
+        expectedOutput: "Review and authorize pending Stage-2 leave requests",
+      },
+      {
+        id: "task-3",
+        title: "Review 30/90-Day Probation Feedback for New Joiners",
+        project: "Documentation",
+        priority: "MEDIUM",
+        estimatedMinutes: 60,
+        completionPercentage: 0,
+        status: "NOT_STARTED",
+        expectedOutput: "Compile onboarding probation milestones",
+      },
+      {
+        id: "task-4",
+        title: "Audit Shift Biometric Punctuality & Punch Regularizations",
+        project: "Operations",
+        priority: "HIGH",
+        estimatedMinutes: 90,
         completionPercentage: 100,
         status: "COMPLETED",
-        expectedOutput: "Manager can only edit assigned pod members",
+        expectedOutput: "Verify shift punches and regularize anomalies",
+      },
+      {
+        id: "task-5",
+        title: "Coordinate Work Anniversary & Birthday Celebrations",
+        project: "General",
+        priority: "MEDIUM",
+        estimatedMinutes: 45,
+        completionPercentage: 60,
+        status: "IN_PROGRESS",
+        expectedOutput: "Schedule celebration events and team announcements",
+      },
+      {
+        id: "task-6",
+        title: "Review monthly goals and team milestones",
+        project: "Planning",
+        priority: "MEDIUM",
+        estimatedMinutes: 60,
+        completionPercentage: 100,
+        status: "COMPLETED",
+        expectedOutput: "Track milestone progress against quarterly OKRs",
       },
     ],
-    eodAchievements: "Refactored role checks and completed RBAC verification test suites.",
+    eodAchievements: "Finalized biometric attendance regularizations and reviewed monthly milestones.",
     eodBlockers: "None",
-    eodTomorrowFocus: "Connect biometric edge events with live attendance pipeline.",
+    eodTomorrowFocus: "Finalize probation feedback reviews and weekly report.",
   },
   {
     id: "emp-rohit",
@@ -261,7 +301,7 @@ export function TeamMemberSODInspector() {
                 {
                   id: `task-${emp.id}-1`,
                   title: `Execute assigned deliverables for ${emp.designation}`,
-                  project: "Core Pod Sprint",
+                  project: "Core Team Sprint",
                   priority: "HIGH" as const,
                   estimatedMinutes: 180,
                   completionPercentage: emp.overallProgress || 0,
@@ -293,7 +333,7 @@ export function TeamMemberSODInspector() {
   );
   const [selectedRating, setSelectedRating] = useState<number>(5);
   const [leadActionItem, setLeadActionItem] = useState<string>(
-    "Prepare demo recording of the SOD rollover flow for tomorrow's pod sync."
+    "Prepare demo recording of the SOD rollover flow for tomorrow's team sync."
   );
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -305,7 +345,7 @@ export function TeamMemberSODInspector() {
     if (member.id === "emp-sarah") {
       setLeadComment("Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments were addressed cleanly and test coverage remained 100%.");
       setSelectedRating(5);
-      setLeadActionItem("Prepare demo recording of the SOD rollover flow for tomorrow's pod sync.");
+      setLeadActionItem("Prepare demo recording of the SOD rollover flow for tomorrow's team sync.");
     } else if (member.id === "emp-priya") {
       setLeadComment("All 17 test suites passing in CI/CD pipeline. Flawless execution on the automated regression suite!");
       setSelectedRating(5);
@@ -388,7 +428,7 @@ export function TeamMemberSODInspector() {
 
         <div className="p-4 rounded-xl bg-card/60 border border-border flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Average Pod Velocity</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold block">Average Team Velocity</span>
             <span className="text-xl font-extrabold text-cyan-400">{avgProgress}% Logged</span>
           </div>
           <Badge variant="secondary" className="text-xs">
@@ -413,7 +453,7 @@ export function TeamMemberSODInspector() {
         <div className="lg:col-span-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Pod Direct Reports ({totalMembers})
+              Team Direct Reports ({totalMembers})
             </h4>
             <span className="text-[10px] text-muted-foreground">Select to evaluate</span>
           </div>

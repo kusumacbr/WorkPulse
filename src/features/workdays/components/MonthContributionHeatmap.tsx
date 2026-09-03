@@ -331,7 +331,7 @@ const AUGUST_2026_CALENDAR_WEEKS: HeatmapDayCell[][] = [
       workedHours: 8.0,
       inTime: "10:04 AM",
       outTime: "07:10 PM",
-      note: "Sprint 34 core workflow execution · Refactored state machine",
+      note: "Weekly core workflow execution · Refactored state machine",
       location: "HQ Office",
     },
     {
@@ -368,7 +368,7 @@ const AUGUST_2026_CALENDAR_WEEKS: HeatmapDayCell[][] = [
       internCondition: "FUTURE_SCHEDULED",
       taskCount: 0,
       workedHours: 0,
-      note: "Scheduled Mon-Fri shift (10:00 AM – 07:00 PM) · Sprint 34 wrap-up",
+      note: "Scheduled Mon-Fri shift (10:00 AM – 07:00 PM) · Weekly wrap-up",
       location: "HQ Office",
     },
     {

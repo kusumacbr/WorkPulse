@@ -22,7 +22,7 @@ export default function OneToOneMeetingPage() {
     employeeName: "Sara Dev",
     scheduledAt: "Today at 03:30 PM",
     duration: "30 Mins",
-    agenda: "Sprint 34 deliverables, biometric edge connector architecture, and Q4 career growth",
+    agenda: "Weekly deliverables, biometric edge connector architecture, and Q4 career growth",
     sharedNotes: "Agreed on prioritizing Vitest automated test suites for all 91 specification acceptance criteria. Sara will also lead the upcoming technical showcase.",
     actionItems: [
       { id: "act-1", title: "Complete biometric edge connector offline queue tests", done: true },

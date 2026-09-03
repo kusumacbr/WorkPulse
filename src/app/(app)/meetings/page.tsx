@@ -37,10 +37,10 @@ export default function MeetingsPage() {
       title: "Bi-Weekly 1-on-1 Coaching & Growth Sync",
       type: "ONE_ON_ONE",
       withPerson: "Alex Lead",
-      role: "Engineering Manager · Platform Pod",
+      role: "Engineering Manager · Platform Team",
       scheduledTime: "Today at 03:30 PM",
       durationMinutes: 30,
-      agenda: "Review Sprint 34 deliverables, discuss Q3 technical growth goals, and align on architecture refactoring.",
+      agenda: "Review this week's deliverables, discuss quarterly technical growth goals, and align on architecture refactoring.",
       status: "UPCOMING",
       actionItems: [
         { id: "act-1", text: "Finalize PR reviews on Stage-2 Leave authorization engine", done: true },
@@ -49,10 +49,10 @@ export default function MeetingsPage() {
     },
     {
       id: "meet-2",
-      title: "Sprint 34 Mid-Cycle Alignment & Blocker Scrub",
+      title: "Weekly Mid-Cycle Alignment & Blocker Scrub",
       type: "SPRINT_SYNC",
       withPerson: "Platform Core Team",
-      role: "Engineering Pod",
+      role: "Engineering Team",
       scheduledTime: "Tomorrow at 11:00 AM",
       durationMinutes: 45,
       agenda: "Review daily SOD carryover trends, check in on biometric sync performance, and scrub team blockers.",
@@ -131,11 +131,11 @@ export default function MeetingsPage() {
             <Button
               variant="brand"
               size="sm"
-              onClick={() => handleJoinMeeting("Instant Pod Room")}
+              onClick={() => handleJoinMeeting("Instant Team Room")}
               className="text-xs h-9 px-4 font-bold bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1.5 shadow-md shrink-0"
             >
               <Video className="h-3.5 w-3.5" />
-              <span>Start Instant Pod Sync</span>
+              <span>Start Instant Team Sync</span>
             </Button>
           </div>
         </Interactive3DCard>
@@ -165,7 +165,7 @@ export default function MeetingsPage() {
           />
 
           <MetricTile3D
-            title="Pod Velocity"
+            title="Team Velocity"
             value="98.4% Cadence"
             subtitle="Zero missed standups this sprint"
             icon={Users}

@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { realtimeEventBus } from "@/server/realtime/event-bus";
+import { broadcastServerEvent } from "@/lib/supabase/broadcast";
 
 export const dynamic = "force-dynamic";
 
@@ -186,10 +188,15 @@ export async function POST(req: NextRequest) {
           manager_id: created.teamLeadId,
           manager_name: created.teamLeadName,
         });
+
       }
     } catch (err: any) {
       console.warn("Supabase employee sync warning:", err.message);
     }
+
+    // Broadcast real-time event across Supabase Realtime channel and server event bus
+    await broadcastServerEvent("employee:created", created);
+    realtimeEventBus.emit("employee:created", created);
 
     return apiSuccess({ employee: created, message: "Employee record successfully created." }, 201);
   } catch (err: any) {

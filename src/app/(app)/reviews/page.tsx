@@ -27,7 +27,7 @@ export default function ReviewsPage() {
                 {isLead ? (
                   <>
                     <Users className="h-3 w-3 mr-1 text-indigo-400" />
-                    <span>Pod Coaching & Evaluations</span>
+                    <span>Team Coaching & Evaluations</span>
                   </>
                 ) : (
                   <>
@@ -38,13 +38,13 @@ export default function ReviewsPage() {
               </Badge>
               {isLead && (
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  Development Pod · 4 Direct Reports
+                  Development Team · 4 Direct Reports
                 </span>
               )}
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-              {isLead ? "Pod Reviews & Evaluations" : "Performance & Reviews"}
+              {isLead ? "Team Reviews & Evaluations" : "Performance & Reviews"}
             </h2>
 
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">

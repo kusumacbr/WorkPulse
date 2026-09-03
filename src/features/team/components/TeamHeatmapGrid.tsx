@@ -81,7 +81,7 @@ export function TeamHeatmapGrid({
               Team Submission Heatmap Grid — {teamName}
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Sprint: {sprintRange} · Real-time attendance & submission status across all team members.
+              Period: {sprintRange} · Real-time attendance & submission status across all team members.
             </CardDescription>
           </div>
 

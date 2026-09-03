@@ -1,20 +1,17 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
-import { LeaveService } from "@/server/services/leave-service";
 import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const { user, actor } = await getSessionActor(req);
-    const { searchParams } = new URL(req.url);
-    const employeeId = searchParams.get("employeeId") || actor.employeeId || user.id;
+    const { actor } = await getSessionActor(req);
+    const employeeId = actor.employeeId;
 
-    let requests = WorkpulseSharedStore.getLeaveRequests();
-
+    // Always try Supabase first for fresh data
     try {
-      const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
         let query = supabaseAdmin.from("leave_requests").select("*").order("created_at", { ascending: false });
@@ -25,7 +22,7 @@ export async function GET(req: NextRequest) {
         }
         const { data } = await query;
         if (data && data.length > 0) {
-          requests = data.map((r: any) => ({
+          const requests = data.map((r: any) => ({
             id: r.id,
             employeeId: r.employee_id,
             employeeName: r.employee_name,
@@ -50,13 +47,45 @@ export async function GET(req: NextRequest) {
             rejectionReason: r.rejection_reason,
             createdAt: r.created_at,
           }));
+
+          // Sync to in-memory store for live UI updates
+          WorkpulseSharedStore.setLeaveRequestsFromSupabase(requests);
+
+          // Get leave balance from Supabase
+          const { data: empData } = await supabaseAdmin
+            .from("employees")
+            .select("leave_balance")
+            .eq("id", employeeId)
+            .maybeSingle();
+
+          const balance = {
+            employeeId,
+            year: new Date().getFullYear(),
+            leaveType: "CASUAL",
+            annualAllotment: 12.0,
+            usedDays: 0,
+            pendingDays: 0,
+            remainingDays: empData ? Number(empData.leave_balance) || 12.0 : 12.0,
+          };
+
+          return apiSuccess({ requests, balance });
         }
       }
     } catch {
       // safe fallback
     }
 
-    const balance = await LeaveService.getLeaveBalance({ employeeId });
+    // Fallback to in-memory store
+    const requests = WorkpulseSharedStore.getLeaveRequests();
+    const balance = {
+      employeeId,
+      year: new Date().getFullYear(),
+      leaveType: "CASUAL",
+      annualAllotment: 12.0,
+      usedDays: 0,
+      pendingDays: 0,
+      remainingDays: 12.0,
+    };
 
     return apiSuccess({ requests, balance });
   } catch (err: any) {
@@ -68,22 +97,88 @@ export async function POST(req: NextRequest) {
   try {
     const { user, actor } = await getSessionActor(req);
     const body = await req.json().catch(() => ({}));
-    const employeeId = body.employeeId || actor.employeeId || user.id;
 
-    const request = await LeaveService.submitLeaveRequest({
-      actor,
+    // Resolve employee details
+    const allEmployees = WorkpulseSharedStore.getAllEmployees();
+    const matchedEmp = allEmployees.find(
+      (e) => e.email.toLowerCase() === user.email.toLowerCase() || e.id === actor.employeeId
+    ) || allEmployees[0];
+
+    const employeeId = matchedEmp?.id || actor.employeeId || user.id;
+    const employeeName = matchedEmp?.name || user.name || "Employee";
+    const departmentName = matchedEmp?.departmentName || user.department || "Development";
+    const departmentId = matchedEmp?.departmentId || "dept-development";
+    const designation = matchedEmp?.designation || user.designation || "Engineer";
+
+    const startDate = body.startDate;
+    const endDate = body.endDate || body.startDate;
+    const isHalfDay = Boolean(body.isHalfDay);
+    const leaveType = body.leaveType || "CASUAL";
+    const reason = body.reason || "Personal leave";
+
+    // Calculate days count
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const daysCount = isHalfDay ? 0.5 : Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    const remainingBalance = matchedEmp?.remainingLeaveBalance ?? 12.0;
+
+    // Determine initial status: if actor is a TL/Manager, skip TL stage → go directly to HR
+    const isLeadOrManager = actor.roles.includes("MANAGER") || user.primaryRole === "MANAGER";
+    const initialStatus = isLeadOrManager ? "FORWARDED_TO_HR" : "PENDING_TL_STAGE_1";
+
+    // Create in-memory request
+    const newReq = WorkpulseSharedStore.addLeaveRequest({
       employeeId,
-      input: {
-        leaveType: body.leaveType || "CASUAL",
-        startDate: body.startDate,
-        endDate: body.endDate || body.startDate,
-        isHalfDay: Boolean(body.isHalfDay),
-        reason: body.reason || "Personal leave",
-        handoverNotes: body.handoverNotes,
-      },
+      employeeName,
+      departmentId,
+      departmentName,
+      designation,
+      leaveType,
+      startDate,
+      endDate,
+      daysCount,
+      reason,
+      handoverNotes: body.handoverNotes,
+      backupPersonName: body.backupPersonName,
     });
 
-    return apiSuccess({ request, message: "Leave application submitted and forwarded for approval" }, 201);
+    // Override status for TL's own requests
+    if (isLeadOrManager && newReq) {
+      (newReq as any).status = initialStatus;
+    }
+
+    // Persist to Supabase
+    try {
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("leave_requests").upsert({
+          id: newReq.id,
+          employee_id: employeeId,
+          employee_name: employeeName,
+          employee_email: user.email,
+          department_name: departmentName,
+          department_id: departmentId,
+          designation,
+          leave_type: leaveType,
+          start_date: startDate,
+          end_date: endDate,
+          days_count: daysCount,
+          reason,
+          handover_notes: body.handoverNotes || null,
+          backup_person_name: body.backupPersonName || null,
+          remaining_balance: remainingBalance,
+          status: initialStatus,
+          tl_approver_name: isLeadOrManager ? `${employeeName} (Self — Auto-forwarded)` : null,
+          tl_approved_at: isLeadOrManager ? new Date().toISOString() : null,
+          tl_comment: isLeadOrManager ? "Auto-forwarded to HR (submitted by Team Lead)." : null,
+        });
+      }
+    } catch {
+      // graceful fallback
+    }
+
+    return apiSuccess({ request: newReq, message: "Leave application submitted and forwarded for approval" }, 201);
   } catch (err: any) {
     return apiError(err.message || "Failed to apply for leave", 400);
   }

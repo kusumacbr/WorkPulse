@@ -117,15 +117,15 @@ export default function AttendancePage() {
               <div className="flex items-center gap-2">
                 <Badge variant="brand" className="font-bold text-[10px] uppercase">
                   <Users className="h-3 w-3 mr-1 text-indigo-400" />
-                  <span>Pod Attendance Oversight</span>
+                  <span>Team Attendance Oversight</span>
                 </Badge>
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  Development Pod · 4 Direct Reports
+                  Development Team · 4 Direct Reports
                 </span>
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                Pod Attendance & Presence
+                Team Attendance & Presence
               </h2>
 
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
@@ -147,7 +147,7 @@ export default function AttendancePage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-black tracking-tight text-foreground">
-              Attendance
+              Attendance Monitor
             </h2>
             <Badge variant="outline" className="text-[11px] font-mono text-cyan-300 border-cyan-500/30 bg-cyan-500/10">
               10:00 AM – 07:00 PM (10:15 AM Grace)

@@ -180,7 +180,7 @@ export function HRTopLevelSummary({
       {/* 3D Key Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricTile3D
-          title="Departments & Pods"
+          title="Departments & Teams"
           value={`${departments.length} Units`}
           subtitle="All 6 designated Team Leads"
           icon={Building2}

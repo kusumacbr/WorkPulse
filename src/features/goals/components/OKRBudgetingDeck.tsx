@@ -138,7 +138,7 @@ export function OKRBudgetingDeck() {
                 <Scale className="h-3 w-3 mr-1 text-emerald-400" />
                 OKR Weight Balancing Engine
               </Badge>
-              <span className="text-xs text-muted-foreground font-mono">Sprint 34 · Active Cycle</span>
+              <span className="text-xs text-muted-foreground font-mono">This Week · Active Cycle</span>
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-foreground">
@@ -146,7 +146,7 @@ export function OKRBudgetingDeck() {
             </h3>
 
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Allocate weights across your active sprint deliverables. Every sprint budget must total <strong>exactly 100%</strong> to ensure fair performance evaluation.
+              Allocate weights across your active weekly deliverables. Every weekly budget must total <strong>exactly 100%</strong> to ensure fair performance evaluation.
             </p>
           </div>
 

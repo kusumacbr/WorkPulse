@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
@@ -9,18 +9,19 @@ import { PageTransition } from "@/components/animations/PageTransition";
 import { LeaveRequestModal } from "@/features/leave/components/LeaveRequestModal";
 import { WfhRequestModal } from "@/features/leave/components/WfhRequestModal";
 import { LeadLeaveManager } from "@/features/leave/components/LeadLeaveManager";
-import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { useWorkpulseSharedStore, SharedLeaveRequest, SharedWfhRequest } from "@/lib/stores/workpulse-shared-store";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import {
   Calendar,
   Laptop,
-  Plus,
   Clock,
   Sparkles,
   CheckCircle2,
   PieChart,
   ShieldCheck,
   Users,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 type LeaveTab = "LEAVES" | "WFH" | "BALANCES";
@@ -41,33 +42,111 @@ export default function LeavePage() {
   const [activeTab, setActiveTab] = useState<LeaveTab>("LEAVES");
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
-  const [toastMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  const { allEmployees, leaveRequests, wfhRequests } = useWorkpulseSharedStore();
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
 
-  const matchedEmp = allEmployees.find(
-    (e) =>
-      e.email.toLowerCase() === user.userEmail.toLowerCase() ||
-      e.name.toLowerCase() === user.userName.toLowerCase()
-  ) || allEmployees[0];
+  const { allEmployees, leaveRequests, wfhRequests, deleteLeaveRequest, deleteWfhRequest } = useWorkpulseSharedStore();
 
-  const myLeaveRequests = leaveRequests.filter(
-    (r) =>
-      (matchedEmp && r.employeeId === matchedEmp.id) ||
-      r.employeeName === user.userName ||
-      r.employeeId === "emp-sarah"
-  );
+  const handleDeleteLeave = (id: string) => {
+    deleteLeaveRequest(id);
+    showToast("✓ Leave request removed.");
+  };
 
-  const myWfhRequests = wfhRequests.filter(
-    (r) =>
-      (matchedEmp && r.employeeId === matchedEmp.id) ||
-      r.employeeName === user.userName ||
-      r.employeeId === "emp-sarah"
-  );
+  const handleDeleteWfh = (id: string) => {
+    deleteWfhRequest(id);
+    showToast("✓ WFH request removed.");
+  };
 
-  const remainingBalance =
-    matchedEmp?.remainingLeaveBalance ??
-    (myLeaveRequests.length > 0 ? myLeaveRequests[0]!.remainingBalance : 12.0);
+  React.useEffect(() => {
+    setMounted(true);
+    fetch("/api/v1/leave")
+      .then((res) => res.json())
+      .catch(() => {});
+    fetch("/api/v1/leave/wfh")
+      .then((res) => res.json())
+      .catch(() => {});
+    fetch("/api/v1/employees")
+      .then((res) => res.json())
+      .catch(() => {});
+  }, []);
+
+  const matchedEmp = useMemo(() => {
+    return (
+      allEmployees.find(
+        (e) =>
+          e.email.toLowerCase() === user.userEmail.toLowerCase() ||
+          e.name.toLowerCase() === user.userName.toLowerCase()
+      ) || allEmployees[0]
+    );
+  }, [allEmployees, user]);
+
+  const myLeaveRequests = useMemo(() => {
+    return leaveRequests.filter(
+      (r: SharedLeaveRequest) =>
+        (matchedEmp && (r.employeeId === matchedEmp.id || r.employeeId === matchedEmp.email)) ||
+        r.employeeName?.toLowerCase() === user.userName?.toLowerCase() ||
+        (user.userEmail?.toLowerCase().includes("employee.test") &&
+          (r.employeeId === "emp-sarah" || r.employeeName === "Sarah Dev"))
+    );
+  }, [leaveRequests, matchedEmp, user]);
+
+  const myWfhRequests = useMemo(() => {
+    return wfhRequests.filter(
+      (r: SharedWfhRequest) =>
+        (matchedEmp && (r.employeeId === matchedEmp.id || r.employeeId === matchedEmp.email)) ||
+        r.employeeName?.toLowerCase() === user.userName?.toLowerCase() ||
+        (user.userEmail?.toLowerCase().includes("employee.test") &&
+          (r.employeeId === "emp-sarah" || r.employeeName === "Sarah Dev"))
+    );
+  }, [wfhRequests, matchedEmp, user]);
+
+  // Real-time Casual Leave Balance (12 days annual allotment)
+  const approvedCasualDays = useMemo(() => {
+    return myLeaveRequests
+      .filter((r: SharedLeaveRequest) => r.status === "APPROVED" && (r.leaveType === "CASUAL" || !r.leaveType))
+      .reduce((acc: number, r: SharedLeaveRequest) => acc + (r.daysCount ?? 1.0), 0);
+  }, [myLeaveRequests]);
+
+  const casualLeaveBalance = useMemo(() => {
+    const base = matchedEmp?.remainingLeaveBalance ?? 12.0;
+    return Math.max(0, Math.min(base, 12.0 - approvedCasualDays));
+  }, [matchedEmp, approvedCasualDays]);
+
+  // Real-time Sick Leave Balance (8 days annual allotment)
+  const approvedSickDays = useMemo(() => {
+    return myLeaveRequests
+      .filter((r: SharedLeaveRequest) => r.status === "APPROVED" && r.leaveType === "SICK")
+      .reduce((acc: number, r: SharedLeaveRequest) => acc + (r.daysCount ?? 1.0), 0);
+  }, [myLeaveRequests]);
+
+  const sickLeaveBalance = useMemo(() => {
+    return Math.max(0, 8.0 - approvedSickDays);
+  }, [approvedSickDays]);
+
+  // Real-time WFH Total Days
+  const wfhTotalDays = useMemo(() => {
+    return myWfhRequests.reduce((acc: number, r: SharedWfhRequest) => acc + (r.daysCount ?? 1.0), 0);
+  }, [myWfhRequests]);
+
+  if (!mounted) {
+    return (
+      <div className="space-y-6 animate-pulse p-4">
+        <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="h-24 rounded-2xl bg-card/40 border border-border/40" />
+          <div className="h-24 rounded-2xl bg-card/40 border border-border/40" />
+          <div className="h-24 rounded-2xl bg-card/40 border border-border/40" />
+          <div className="h-24 rounded-2xl bg-card/40 border border-border/40" />
+        </div>
+        <div className="h-96 rounded-2xl bg-card/40 border border-border/40" />
+      </div>
+    );
+  }
 
   if (isHR || isLead) {
     return (
@@ -85,17 +164,17 @@ export default function LeavePage() {
                   ) : (
                     <>
                       <Users className="h-3 w-3 mr-1 text-indigo-400" />
-                      <span>Pod Leave &amp; WFH Operations</span>
+                      <span>Team Leave &amp; WFH Operations</span>
                     </>
                   )}
                 </Badge>
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  {isHR ? "Organization-Wide Stage 2 Authorizations & Balances" : "Development Pod · 4 Direct Reports"}
+                  {isHR ? "Organization-Wide Stage 2 Authorizations & Balances" : "Development Team · 4 Direct Reports"}
                 </span>
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                {isHR ? "Leave & WFH Oversight & Approvals" : "Pod Leave & WFH Management"}
+                {isHR ? "Leave & WFH Oversight & Approvals" : "Team Leave & WFH Management"}
               </h2>
 
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
@@ -145,29 +224,6 @@ export default function LeavePage() {
                 Apply for planned time off, submit work-from-home requests, and track your balances.
               </p>
             </div>
-
-            {/* Quick Action Buttons */}
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowWfhModal(true)}
-                className="text-xs font-semibold gap-1.5 h-9"
-              >
-                <Laptop className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Request WFH</span>
-              </Button>
-
-              <Button
-                size="sm"
-                variant="brand"
-                onClick={() => setShowLeaveModal(true)}
-                className="text-xs font-bold gap-1.5 h-9"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Apply for Leave</span>
-              </Button>
-            </div>
           </div>
         </Interactive3DCard>
 
@@ -175,7 +231,7 @@ export default function LeavePage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricTile3D
             title="Casual Leave (CL)"
-            value={`${remainingBalance} Days`}
+            value={`${casualLeaveBalance} Days`}
             subtitle="Available balance"
             icon={Calendar}
             badgeText="Available"
@@ -184,8 +240,8 @@ export default function LeavePage() {
 
           <MetricTile3D
             title="Sick Leave (SL)"
-            value="8.0 Days"
-            subtitle="Annual allocation"
+            value={`${sickLeaveBalance} Days`}
+            subtitle="Available balance"
             icon={Clock}
             badgeText="Available"
             accent="cyan"
@@ -193,7 +249,7 @@ export default function LeavePage() {
 
           <MetricTile3D
             title="WFH This Month"
-            value={`${myWfhRequests.length} Days`}
+            value={`${wfhTotalDays} Days`}
             subtitle="Remote work sessions"
             icon={Laptop}
             badgeText="Flexible"
@@ -212,7 +268,7 @@ export default function LeavePage() {
 
         {/* 3. Segregated Navigation Bar */}
         <Interactive3DCard className="p-4 md:p-5 border border-border/80 bg-card/60 space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center p-1 rounded-xl bg-background/50 border border-border/70 overflow-x-auto gap-1 text-xs font-semibold">
               <button
                 type="button"
@@ -253,6 +309,35 @@ export default function LeavePage() {
                 <span>Leave Allowances</span>
               </button>
             </div>
+
+            {/* Action Buttons: Visible ONLY for Core Employees */}
+            {!isHR && !isLead && (
+              <div className="flex items-center gap-2 shrink-0">
+                {activeTab === "LEAVES" && (
+                  <Button
+                    size="sm"
+                    variant="brand"
+                    onClick={() => setShowLeaveModal(true)}
+                    className="text-xs font-extrabold gap-1.5 h-8 sm:h-9 rounded-xl shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Request Leave</span>
+                  </Button>
+                )}
+
+                {activeTab === "WFH" && (
+                  <Button
+                    size="sm"
+                    variant="brand"
+                    onClick={() => setShowWfhModal(true)}
+                    className="text-xs font-extrabold gap-1.5 h-8 sm:h-9 rounded-xl shadow-md bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Request WFH</span>
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </Interactive3DCard>
 
@@ -312,8 +397,19 @@ export default function LeavePage() {
                       </p>
                     </div>
 
-                    <div className="text-[11px] text-muted-foreground shrink-0 font-mono">
-                      Balance Remaining: {req.remainingBalance}d
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-[11px] text-muted-foreground font-mono">
+                        Balance: {req.remainingBalance}d
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteLeave(req.id)}
+                        className="h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+                        title="Delete leave request"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -375,8 +471,19 @@ export default function LeavePage() {
                       </p>
                     </div>
 
-                    <div className="text-[11px] text-muted-foreground shrink-0">
-                      Contact: <span className="font-mono text-cyan-400">{wfh.contactMethod}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-[11px] text-muted-foreground">
+                        Contact: <span className="font-mono text-cyan-400">{wfh.contactMethod}</span>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteWfh(wfh.id)}
+                        className="h-8 w-8 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+                        title="Delete WFH request"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -394,7 +501,7 @@ export default function LeavePage() {
                 <Badge variant="brand" className="text-[9px]">12 Days / Year</Badge>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                For personal errands, family events, and planned breaks. Available balance: <strong className="text-emerald-400">{remainingBalance} days</strong>.
+                For personal errands, family events, and planned breaks. Available balance: <strong className="text-emerald-400">{casualLeaveBalance} days</strong>.
               </p>
               <div className="pt-1">
                 <Button size="sm" variant="outline" onClick={() => setShowLeaveModal(true)} className="w-full text-xs h-8">
@@ -409,7 +516,7 @@ export default function LeavePage() {
                 <Badge variant="secondary" className="text-[9px]">8 Days / Year</Badge>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                For medical appointments, unexpected illness, and recovery. Available balance: <strong className="text-cyan-400">8 days</strong>.
+                For medical appointments, unexpected illness, and recovery. Available balance: <strong className="text-cyan-400">{sickLeaveBalance} days</strong>.
               </p>
               <div className="pt-1">
                 <Button size="sm" variant="outline" onClick={() => setShowLeaveModal(true)} className="w-full text-xs h-8">
@@ -424,7 +531,7 @@ export default function LeavePage() {
                 <Badge variant="outline" className="text-[9px]">Flexible</Badge>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Work remotely when needed with prior notification. Availability during standard business hours (10:00 AM – 07:00 PM).
+                Work remotely when needed with prior notification. Monthly utilization: <strong className="text-purple-400">{wfhTotalDays} days ({myWfhRequests.length} sessions)</strong>.
               </p>
               <div className="pt-1">
                 <Button size="sm" variant="outline" onClick={() => setShowWfhModal(true)} className="w-full text-xs h-8">
@@ -437,7 +544,7 @@ export default function LeavePage() {
       </div>
 
       {/* Modals */}
-      {showLeaveModal && <LeaveRequestModal onClose={() => setShowLeaveModal(false)} />}
+      {showLeaveModal && <LeaveRequestModal remainingBalance={casualLeaveBalance} onClose={() => setShowLeaveModal(false)} />}
       {showWfhModal && <WfhRequestModal onClose={() => setShowWfhModal(false)} />}
     </PageTransition>
   );

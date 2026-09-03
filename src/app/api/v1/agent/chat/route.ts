@@ -27,7 +27,7 @@ CORE WORKPULSE APPLICATION KNOWLEDGE BASE:
      * Leave balance quotas & 2-stage leave application.
      * Quarterly skill goals and OKRs.
    - TEAM LEAD (e.g., Alex Lead - lead.test@xorstack.com):
-     * Pod sprint deliverables and daily task oversight.
+     * Team sprint deliverables and daily task oversight.
      * Daily task review, blocker unblocking, and evening feedback.
      * Attendance page: "Who's Present Today" tab is 1st, "My Punches" is 2nd, "Holiday Calendar" is 3rd.
      * Stage-1 Leave & WFH review and recommendation.
@@ -95,131 +95,164 @@ export async function POST(req: NextRequest) {
 
     const adkUrl = process.env.ADK_AGENT_URL || "http://127.0.0.1:8000";
     const appName = process.env.ADK_APP_NAME || "sample_agent";
-    const apiKey = process.env.GOOGLE_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const requestedModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-    // 1. Try communicating with the local ADK Agent Server first
-    try {
-      const adkRunUrl = `${adkUrl}/run`;
-      
-      // Ensure session exists if needed
+    // 1. Try communicating with the ADK Agent Server first
+    const isLocalAdk = adkUrl.includes("127.0.0.1") || adkUrl.includes("localhost");
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // In cloud production, only try ADK server if it's explicitly configured with a remote URL
+    const shouldTryAdk = !isProduction || !isLocalAdk;
+
+    if (shouldTryAdk) {
       try {
-        await fetch(`${adkUrl}/apps/${appName}/users/${userId}/sessions/${sessionId}`, {
+        const adkRunUrl = `${adkUrl}/run`;
+        
+        // Ensure session exists if needed
+        try {
+          await fetch(`${adkUrl}/apps/${appName}/users/${userId}/sessions/${sessionId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+        } catch {
+          // Continue if session already exists or server handles auto-creation
+        }
+
+        const controller = new AbortController();
+        const timeoutDuration = isLocalAdk ? 2500 : 8000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
+        const adkResponse = await fetch(adkRunUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({
+            app_name: appName,
+            user_id: userId,
+            session_id: sessionId,
+            content: {
+              parts: [
+                {
+                  text: `[SYSTEM CONTEXT & KNOWLEDGE]\n${WORKPULSE_SYSTEM_KNOWLEDGE}\n\n[USER CONTEXT]\nUser: ${user.name || "Employee"} | Email: ${user.email} | Role: ${user.primaryRole} | Dept: ${user.department || "General"} | Designation: ${user.designation || "Staff"}\n\n[USER MESSAGE]\n${message}`,
+                },
+              ],
+            },
+          }),
+          signal: controller.signal,
         });
-      } catch {
-        // Continue if session already exists or server handles auto-creation
-      }
+        clearTimeout(timeoutId);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+        if (adkResponse.ok) {
+          const events: AdkEvent[] = await adkResponse.json();
+          const textResponses: string[] = [];
 
-      const adkResponse = await fetch(adkRunUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          app_name: appName,
-          user_id: userId,
-          session_id: sessionId,
-          content: {
-            parts: [
-              {
-                text: `[SYSTEM CONTEXT & KNOWLEDGE]\n${WORKPULSE_SYSTEM_KNOWLEDGE}\n\n[USER CONTEXT]\nUser: ${user.name || "Employee"} | Email: ${user.email} | Role: ${user.primaryRole} | Dept: ${user.department || "General"} | Designation: ${user.designation || "Staff"}\n\n[USER MESSAGE]\n${message}`,
-              },
-            ],
-          },
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (adkResponse.ok) {
-        const events: AdkEvent[] = await adkResponse.json();
-        const textResponses: string[] = [];
-
-        for (const event of events) {
-          if (event.content?.parts) {
-            for (const part of event.content.parts) {
-              if (part.text) {
-                textResponses.push(part.text);
+          for (const event of events) {
+            if (event.content?.parts) {
+              for (const part of event.content.parts) {
+                if (part.text) {
+                  textResponses.push(part.text);
+                }
               }
             }
           }
-        }
 
-        const reply = textResponses.join("\n").trim();
-        if (reply) {
-          return NextResponse.json({
-            reply,
-            sessionId,
-            author: "root_agent",
-            model: events[0]?.modelVersion || "sample_agent",
-            source: "adk_server",
-          });
+          const reply = textResponses.join("\n").trim();
+          if (reply) {
+            return NextResponse.json({
+              reply,
+              sessionId,
+              author: "root_agent",
+              model: events[0]?.modelVersion || "sample_agent",
+              source: "adk_server",
+            });
+          }
         }
+      } catch {
+        // ADK Server unreachable or timed out; proceed to Direct Gemini Bridge fallback
       }
-    } catch {
-      // ADK Server unreachable or timed out; proceed to fallback
     }
 
     // 2. Resilient Direct Gemini Bridge Fallback
     if (!apiKey) {
+      const offlineMsg = isProduction
+        ? "The AI Agent bridge is currently offline on this deployment. Please configure GOOGLE_API_KEY (or GEMINI_API_KEY) in your deployment environment variables (e.g., Vercel / Cloud Settings) to enable the agent."
+        : "The agent server is currently offline. Please run 'npm run agent:serve' to start the local ADK agent, or configure GOOGLE_API_KEY in your .env.local file.";
+
       return NextResponse.json(
         {
-          error: "ADK Server is not reachable and GOOGLE_API_KEY is not configured.",
-          reply: "The agent server is currently offline. Please run 'npm run agent:serve' to start the local ADK agent.",
+          error: "ADK Server is not reachable and GOOGLE_API_KEY / GEMINI_API_KEY is not configured.",
+          reply: offlineMsg,
           source: "offline_notice",
         },
         { status: 503 }
       );
     }
 
-    const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const directResponse = await fetch(fallbackUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [
-            {
-              text: `${WORKPULSE_SYSTEM_KNOWLEDGE}\n\nACTIVE EMPLOYEE CONTEXT:\n- Full Name: ${user.name}\n- Email: ${user.email}\n- Primary Role: ${user.primaryRole}\n- Job Title / Designation: ${user.designation || "Staff Member"}\n- Department: ${user.department || "Operations"}\n- Team: ${user.team || "WorkPulse Team"}`,
-            },
-          ],
-        },
-        contents: [
-          {
-            parts: [{ text: message }],
-          },
-        ],
-      }),
-    });
+    // Candidate models to try in case the configured one is not available
+    const modelsToTry = Array.from(
+      new Set([requestedModel, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"])
+    );
 
-    if (!directResponse.ok) {
-      const errorText = await directResponse.text();
+    let replyText: string | null = null;
+    let successfulModel = requestedModel;
+    let lastError = "";
+
+    for (const modelToTest of modelsToTry) {
+      try {
+        const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTest}:generateContent?key=${apiKey}`;
+        const directResponse = await fetch(fallbackUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [
+                {
+                  text: `${WORKPULSE_SYSTEM_KNOWLEDGE}\n\nACTIVE EMPLOYEE CONTEXT:\n- Full Name: ${user.name}\n- Email: ${user.email}\n- Primary Role: ${user.primaryRole}\n- Job Title / Designation: ${user.designation || "Staff Member"}\n- Department: ${user.department || "Operations"}\n- Team: ${user.team || "WorkPulse Team"}`,
+                },
+              ],
+            },
+            contents: [
+              {
+                parts: [{ text: message }],
+              },
+            ],
+          }),
+        });
+
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          const candidate = data.candidates?.[0];
+          replyText =
+            candidate?.content?.parts?.[0]?.text ||
+            "I received your request but have no content to display.";
+          successfulModel = modelToTest;
+          break;
+        } else {
+          lastError = await directResponse.text();
+        }
+      } catch (err: unknown) {
+        lastError = (err as Error)?.message || "Failed to reach Gemini API";
+      }
+    }
+
+    if (!replyText) {
       return NextResponse.json(
         {
-          error: `Gemini API returned ${directResponse.status}`,
-          details: errorText,
-          reply: "I am experiencing temporary latency reaching the agent model. Please try asking again in a moment.",
+          error: `Gemini API call failed across attempted models.`,
+          details: lastError,
+          reply: "I am experiencing temporary latency reaching the AI agent model. Please verify your GOOGLE_API_KEY in environment variables and try asking again.",
           source: "fallback_error",
         },
         { status: 502 }
       );
     }
 
-    const data = await directResponse.json();
-    const candidate = data.candidates?.[0];
-    const replyText =
-      candidate?.content?.parts?.[0]?.text ||
-      "I received your request but have no content to display.";
-
     return NextResponse.json({
       reply: replyText,
       sessionId,
       author: "root_agent",
-      model,
+      model: successfulModel,
       source: "direct_gemini_bridge",
     });
   } catch (error: unknown) {

@@ -34,7 +34,7 @@ const COMPETENCY_DEFINITIONS = [
   {
     key: "communication" as const,
     label: "Communication & Transparency",
-    desc: "Clear morning SOD deliverables, prompt Slack/pod updates, and thorough documentation.",
+    desc: "Clear morning SOD deliverables, prompt Slack/team updates, and thorough documentation.",
   },
   {
     key: "collaboration" as const,
@@ -52,7 +52,7 @@ export function SelfAssessmentFormModal({
   onClose,
   onSubmitAssessment,
 }: SelfAssessmentFormModalProps) {
-  const [period] = useState("Sprint 34 (Aug 17 – Aug 23, 2026)");
+  const [period] = useState("This Week (Aug 17 – Aug 23, 2026)");
   const [summary, setSummary] = useState(
     "Implemented core employee workflow state machines, interactive OKR weight budgeting, and team lead SOD/EOD inspector."
   );
@@ -60,7 +60,7 @@ export function SelfAssessmentFormModal({
     "Shipped 100% test coverage across 17 test suites (85 unit tests), configured high-visibility progress sliders, and integrated HR Stage-2 leave workflows."
   );
   const [missedCommitments, setMissedCommitments] = useState(
-    "None. All planned sprint deliverables completed on schedule."
+    "None. All planned weekly deliverables completed on schedule."
   );
   const [growthGoals, setGrowthGoals] = useState(
     "Lead architectural design for upcoming Google Calendar sync & automated webhook integrations."

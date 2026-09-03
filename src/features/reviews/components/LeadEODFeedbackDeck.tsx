@@ -83,7 +83,7 @@ const DAILY_FEEDBACKS: DailyFeedbackItem[] = [
     leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
     leadRating: 5,
     leadSentiment: "EXCELLENT",
-    leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's pod sync.",
+    leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's team sync.",
     isToday: true,
   },
   {
@@ -115,11 +115,11 @@ const DAILY_FEEDBACKS: DailyFeedbackItem[] = [
     id: "df-mon",
     date: "Aug 17, 2026",
     dayName: "Monday",
-    employeeEodSummary: "Sprint 34 kickoff planning, initial Better Auth role schema design, and unit testing strategy setup.",
+    employeeEodSummary: "Weekly kickoff planning, initial Better Auth role schema design, and unit testing strategy setup.",
     tasksCompleted: "3 of 3 Planned Tasks (100%)",
     hoursLogged: 8.5,
     leadFeedbackTime: "06:00 PM",
-    leadFeedbackNote: "Good sprint kickoff. Clear deliverables outlined in your morning SOD with well-defined weights.",
+    leadFeedbackNote: "Good start to the week. Clear deliverables outlined in your morning SOD with well-defined weights.",
     leadRating: 4.6,
     leadSentiment: "ON_TRACK",
   },
@@ -128,7 +128,7 @@ const DAILY_FEEDBACKS: DailyFeedbackItem[] = [
 const WEEKLY_REVIEWS: WeeklySprintReviewItem[] = [
   {
     id: "wr-sprint-34",
-    sprintName: "Sprint 34 (Current Cycle)",
+    sprintName: "This Week (Current Cycle)",
     period: "Aug 17 – Aug 23, 2026",
     leadScore: 89.0,
     status: "APPROVED",
@@ -140,7 +140,7 @@ const WEEKLY_REVIEWS: WeeklySprintReviewItem[] = [
       collaboration: 4.9,
       initiative: 4.8,
     },
-    strengths: "Flawless state transition testing, rigorous unit test assertions (85/85 green), and high responsiveness in pod standups.",
+    strengths: "Flawless state transition testing, rigorous unit test assertions (85/85 green), and high responsiveness in team standups.",
     improvementFocus: "Continue mentoring junior engineers on state machine pattern design.",
     eodCheckpointsCount: 5,
   },
@@ -236,7 +236,7 @@ export function LeadEODFeedbackDeck() {
                 Team Lead EOD Feedback & Coaching
               </Badge>
               <span className="text-xs text-muted-foreground font-mono">
-                Evaluator: Alex Lead (Engineering Manager · Platform Pod)
+                Evaluator: Alex Lead (Engineering Manager · Platform Team)
               </span>
             </div>
 
@@ -267,12 +267,12 @@ export function LeadEODFeedbackDeck() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-purple-400 shrink-0" />
             <span>
-              Designated Reporting Manager: <strong className="text-foreground">Alex Lead</strong> (Platform Pod) · 1-on-1 Sync scheduled every Thursday
+              Designated Reporting Manager: <strong className="text-foreground">Alex Lead</strong> (Platform Team) · 1-on-1 Sync scheduled every Thursday
             </span>
           </div>
 
           <Badge variant="outline" className="text-[10px] border-purple-500/40 text-purple-300 bg-purple-500/10 shrink-0">
-            Sprint 34 Active
+            This Week Active
           </Badge>
         </div>
       </Interactive3DCard>

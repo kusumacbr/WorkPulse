@@ -3,9 +3,9 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "WorkPulse | Xorstack Internal Employee Platform",
+  title: "WorkPulse® | Unified Workforce Execution & Operations",
   description:
-    "Internal employee work, attendance, performance management and organizational platform for Xorstack.",
+    "Official internal workforce platform for Start-of-Day planning, biometric shift attendance, two-tier leave governance, and quarterly OKR milestones.",
 };
 
 const themeInitScript = `
@@ -17,7 +17,7 @@ const themeInitScript = `
         document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
         document.documentElement.style.colorScheme = 'light';
-      } else if (isDark) {
+      } else {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
         document.documentElement.style.colorScheme = 'dark';
@@ -32,11 +32,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="antialiased font-sans">
+      <body className="antialiased font-sans bg-background text-foreground transition-colors duration-200">
         <ThemeProvider defaultTheme="dark">{children}</ThemeProvider>
       </body>
     </html>

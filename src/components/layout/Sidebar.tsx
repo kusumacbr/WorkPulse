@@ -33,43 +33,43 @@ const NAV_ITEMS: NavItem[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    colorClass: "text-amber-400",
-    activeBgClass: "bg-amber-500/15 border-amber-500/30 text-amber-300",
+    colorClass: "text-amber-500 dark:text-amber-400",
+    activeBgClass: "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-300 shadow-[0_4px_20px_rgba(245,158,11,0.15)]",
   },
   {
     label: "My Tasks",
     href: "/my-work",
     icon: CheckSquare,
-    colorClass: "text-cyan-400",
-    activeBgClass: "bg-cyan-500/15 border-cyan-500/30 text-cyan-300",
+    colorClass: "text-cyan-500 dark:text-cyan-400",
+    activeBgClass: "bg-cyan-500/15 border-cyan-500/30 text-cyan-600 dark:text-cyan-300 shadow-[0_4px_20px_rgba(6,182,212,0.15)]",
   },
   {
     label: "Goals & OKRs",
     href: "/goals",
     icon: Target,
-    colorClass: "text-emerald-400",
-    activeBgClass: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300",
+    colorClass: "text-emerald-500 dark:text-emerald-400",
+    activeBgClass: "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-300 shadow-[0_4px_20px_rgba(16,185,129,0.15)]",
   },
   {
-    label: "Attendance",
+    label: "Attendance Monitor",
     href: "/attendance",
     icon: Clock,
-    colorClass: "text-sky-400",
-    activeBgClass: "bg-sky-500/15 border-sky-500/30 text-sky-300",
+    colorClass: "text-sky-500 dark:text-sky-400",
+    activeBgClass: "bg-sky-500/15 border-sky-500/30 text-sky-600 dark:text-sky-300 shadow-[0_4px_20px_rgba(14,165,233,0.15)]",
   },
   {
     label: "Leave & WFH",
     href: "/leave",
     icon: CalendarDays,
-    colorClass: "text-teal-400",
-    activeBgClass: "bg-teal-500/15 border-teal-500/30 text-teal-300",
+    colorClass: "text-teal-500 dark:text-teal-400",
+    activeBgClass: "bg-teal-500/15 border-teal-500/30 text-teal-600 dark:text-teal-300 shadow-[0_4px_20px_rgba(20,184,166,0.15)]",
   },
   {
     label: "Broadcasts & Culture",
     href: "/announcements",
     icon: Megaphone,
-    colorClass: "text-pink-400",
-    activeBgClass: "bg-pink-500/15 border-pink-500/30 text-pink-300",
+    colorClass: "text-pink-500 dark:text-pink-400",
+    activeBgClass: "bg-pink-500/15 border-pink-500/30 text-pink-600 dark:text-pink-300 shadow-[0_4px_20px_rgba(236,72,153,0.15)]",
     requiredRoles: ["HR"],
   },
 ];
@@ -90,56 +90,66 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
     userEmail.includes("hr");
 
   const visibleItems = NAV_ITEMS.filter((item) => {
-    // Broadcasts & Culture is exclusively available for HR; hidden for Employee and Team Lead
     if (item.href === "/announcements" && !isHR) return false;
     if (!item.requiredRoles) return true;
     return item.requiredRoles.some((role) => userRoles.includes(role)) || (item.requiredRoles.includes("HR") && isHR);
   });
 
   return (
-    <aside className="w-60 border-r border-border/60 bg-card/40 backdrop-blur-xl flex flex-col justify-between hidden md:flex shrink-0 z-20">
+    <aside className="w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col justify-between hidden md:flex shrink-0 z-20 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_30px_rgba(0,0,0,0.4)]">
       {/* Brand Header */}
       <div>
-        <div className="h-16 border-b border-border/60 px-4 flex items-center justify-between">
+        <div className="h-16 border-b border-sidebar-border px-5 flex items-center justify-between">
           <BrandLogo size="md" />
         </div>
 
         {/* Navigation Items */}
-        <nav className="p-3 space-y-1">
-          {visibleItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+        <div className="p-3.5 space-y-1.5">
+          <nav className="space-y-1.5">
+            {visibleItems.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group relative border ${
-                  isActive
-                    ? `${item.activeBgClass} shadow-[0_0_15px_rgba(0,0,0,0.2)]`
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border/60"
-                }`}
-              >
-                <Icon
-                  className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${
-                    isActive ? item.colorClass : "text-muted-foreground group-hover:text-foreground"
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={true}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 group relative border ${
+                    isActive
+                      ? `${item.activeBgClass}`
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-card/60 dark:hover:bg-card/40 hover:border-sidebar-border"
                   }`}
-                />
-                <span className="truncate">{item.label}</span>
-                {isActive && (
-                  <span className="absolute right-2.5 h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+                >
+                  <div
+                    className={`h-7 w-7 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+                      isActive
+                        ? "bg-background/80 shadow-sm"
+                        : "bg-muted/40 group-hover:bg-card/80"
+                    }`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 transition-colors ${
+                        isActive ? item.colorClass : "text-muted-foreground group-hover:text-foreground"
+                      }`}
+                    />
+                  </div>
+                  <span className="truncate flex-1">{item.label}</span>
+                  {isActive && (
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] animate-pulse" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       {/* Sidebar Footer: Official Company Identity Badge */}
-      <div className="p-3 border-t border-border/60 space-y-2">
-        <div className="p-2.5 rounded-xl bg-card/60 border border-border/70 flex items-center justify-between gap-2 shadow-sm">
+      <div className="p-3.5 border-t border-sidebar-border space-y-2">
+        <div className="p-3 rounded-2xl bg-card/90 dark:bg-card/60 border border-sidebar-border flex items-center justify-between gap-2 shadow-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <Image
               src="/logo.png"
@@ -147,14 +157,14 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
               width={80}
               height={80}
               unoptimized
-              className="h-6 w-auto object-contain shrink-0 drop-shadow-sm"
+              className="h-7 w-auto object-contain shrink-0 drop-shadow-sm"
             />
             <div className="min-w-0">
-              <span className="text-[11px] font-bold text-foreground block truncate leading-tight">
+              <span className="text-xs font-black text-foreground block truncate leading-tight">
                 Xorstack
               </span>
-              <span className="text-[9px] text-muted-foreground block truncate leading-tight">
-                Enterprise Workspace
+              <span className="text-[10px] text-muted-foreground block truncate leading-tight font-medium">
+                Enterprise Core
               </span>
             </div>
           </div>
@@ -165,3 +175,4 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
     </aside>
   );
 }
+

@@ -8,9 +8,9 @@ import { Cake, Gift } from "lucide-react";
 
 export default function HRBirthdaysPage() {
   const upcomingEvents = [
-    { name: "Anita Rao", date: "August 24", department: "Data Analytics Pod", type: "BIRTHDAY", years: null },
-    { name: "Vikram Mehta", date: "August 28", department: "SAP Integration Pod", type: "WORK_ANNIVERSARY", years: "3 Years" },
-    { name: "Sara Dev", date: "September 02", department: "Development Pod", type: "WORK_ANNIVERSARY", years: "1 Year" },
+    { name: "Anita Rao", date: "August 24", department: "Data Analytics Team", type: "BIRTHDAY", years: null },
+    { name: "Vikram Mehta", date: "August 28", department: "SAP Integration Team", type: "WORK_ANNIVERSARY", years: "3 Years" },
+    { name: "Sara Dev", date: "September 02", department: "Development Team", type: "WORK_ANNIVERSARY", years: "1 Year" },
   ];
 
   return (

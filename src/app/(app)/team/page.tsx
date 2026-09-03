@@ -12,7 +12,7 @@ export default function TeamRedirectPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[40vh] text-muted-foreground text-xs">
-      <span>Redirecting to My Tasks & Pod Deliverables...</span>
+      <span>Redirecting to My Tasks & Team Deliverables...</span>
     </div>
   );
 }

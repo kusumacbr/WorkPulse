@@ -272,7 +272,7 @@ export function HRCommunicationReportingDeck({ onOpenExportModal }: { onOpenExpo
                 <select className="w-full h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none">
                   <option value="ALL">All Organization (19 Staff)</option>
                   <option value="LEADS">Designated Team Leads Only</option>
-                  <option value="DEV">Development Pod</option>
+                  <option value="DEV">Development Team</option>
                 </select>
               </div>
             </div>

@@ -34,37 +34,86 @@ export function HREnterpriseLeaveDesk() {
   const [hrRemarks, setHrRemarks] = useState<{ [id: string]: string }>({});
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    fetch("/api/v1/leave")
+      .then((res) => res.json())
+      .catch(() => {});
+    fetch("/api/v1/leave/wfh")
+      .then((res) => res.json())
+      .catch(() => {});
+  }, []);
+
   // Filter pending stage-2 requests
   const pendingLeaves = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");
   const pendingWfhs = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
   const totalPendingStage2 = pendingLeaves.length + pendingWfhs.length;
 
-  const handleApproveLeave = (id: string, name: string) => {
+  const handleApproveLeave = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Authorized by HR People Operations with standard balance deduction.";
     hrApproveLeave(id, comment);
     setToastMsg(`Stage-2 Leave for ${name} approved and finalized! ✓`);
     setTimeout(() => setToastMsg(null), 3000);
+
+    try {
+      await fetch(`/api/v1/leave/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR leave approval to API:", e);
+    }
   };
 
-  const handleRejectLeave = (id: string, name: string) => {
-    const comment = hrRemarks[id] || "Rejected by HR due to sprint pod capacity overlap.";
+  const handleRejectLeave = async (id: string, name: string) => {
+    const comment = hrRemarks[id] || "Rejected by HR due to sprint team capacity overlap.";
     hrRejectLeave(id, comment);
     setToastMsg(`Leave application for ${name} rejected.`);
     setTimeout(() => setToastMsg(null), 3000);
+
+    try {
+      await fetch(`/api/v1/leave/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR leave rejection to API:", e);
+    }
   };
 
-  const handleApproveWfh = (id: string, name: string) => {
+  const handleApproveWfh = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Authorized WFH session. Shift 10:00 AM - 07:00 PM.";
     hrApproveWfh(id, comment);
     setToastMsg(`Stage-2 WFH for ${name} authorized! ✓`);
     setTimeout(() => setToastMsg(null), 3000);
+
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR WFH approval to API:", e);
+    }
   };
 
-  const handleRejectWfh = (id: string, name: string) => {
+  const handleRejectWfh = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Rejected by HR.";
     hrRejectWfh(id, comment);
     setToastMsg(`WFH application for ${name} rejected.`);
     setTimeout(() => setToastMsg(null), 3000);
+
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR WFH rejection to API:", e);
+    }
   };
 
   return (
@@ -116,7 +165,7 @@ export function HREnterpriseLeaveDesk() {
         />
 
         <MetricTile3D
-          title="Sprint Pod Staffing"
+          title="Sprint Team Staffing"
           value="94.6% Available"
           subtitle="Zero critical staffing bottlenecks"
           icon={Users}
@@ -527,7 +576,7 @@ export function HREnterpriseLeaveDesk() {
               Department Sprint Staffing & Capacity Forecaster
             </h3>
             <p className="text-xs text-muted-foreground">
-              Predictive simulation ensuring that critical sprint pods maintain &ge; 80% physical or remote staffing coverage.
+              Predictive simulation ensuring that critical sprint teams maintain &ge; 80% physical or remote staffing coverage.
             </p>
           </div>
 
@@ -550,7 +599,7 @@ export function HREnterpriseLeaveDesk() {
                 <div className="flex items-center gap-4 shrink-0">
                   <div className="text-right">
                     <span className="font-mono font-bold text-emerald-400 text-sm">100% Available</span>
-                    <span className="text-[10px] text-muted-foreground block">Sprint 34 & 35 Green</span>
+                    <span className="text-[10px] text-muted-foreground block">This &amp; Next Week Green</span>
                   </div>
 
                   <Badge variant="brand" className="text-[9px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30 uppercase font-bold">

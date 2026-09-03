@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { useWorkpulseSharedStore, OrgEmployee } from "@/lib/stores/workpulse-shared-store";
 import {
   Users,
@@ -33,8 +32,8 @@ export function OrgLiveExecutionMonitor() {
 
   // Metrics calculation
   const totalEmployees = allEmployees.length;
-  const sodSubmittedCount = allEmployees.filter((e) => e.sodStatus === "SUBMITTED").length;
-  const eodCompletedCount = allEmployees.filter((e) => e.eodStatus === "SUBMITTED").length;
+  const sodSubmittedCount = allEmployees.filter((e) => e.sodStatus === "SUBMITTED" || e.sodStatus === "VERIFIED").length;
+  const eodCompletedCount = allEmployees.filter((e) => e.eodStatus === "SUBMITTED" || e.eodStatus === "VERIFIED").length;
   const avgOrgProgress = Math.round(
     allEmployees.reduce((acc, curr) => acc + (curr.overallProgress || 0), 0) / (totalEmployees || 1)
   );
@@ -113,34 +112,34 @@ export function OrgLiveExecutionMonitor() {
       </div>
 
       {/* Main Filter & Roster Card */}
-      <Interactive3DCard className="p-6 border border-cyan-500/30 space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-5 sm:p-6 rounded-3xl bg-card/80 border border-border/70 space-y-4 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <Users className="h-4 w-4 text-cyan-400" />
-              Today&apos;s Staff Work Plans ({filteredEmployees.length} Staff)
+              <span>Today&apos;s Staff Work Status ({filteredEmployees.length} Staff)</span>
             </h3>
             <p className="text-xs text-muted-foreground">
-              Overview of daily tasks, work locations, and progress across all teams.
+              Live overview of morning plans, execution progress, and focus tasks.
             </p>
           </div>
 
           {/* Search and Filters */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-48">
-              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search staff or task..."
-                className="h-8 text-xs pl-8"
+                className="h-9 text-xs pl-9 bg-background/80 border-border/70 rounded-xl"
               />
             </div>
 
             <select
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="h-8 px-2.5 rounded-lg border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+              className="h-9 px-3 rounded-xl border border-border/70 bg-background/80 text-xs font-semibold text-foreground focus:outline-none"
             >
               <option value="ALL">All Departments ({departments.length})</option>
               {departments.map((d) => (
@@ -153,7 +152,7 @@ export function OrgLiveExecutionMonitor() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="h-8 px-2.5 rounded-lg border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+              className="h-9 px-3 rounded-xl border border-border/70 bg-background/80 text-xs font-semibold text-foreground focus:outline-none"
             >
               <option value="ALL">All Statuses</option>
               <option value="SOD_SUBMITTED">Morning Plan Shared</option>
@@ -164,7 +163,7 @@ export function OrgLiveExecutionMonitor() {
         </div>
 
         {/* Live Employee Roster Table */}
-        <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/60">
+        <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/40">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
               <tr>
@@ -181,7 +180,7 @@ export function OrgLiveExecutionMonitor() {
                 const primaryTask = emp.plannedTasks[0];
                 return (
                   <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
-                    {/* Employee & Pod */}
+                    {/* Employee & Team */}
                     <td className="p-3">
                       <div className="flex items-center gap-2.5">
                         <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-300 text-xs shrink-0">
@@ -290,7 +289,7 @@ export function OrgLiveExecutionMonitor() {
             </tbody>
           </table>
         </div>
-      </Interactive3DCard>
+      </div>
 
       {/* Drill-Down Inspector Modal */}
       {inspectEmployee && (

@@ -249,7 +249,7 @@ export function PeopleMilestonesDeck() {
               </div>
             </div>
             <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 uppercase font-bold">
-              Active Pods
+              Active Teams
             </Badge>
           </div>
 

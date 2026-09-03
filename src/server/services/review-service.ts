@@ -152,6 +152,24 @@ export class ReviewService {
     review.status = review.status === "CHANGES_REQUESTED" ? "RESUBMITTED" : "SUBMITTED";
     review.updatedAt = now;
 
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("feedbacks").upsert({
+          id: review.id,
+          employee_id: review.employeeId,
+          lead_id: review.reviewerId,
+          date: review.periodEnd,
+          sentiment: "GREAT",
+          rating: 4,
+          eod_summary: review.selfSummary || "Self-assessment completed",
+        });
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("review:updated", review);
+    } catch {}
+
     await AuditService.record({
       actorId: params.actor.userId,
       action: "self_review_submitted",
@@ -235,6 +253,26 @@ export class ReviewService {
     review.approvedAt = now;
     review.status = "APPROVED";
     review.updatedAt = now;
+
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("feedbacks").upsert({
+          id: review.id,
+          employee_id: review.employeeId,
+          lead_id: review.reviewerId,
+          date: review.periodEnd,
+          sentiment: review.finalScore && review.finalScore >= 90 ? "EXCELLENT" : "GREAT",
+          rating: Math.round((review.finalScore || 85) / 20),
+          eod_summary: review.selfSummary || "Performance review completed",
+          lead_notes: review.managerFeedback || null,
+          action_item: review.improvementActions || null,
+        });
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("review:updated", review);
+    } catch {}
 
     await AuditService.record({
       actorId: params.actor.userId,

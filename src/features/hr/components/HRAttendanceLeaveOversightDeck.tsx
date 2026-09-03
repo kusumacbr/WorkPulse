@@ -97,7 +97,7 @@ const INITIAL_WFH_PATTERNS: WfhPatternRecord[] = [
     wfhDaysThisMonth: 5,
     fridayWfhFrequency: "Mondays & Fridays",
     patternNotes: "Extended weekend boundary pattern for cloud deployments.",
-    leadRecommendation: "Check in during 1-on-1 to align pod core hours with on-site cloud deployments.",
+    leadRecommendation: "Check in during 1-on-1 to align team core hours with on-site cloud deployments.",
   },
 ];
 

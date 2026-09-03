@@ -19,40 +19,46 @@ export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardPro
   const [filterMode, setFilterMode] = useState<string>("ALL");
 
   const defaultEmployees: WhosWhereEmployee[] = useMemo(() => {
-    const list: WhosWhereEmployee[] = [];
+    if (initialEmployees && initialEmployees.length > 0) return initialEmployees;
+
+    const map = new Map<string, WhosWhereEmployee>();
 
     departments.forEach((dept) => {
       // Lead
-      list.push({
-        employeeId: dept.teamLead.id,
-        employeeName: dept.teamLead.name,
-        department: dept.name,
-        jobTitle: dept.teamLead.designation,
-        workMode: "OFFICE",
-        locationBadge: "HQ - Floor 3",
-        firstCheckIn: "08:55 AM",
-      });
+      if (dept.teamLead && !map.has(dept.teamLead.id)) {
+        map.set(dept.teamLead.id, {
+          employeeId: dept.teamLead.id,
+          employeeName: dept.teamLead.name,
+          department: dept.name,
+          jobTitle: dept.teamLead.designation,
+          workMode: "OFFICE",
+          locationBadge: "HQ - Floor 3",
+          firstCheckIn: "08:55 AM",
+        });
+      }
 
       // Employees
       dept.employees.forEach((emp) => {
-        list.push({
-          employeeId: emp.id,
-          employeeName: emp.name,
-          department: dept.name,
-          jobTitle: emp.designation,
-          workMode: emp.workMode || "OFFICE",
-          locationBadge:
-            emp.workLocation ||
-            (emp.workMode === "WFH" ? "Remote (India)" : "HQ - Floor 0"),
-          firstCheckIn:
-            emp.sodStatus === "SUBMITTED"
-              ? emp.sodTime || "09:30 AM"
-              : null,
-        });
+        if (!map.has(emp.id)) {
+          map.set(emp.id, {
+            employeeId: emp.id,
+            employeeName: emp.name,
+            department: dept.name,
+            jobTitle: emp.designation,
+            workMode: emp.workMode || "OFFICE",
+            locationBadge:
+              emp.workLocation ||
+              (emp.workMode === "WFH" ? "Remote (India)" : "HQ - Floor 0"),
+            firstCheckIn:
+              emp.sodStatus === "SUBMITTED"
+                ? emp.sodTime || "09:30 AM"
+                : null,
+          });
+        }
       });
     });
 
-    return list;
+    return Array.from(map.values());
   }, [initialEmployees, departments, allEmployees]);
 
   const inOfficeCount = defaultEmployees.filter((e) => e.workMode === "OFFICE").length;
@@ -166,9 +172,9 @@ export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardPro
 
         {/* Directory Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredEmployees.map((emp) => (
+          {filteredEmployees.map((emp, idx) => (
             <div
-              key={emp.employeeId}
+              key={`${emp.employeeId}-${idx}`}
               className="p-3.5 rounded-xl border border-border bg-card/70 flex items-center justify-between gap-3 hover:border-border/80 transition-colors"
             >
               <div className="flex items-center gap-3">

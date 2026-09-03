@@ -74,7 +74,7 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
         primaryRole: role,
         designation: matched.designation,
         department: matched.departmentName,
-        team: `${matched.departmentName} Pod`,
+        team: `${matched.departmentName} Team`,
       };
     } else if (matchedLead) {
       user = {
@@ -85,7 +85,7 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
         primaryRole: "MANAGER",
         designation: matchedLead.teamLead.designation,
         department: matchedLead.name,
-        team: `${matchedLead.name} Pod`,
+        team: `${matchedLead.name} Team`,
       };
     } else if (normalizedEmail.includes("manager") || normalizedEmail.includes("lead")) {
       user = {
@@ -96,7 +96,7 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
         primaryRole: "MANAGER",
         designation: "Engineering Lead · Development",
         department: "Development",
-        team: "Development Pod",
+        team: "Development Team",
       };
     } else if (normalizedEmail.includes("hr") || normalizedEmail.includes("admin") || normalizedEmail.includes("director")) {
       user = {
@@ -107,7 +107,7 @@ export async function getSessionActor(req?: Request): Promise<{ user: CurrentUse
         primaryRole: "HR",
         designation: "Head of People Operations",
         department: "Human Resources",
-        team: "Human Resources Pod",
+        team: "Human Resources Team",
       };
     } else {
       user = {

@@ -36,7 +36,7 @@ export default function TeamReviewDetailPage({
                   APPROVED (5.0★)
                 </Badge>
               </div>
-              <h2 className="text-2xl font-black text-foreground">Sprint 34 Team Appraisal Detail</h2>
+              <h2 className="text-2xl font-black text-foreground">Weekly Team Appraisal Detail</h2>
               <p className="text-xs text-muted-foreground">
                 Employee: <strong className="text-foreground">Sara Dev</strong> · Lead Reviewer: <strong className="text-purple-300">Alex Lead</strong>
               </p>
@@ -64,7 +64,7 @@ export default function TeamReviewDetailPage({
               </div>
             </div>
             <p className="text-muted-foreground leading-relaxed">
-              "Outstanding work on the real-time biometric ingestion pipeline and zero-downtime store fallback. Continue mentoring junior engineers during Sprint 35."
+              &quot;Outstanding work on the real-time biometric ingestion pipeline and zero-downtime store fallback. Continue mentoring junior engineers next week.&quot;
             </p>
           </div>
         </Interactive3DCard>

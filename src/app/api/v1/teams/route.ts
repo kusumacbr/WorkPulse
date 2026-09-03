@@ -6,7 +6,7 @@ export async function GET() {
   const departments = workpulseSharedStore.getState().departments;
   const teams = departments.map((d: any) => ({
     id: `team-${d.id}`,
-    name: `${d.name} Pod`,
+    name: `${d.name} Team`,
     departmentId: d.id,
     departmentName: d.name,
     lead: d.head,

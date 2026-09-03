@@ -8,7 +8,7 @@ import { HREnterpriseGoalsDeck } from "@/features/goals/components/HREnterpriseG
 import { LeadGoalsManager } from "@/features/goals/components/LeadGoalsManager";
 import { SimpleGoalsManager } from "@/features/goals/components/SimpleGoalsManager";
 import { useCurrentUser } from "@/components/layout/UserContext";
-import { Target, Users, Building2 } from "lucide-react";
+import { Target, Users } from "lucide-react";
 
 export default function GoalsPage() {
   const user = useCurrentUser();
@@ -31,14 +31,14 @@ export default function GoalsPage() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               {isHR ? (
-                <Badge variant="brand" className="font-bold text-[10px] uppercase bg-pink-500/15 border-pink-500/30 text-pink-300">
-                  <Building2 className="h-3 w-3 mr-1 text-pink-400" />
-                  <span>Company Strategic OKR Alignment</span>
+                <Badge variant="brand" className="font-bold text-[10px] uppercase bg-cyan-500/15 border-cyan-500/30 text-cyan-300">
+                  <Target className="h-3 w-3 mr-1 text-cyan-400" />
+                  <span>Company Objectives</span>
                 </Badge>
               ) : isLead ? (
                 <Badge variant="secondary" className="font-bold text-[10px] uppercase bg-indigo-500/15 border-indigo-500/30 text-indigo-300">
                   <Users className="h-3 w-3 mr-1 text-indigo-400" />
-                  <span>Pod OKR &amp; Sprint Deliverables</span>
+                  <span>Team OKR &amp; Sprint Deliverables</span>
                 </Badge>
               ) : (
                 <Badge variant="brand" className="font-bold text-[10px] uppercase bg-emerald-500/15 border-emerald-500/30 text-emerald-300">
@@ -49,28 +49,28 @@ export default function GoalsPage() {
 
               {isLead && (
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  Development Pod · 4 Direct Reports
+                  Development Team · 4 Direct Reports
                 </span>
               )}
 
               {isHR && (
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  Organization-Wide · 6 Departments
+                  Organization-Wide Goals
                 </span>
               )}
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
               {isHR
-                ? "Company Goals & Strategic OKRs"
+                ? "Company Goals & OKRs"
                 : isLead
-                ? "Pod Goals & Deliverables"
+                ? "Team Goals & Deliverables"
                 : "My Goals & Quarterly OKRs"}
             </h2>
 
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               {isHR
-                ? "Oversee institutional goals, monitor departmental alignment health, and balance strategic OKR weights."
+                ? "Track company-wide objectives, target outcomes, and overall completion progress."
                 : isLead
                 ? "Set sprint delivery milestones, inspect direct reports' OKR alignment, and track team progress."
                 : "Set your milestone targets, track progress easily, and stay aligned with company objectives."}

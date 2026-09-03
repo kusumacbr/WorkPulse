@@ -143,10 +143,23 @@ export const WorkpulseApi = {
       request<{ request: any; message: string }>(`/api/v1/leave/wfh`, {
         method: "POST",
         body: JSON.stringify({
-          date: data.date || data.startDate || new Date().toISOString().split("T")[0],
+          startDate: data.startDate || data.date || new Date().toISOString().split("T")[0],
+          endDate: data.endDate || data.startDate || data.date || new Date().toISOString().split("T")[0],
           reason: data.reason,
-          deliverables: data.deliverables || data.plannedDeliverables || "Completed remote deliverables.",
+          plannedDeliverables: data.deliverables || data.plannedDeliverables || "Completed remote deliverables.",
+          availabilityHours: data.availabilityHours || "10:00 AM – 07:00 PM",
+          contactMethod: data.contactMethod || "Slack & Google Meet",
         }),
+      }),
+    approveWfh: (id: string, stage?: string, comment?: string) =>
+      request<{ result: any; message: string }>(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ stage, comment }),
+      }),
+    rejectWfh: (id: string, reason: string, stage?: string) =>
+      request<{ result: any; message: string }>(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason, stage }),
       }),
   },
 

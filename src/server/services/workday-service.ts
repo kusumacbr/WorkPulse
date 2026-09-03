@@ -180,10 +180,17 @@ export class WorkdayService {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabase = createAdminClient();
       if (supabase) {
+        let empName = params.actor.userId;
+        try {
+          const { WorkpulseSharedStore } = await import("@/lib/stores/workpulse-shared-store");
+          const emp = WorkpulseSharedStore.getEmployeeById(targetEmployeeId);
+          if (emp?.name) empName = emp.name;
+        } catch {}
+
         await supabase.from("workdays").upsert({
           id: workday.id,
           employee_id: targetEmployeeId,
-          employee_name: params.actor.userId,
+          employee_name: empName,
           date: params.input.workDate,
           work_mode: workday.workMode,
           sod_status: "SUBMITTED",
@@ -192,6 +199,8 @@ export class WorkdayService {
           overall_progress: 0,
         });
       }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("workday:sod_submitted", workday);
     } catch {
       // Graceful fallback
     }
@@ -228,7 +237,82 @@ export class WorkdayService {
     }
 
     if (!existingWorkday) {
-      throw new Error(`Workday with ID ${params.input.workdayId} not found.`);
+      try {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const supabase = createAdminClient();
+        if (supabase) {
+          const today = new Date().toISOString().split("T")[0]!;
+          let query = supabase.from("workdays").select("*");
+          if (params.input.workdayId && !params.input.workdayId.startsWith("wd-")) {
+            query = query.eq("id", params.input.workdayId);
+          } else {
+            const empId = params.actor.employeeId || params.actor.userId;
+            query = query.eq("employee_id", empId).eq("date", today);
+          }
+          const { data } = await query.maybeSingle();
+          if (data) {
+            existingWorkday = {
+              id: data.id,
+              employeeId: data.employee_id,
+              workDate: data.date,
+              workMode: data.work_mode || "OFFICE",
+              shift: "10:00 AM - 07:00 PM",
+              plannedHours: 8.0,
+              checkInTime: data.sod_time ? `${data.date}T${data.sod_time}:00Z` : new Date().toISOString(),
+              checkOutTime: null,
+              calculatedWorkedHours: null,
+              sodSubmittedAt: data.sod_time,
+              eodSubmittedAt: null,
+              status: data.sod_status === "SUBMITTED" ? "SOD_SUBMITTED" : "OPEN",
+              achievements: data.achievements,
+              issues: data.blockers,
+              supportNeeded: null,
+              nextDayFocus: data.tomorrow_focus,
+              managerComment: data.lead_feedback_note,
+              requestedChanges: null,
+              correctionWindowUntil: null,
+              lockedAt: null,
+              lockedById: null,
+              lockReason: null,
+              dailyTasks: Array.isArray(data.planned_tasks) ? data.planned_tasks : [],
+            };
+            workdayKey = `${existingWorkday.employeeId}_${existingWorkday.workDate}`;
+          }
+        }
+      } catch (e) {
+        console.warn("Supabase fallback lookup error in submitEOD:", e);
+      }
+    }
+
+    if (!existingWorkday) {
+      const empId = params.actor.employeeId || params.actor.userId;
+      const today = new Date().toISOString().split("T")[0]!;
+      workdayKey = `${empId}_${today}`;
+      existingWorkday = {
+        id: params.input.workdayId || `wd-${empId}`,
+        employeeId: empId,
+        workDate: today,
+        workMode: "OFFICE",
+        shift: "10:00 AM - 07:00 PM",
+        plannedHours: 8.0,
+        checkInTime: new Date().toISOString(),
+        checkOutTime: null,
+        calculatedWorkedHours: null,
+        sodSubmittedAt: new Date().toISOString(),
+        eodSubmittedAt: null,
+        status: "SOD_SUBMITTED",
+        achievements: null,
+        issues: null,
+        supportNeeded: null,
+        nextDayFocus: null,
+        managerComment: null,
+        requestedChanges: null,
+        correctionWindowUntil: null,
+        lockedAt: null,
+        lockedById: null,
+        lockReason: null,
+        dailyTasks: [],
+      };
     }
 
     // 1. Authorize actor
@@ -339,6 +423,8 @@ export class WorkdayService {
           overall_progress: 100,
         });
       }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("workday:eod_submitted", updatedWorkday);
     } catch {
       // Graceful fallback
     }
@@ -536,7 +622,54 @@ export class WorkdayService {
     workDate: string;
   }): Promise<WorkdayRecord | null> {
     const key = `${params.employeeId}_${params.workDate}`;
-    const wd = inMemoryWorkdays.get(key);
+    let wd = inMemoryWorkdays.get(key);
+
+    if (!wd) {
+      try {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const supabase = createAdminClient();
+        if (supabase) {
+          const { data } = await supabase
+            .from("workdays")
+            .select("*")
+            .eq("employee_id", params.employeeId)
+            .eq("date", params.workDate)
+            .maybeSingle();
+
+          if (data) {
+            wd = {
+              id: data.id,
+              employeeId: data.employee_id,
+              workDate: data.date,
+              workMode: data.work_mode || "OFFICE",
+              shift: "10:00 AM - 07:00 PM",
+              plannedHours: 8.0,
+              checkInTime: data.sod_time ? `${data.date}T${data.sod_time}:00Z` : null,
+              checkOutTime: data.eod_time ? `${data.date}T${data.eod_time}:00Z` : null,
+              calculatedWorkedHours: Number(data.actual_hours) || null,
+              sodSubmittedAt: data.sod_time ? `${data.date}T${data.sod_time}:00Z` : null,
+              eodSubmittedAt: data.eod_time ? `${data.date}T${data.eod_time}:00Z` : null,
+              status: data.eod_status === "SUBMITTED" ? "EOD_SUBMITTED" : data.sod_status === "SUBMITTED" ? "SOD_SUBMITTED" : "OPEN",
+              achievements: data.achievements || null,
+              issues: data.blockers || null,
+              supportNeeded: null,
+              nextDayFocus: data.tomorrow_focus || null,
+              managerComment: data.lead_feedback_note || null,
+              requestedChanges: null,
+              correctionWindowUntil: null,
+              lockedAt: null,
+              lockedById: null,
+              lockReason: null,
+              dailyTasks: Array.isArray(data.planned_tasks) ? data.planned_tasks : [],
+            };
+            inMemoryWorkdays.set(key, wd);
+          }
+        }
+      } catch {
+        // safe fallback
+      }
+    }
+
     return wd || null;
   }
 

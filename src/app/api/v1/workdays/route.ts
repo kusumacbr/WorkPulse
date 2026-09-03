@@ -70,11 +70,30 @@ export async function POST(req: NextRequest) {
     const { user, actor } = await getSessionActor(req);
     const body = await req.json().catch(() => ({}));
     const employeeId = body.employeeId || actor.employeeId || user.id;
-    const workDate = body.workDate || new Date().toISOString().split("T")[0]!;
+    const workDate = body.date || body.workDate || new Date().toISOString().split("T")[0]!;
     const workMode = body.workMode || "OFFICE";
     const shift = body.shift || "10:00 AM - 07:00 PM";
     const plannedHours = body.plannedHours || 8.0;
 
+    // Handle EOD submission
+    if (body.eodStatus === "SUBMITTED" || body.dailySummary) {
+      const workday = await WorkdayService.submitEOD({
+        actor,
+        input: {
+          workdayId: body.id || `wd-${employeeId}`,
+          tasks: body.plannedTasks || body.tasks || [],
+          dailySummary: {
+            achievements: body.eodAchievements || body.achievements || body.dailySummary?.achievements || "Finished planned tasks",
+            issues: body.eodBlockers || body.blockers || body.dailySummary?.issues || null,
+            supportNeeded: body.supportNeeded || body.dailySummary?.supportNeeded || null,
+            nextDayFocus: body.eodTomorrowFocus || body.tomorrowFocus || body.dailySummary?.nextDayFocus || "Continue sprint deliverables",
+          },
+        },
+      });
+      return apiSuccess({ workday }, 200);
+    }
+
+    // Handle SOD submission
     const workday = await WorkdayService.submitSOD({
       actor,
       employeeId,
@@ -83,7 +102,7 @@ export async function POST(req: NextRequest) {
         workMode: workMode as any,
         shift,
         plannedHours,
-        tasks: body.tasks || [],
+        tasks: body.plannedTasks || body.tasks || [],
       },
     });
 

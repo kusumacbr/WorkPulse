@@ -4,3 +4,9 @@ node_modules/
 .env.local
 .env*.local
 tsconfig.tsbuildinfo
+
+# WorkPulse credentials
+WorkPulse_Member_Credentials_2026.csv
+public/WorkPulse_Member_Credentials_2026.csv
+public/WorkPulse_Member_Credentials_2026.html
+public/WorkPulse_Member_Credentials_2026.md

@@ -37,7 +37,7 @@ export default function TeamMemberDetailPage({
                   ID: {employeeId}
                 </Badge>
               </div>
-              <p className="text-xs text-cyan-300 font-semibold">Senior Software Engineer · Development Pod</p>
+              <p className="text-xs text-cyan-300 font-semibold">Senior Software Engineer · Development Team</p>
             </div>
           </div>
         </Interactive3DCard>
@@ -51,7 +51,7 @@ export default function TeamMemberDetailPage({
 
           <div className="p-4 rounded-xl bg-card border border-border/60 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <strong className="text-foreground">Sprint 34 Architecture Implementation</strong>
+              <strong className="text-foreground">Weekly Architecture Implementation</strong>
               <Badge variant="brand" className="text-[9px] bg-cyan-500/15 text-cyan-300 border-cyan-500/30">
                 85% Completed
               </Badge>

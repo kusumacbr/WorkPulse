@@ -40,7 +40,7 @@ export default function HRReportsPage() {
     {
       code: "BLOCKERS",
       title: "Task Blockers & SLA Escalation Ledger",
-      desc: "Roadblock ageing durations, critical blocker counts, cross-pod dependencies, and resolution timestamps.",
+      desc: "Roadblock ageing durations, critical blocker counts, cross-team dependencies, and resolution timestamps.",
       records: "12 Records",
       lastGenerated: "Yesterday",
     },

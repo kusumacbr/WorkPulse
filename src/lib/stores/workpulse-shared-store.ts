@@ -22,10 +22,19 @@ export interface OrgEmployee {
   phoneNumber?: string;
   workLocation?: string;
   location?: string;
-  sodStatus: "SUBMITTED" | "PENDING";
+  sodStatus: "SUBMITTED" | "PENDING" | "VERIFIED" | "CHANGES_REQUESTED";
   sodTime?: string;
-  eodStatus: "SUBMITTED" | "IN_PROGRESS" | "PENDING";
+  sodVerifiedBy?: string;
+  sodVerifiedAt?: string;
+  sodLeadNote?: string;
+  sodEmployeeNote?: string;
+  eodStatus: "SUBMITTED" | "IN_PROGRESS" | "PENDING" | "VERIFIED";
   eodTime?: string;
+  eodVerifiedBy?: string;
+  eodVerifiedAt?: string;
+  eodLeadRating?: number;
+  eodLeadComment?: string;
+  eodLeadActionItem?: string;
   overallProgress: number;
   remainingLeaveBalance: number;
   plannedTasks: {
@@ -37,6 +46,12 @@ export interface OrgEmployee {
     completionPercentage: number;
     status: "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | "BLOCKED";
     expectedOutput: string;
+    assignedBy?: string;
+    assignedById?: string;
+    assignedAt?: string;
+    acknowledged?: boolean;
+    acknowledgedAt?: string;
+    acknowledgementNote?: string;
   }[];
   eodAchievements?: string;
   eodBlockers?: string;
@@ -91,36 +106,77 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "Alex Lead",
         avatar: "SD",
         workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:15 AM",
-        eodStatus: "IN_PROGRESS",
-        overallProgress: 80,
+        sodStatus: "PENDING",
+        sodTime: undefined,
+        eodStatus: "PENDING",
+        eodTime: undefined,
+        overallProgress: 0,
         remainingLeaveBalance: 11.0,
         plannedTasks: [
           {
-            id: "st-1",
-            title: "Implement dedicated SOD Carryover section with rolled-over task pile-up",
-            project: "Frontend & UI",
+            id: "task-1",
+            title: "Prepare and finalize weekly team report",
+            project: "Operations",
             priority: "HIGH",
-            estimatedMinutes: 180,
-            completionPercentage: 80,
+            estimatedMinutes: 120,
+            completionPercentage: 75,
             status: "IN_PROGRESS",
-            expectedOutput: "Complete SOD section with carryover deck and morning lock action",
+            expectedOutput: "Weekly team report compiled and shared with team",
           },
           {
-            id: "st-2",
-            title: "Conduct technical code review on Stage-2 Leave & HR approval PRs",
-            project: "Core Platform",
+            id: "task-2",
+            title: "Execute Stage-2 Leave & WFH Final Approvals",
+            project: "Operations",
+            priority: "HIGH",
+            estimatedMinutes: 90,
+            completionPercentage: 80,
+            status: "IN_PROGRESS",
+            expectedOutput: "Review and authorize pending Stage-2 leave requests",
+          },
+          {
+            id: "task-3",
+            title: "Review 30/90-Day Probation Feedback for New Joiners",
+            project: "Documentation",
             priority: "MEDIUM",
+            estimatedMinutes: 60,
+            completionPercentage: 0,
+            status: "NOT_STARTED",
+            expectedOutput: "Compile onboarding probation milestones",
+          },
+          {
+            id: "task-4",
+            title: "Audit Shift Biometric Punctuality & Punch Regularizations",
+            project: "Operations",
+            priority: "HIGH",
             estimatedMinutes: 90,
             completionPercentage: 100,
             status: "COMPLETED",
-            expectedOutput: "Provide sign-off and merge authorization layer changes",
+            expectedOutput: "Verify shift punches and regularize anomalies",
+          },
+          {
+            id: "task-5",
+            title: "Coordinate Work Anniversary & Birthday Celebrations",
+            project: "General",
+            priority: "MEDIUM",
+            estimatedMinutes: 45,
+            completionPercentage: 60,
+            status: "IN_PROGRESS",
+            expectedOutput: "Schedule celebration events and team announcements",
+          },
+          {
+            id: "task-6",
+            title: "Review monthly goals and team milestones",
+            project: "Planning",
+            priority: "MEDIUM",
+            estimatedMinutes: 60,
+            completionPercentage: 100,
+            status: "COMPLETED",
+            expectedOutput: "Track milestone progress against quarterly OKRs",
           },
         ],
-        eodAchievements: "Merged authorization enhancements and reviewed 3 critical PRs.",
+        eodAchievements: "Finalized biometric attendance regularizations and reviewed monthly milestones.",
         eodBlockers: "None",
-        eodTomorrowFocus: "Finalize EOD wrap-up testing suite.",
+        eodTomorrowFocus: "Finalize probation feedback reviews and weekly report.",
       },
       {
         id: "emp-rohit",
@@ -133,8 +189,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "Alex Lead",
         avatar: "RS",
         workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:20 AM",
+        sodStatus: "PENDING",
+        sodTime: undefined,
         eodStatus: "IN_PROGRESS",
         overallProgress: 65,
         remainingLeaveBalance: 10.0,
@@ -196,8 +252,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "Marcus Vance",
         avatar: "KR",
         workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:10 AM",
+        sodStatus: "PENDING",
+        sodTime: undefined,
         eodStatus: "IN_PROGRESS",
         overallProgress: 85,
         remainingLeaveBalance: 11.5,
@@ -249,8 +305,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "Vikram Rao",
         avatar: "SK",
         workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:08 AM",
+        sodStatus: "PENDING",
+        sodTime: undefined,
         eodStatus: "IN_PROGRESS",
         overallProgress: 75,
         remainingLeaveBalance: 9.0,
@@ -301,8 +357,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "David Director",
         avatar: "PQ",
         workMode: "WFH",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:05 AM",
+        sodStatus: "PENDING",
+        sodTime: undefined,
         eodStatus: "SUBMITTED",
         eodTime: "06:55 PM",
         overallProgress: 100,
@@ -364,8 +420,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "Alex Lead",
         avatar: "AS",
         workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "10:12 AM",
+        sodStatus: "PENDING",
+        sodTime: undefined,
         eodStatus: "IN_PROGRESS",
         overallProgress: 85,
         remainingLeaveBalance: 10.0,
@@ -414,8 +470,8 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
         teamLeadName: "David Director",
         avatar: "RH",
         workMode: "OFFICE",
-        sodStatus: "SUBMITTED",
-        sodTime: "09:50 AM",
+        sodStatus: "PENDING",
+        sodTime: undefined,
         eodStatus: "IN_PROGRESS",
         overallProgress: 90,
         remainingLeaveBalance: 15.0,
@@ -479,7 +535,7 @@ const DEFAULT_FEEDBACKS: SharedEODFeedback[] = [
     leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
     leadRating: 5,
     leadSentiment: "EXCELLENT",
-    leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's pod sync.",
+    leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's team sync.",
     isToday: true,
   },
   {
@@ -713,7 +769,7 @@ const DEFAULT_WFH_REQUESTS: SharedWfhRequest[] = [
     daysCount: 1.0,
     reason: "Focus day for deep performance indexing and complex database migrations",
     availabilityHours: "10:00 AM – 07:00 PM",
-    contactMethod: "Slack #dev-pod & Google Meet",
+    contactMethod: "Slack #dev-team & Google Meet",
     plannedDeliverables: "Complete index optimization on attendance audit logs and verify latency benchmark.",
     tlApproverName: "Alex Lead (Engineering Lead · Development)",
     tlApprovedAt: "Today at 10:20 AM",
@@ -750,7 +806,7 @@ const DEFAULT_WFH_REQUESTS: SharedWfhRequest[] = [
     daysCount: 1.0,
     reason: "High-compute query optimization on large batch telemetry dataset",
     availabilityHours: "10:00 AM – 07:00 PM",
-    contactMethod: "Slack #data-pod & Meet",
+    contactMethod: "Slack #data-team & Meet",
     plannedDeliverables: "Optimize Spark telemetry job memory allocations.",
     tlApproverName: "Vikram Rao (Data Processing Lead)",
     tlApprovedAt: "Today at 10:45 AM",
@@ -760,31 +816,201 @@ const DEFAULT_WFH_REQUESTS: SharedWfhRequest[] = [
   },
 ];
 
+// ==========================================
+// 4. SHARED HR PROFILE QUERY STORE
+// ==========================================
+
+export interface SharedProfileQuery {
+  id: string;
+  ticketNumber: string;
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  departmentName: string;
+  category: string;
+  requestedChange: string;
+  reason?: string;
+  status: "PENDING_HR_REVIEW" | "APPROVED" | "REJECTED";
+  submittedAt: string;
+  hrRemarks?: string;
+  resolvedAt?: string;
+}
+
+export interface SharedLeadHelpRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  department: string;
+  leadName: string;
+  topic: string;
+  details?: string;
+  urgency: "NORMAL" | "URGENT";
+  status: "PENDING" | "ACKNOWLEDGED" | "RESOLVED";
+  createdAt: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  leadResponse?: string;
+}
+
+export interface SharedTeamPresence {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  workMode: "OFFICE" | "WFH";
+  firstIn: string;
+  location: string;
+  status: "ON_TIME" | "GRACE_WINDOW" | "LATE";
+  grossHours: number;
+  verified: boolean;
+  verifiedAt?: string;
+  verifiedBy?: string;
+}
+
+export const DEFAULT_SHARED_TEAM_PRESENCE: SharedTeamPresence[] = [
+  {
+    id: "emp-sarah",
+    name: "Sarah Dev",
+    role: "Senior Backend Engineer",
+    avatar: "SD",
+    workMode: "OFFICE",
+    firstIn: "10:08 AM",
+    location: "Bangalore HQ · Floor 4",
+    status: "ON_TIME",
+    grossHours: 4.5,
+    verified: true,
+    verifiedAt: "10:15 AM",
+    verifiedBy: "Alex Lead",
+  },
+  {
+    id: "emp-rohit",
+    name: "Rohit Sharma",
+    role: "Frontend Engineer",
+    avatar: "RS",
+    workMode: "WFH",
+    firstIn: "09:55 AM",
+    location: "Remote (Approved WFH)",
+    status: "ON_TIME",
+    grossHours: 4.75,
+    verified: false,
+  },
+  {
+    id: "emp-priya",
+    name: "Priya Patel",
+    role: "QA Engineer",
+    avatar: "PP",
+    workMode: "OFFICE",
+    firstIn: "10:02 AM",
+    location: "Bangalore HQ · Floor 4",
+    status: "ON_TIME",
+    grossHours: 4.6,
+    verified: false,
+  },
+  {
+    id: "emp-arjun",
+    name: "Arjun Kumar",
+    role: "Junior Developer",
+    avatar: "AK",
+    workMode: "OFFICE",
+    firstIn: "10:14 AM",
+    location: "Bangalore HQ · Floor 4",
+    status: "GRACE_WINDOW",
+    grossHours: 4.4,
+    verified: false,
+  },
+];
+
+const DEFAULT_HELP_REQUESTS: SharedLeadHelpRequest[] = [];
+
+const DEFAULT_PROFILE_QUERIES: SharedProfileQuery[] = [
+  {
+    id: "qry-initial-1",
+    ticketNumber: "HR-REQ-2041",
+    employeeId: "emp-sarah",
+    employeeName: "Sarah Dev",
+    employeeEmail: "employee.test@xorstack.com",
+    departmentName: "Development",
+    category: "Personal Contact Details (Phone, Mobile)",
+    requestedChange: "Update contact phone number to +91 98450 12345",
+    reason: "New primary company SIM card.",
+    status: "PENDING_HR_REVIEW",
+    submittedAt: "Yesterday at 04:30 PM",
+  },
+];
+
 // Storage keys for browser persistence across page reloads & refreshes
 const STORAGE_KEYS = {
   DEPARTMENTS: "workpulse_departments_v5_supabase",
   FEEDBACKS: "workpulse_feedbacks_v5_supabase",
   LEAVE: "workpulse_leave_v5_supabase",
   WFH: "workpulse_wfh_v5_supabase",
+  PROFILE_QUERIES: "workpulse_profile_queries_v5_supabase",
+  HELP_REQUESTS: "workpulse_help_requests_v5",
+  TEAM_PRESENCE: "workpulse_team_presence_v5",
+  DELETED_LEAVE_IDS: "workpulse_deleted_leave_ids",
+  DELETED_WFH_IDS: "workpulse_deleted_wfh_ids",
 };
 
+export function getDeletedLeaveIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.DELETED_LEAVE_IDS);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+}
+
+export function getDeletedWfhIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.DELETED_WFH_IDS);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+}
+
+export function sanitizePodToTeam(text: string): string {
+  if (typeof text !== "string") return text;
+  return text
+    .replace(/\bPOD\b/g, "TEAM")
+    .replace(/\bPod\b/g, "Team")
+    .replace(/\bpod\b/g, "team")
+    .replace(/#dev-pod/g, "#dev-team")
+    .replace(/#data-pod/g, "#data-team");
+}
+
+export function deepSanitizePod<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  if (typeof data === "string") return sanitizePodToTeam(data) as unknown as T;
+  if (Array.isArray(data)) return data.map(deepSanitizePod) as unknown as T;
+  if (typeof data === "object") {
+    const res: any = {};
+    for (const [k, v] of Object.entries(data)) {
+      res[k] = deepSanitizePod(v);
+    }
+    return res;
+  }
+  return data;
+}
+
 function loadFromStorage<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined" || !window.localStorage) return fallback;
+  if (typeof window === "undefined" || !window.localStorage) return deepSanitizePod(fallback);
   try {
     const saved = window.localStorage.getItem(key);
     if (saved) {
-      return JSON.parse(saved);
+      return deepSanitizePod(JSON.parse(saved));
     }
   } catch (e) {
     console.warn(`[WorkpulseStore] Error loading ${key} from localStorage:`, e);
   }
-  return fallback;
+  return deepSanitizePod(fallback);
 }
 
 function saveToStorage<T>(key: string, value: T): void {
   if (typeof window === "undefined" || !window.localStorage) return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(key, JSON.stringify(deepSanitizePod(value)));
   } catch (e) {
     console.warn(`[WorkpulseStore] Error saving ${key} to localStorage:`, e);
   }
@@ -795,9 +1021,14 @@ let globalDepartments: OrgDepartment[] = JSON.parse(JSON.stringify(XORSTACK_DEPA
 let globalFeedbacks: SharedEODFeedback[] = [...DEFAULT_FEEDBACKS];
 let globalLeaveRequests: SharedLeaveRequest[] = [...DEFAULT_LEAVE_REQUESTS];
 let globalWfhRequests: SharedWfhRequest[] = [...DEFAULT_WFH_REQUESTS];
+let globalProfileQueries: SharedProfileQuery[] = [...DEFAULT_PROFILE_QUERIES];
+let globalHelpRequests: SharedLeadHelpRequest[] = [...DEFAULT_HELP_REQUESTS];
+let globalTeamPresence: SharedTeamPresence[] = [...DEFAULT_SHARED_TEAM_PRESENCE];
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
+let activeSyncPromise: Promise<void> | null = null;
+let lastSyncTimestamp = 0;
 
 export function subscribeToSharedStore(listener: () => void) {
   listeners.add(listener);
@@ -811,7 +1042,15 @@ function notify() {
   saveToStorage(STORAGE_KEYS.FEEDBACKS, globalFeedbacks);
   saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
   saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+  saveToStorage(STORAGE_KEYS.PROFILE_QUERIES, globalProfileQueries);
+  saveToStorage(STORAGE_KEYS.HELP_REQUESTS, globalHelpRequests);
+  saveToStorage(STORAGE_KEYS.TEAM_PRESENCE, globalTeamPresence);
   listeners.forEach((l) => l());
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("workpulse_sync"));
+    } catch {}
+  }
 }
 
 async function syncEmployeeToSupabase(emp: OrgEmployee) {
@@ -970,6 +1209,77 @@ async function syncBiometricPunchToSupabase(punch: {
   }
 }
 
+async function syncWorkdayToSupabase(workdayData: {
+  employeeId: string;
+  employeeName?: string;
+  date?: string;
+  workMode?: string;
+  sodStatus?: string;
+  sodTime?: string;
+  sodVerifiedBy?: string;
+  sodVerifiedAt?: string;
+  sodLeadNote?: string;
+  eodStatus?: string;
+  eodTime?: string;
+  eodVerifiedBy?: string;
+  eodVerifiedAt?: string;
+  eodLeadRating?: number;
+  eodLeadComment?: string;
+  eodLeadActionItem?: string;
+  plannedTasks?: any[];
+  overallProgress?: number;
+  achievements?: string;
+  blockers?: string;
+  tomorrowFocus?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const today = workdayData.date || new Date().toISOString().split("T")[0]!;
+    const emp = WorkpulseSharedStore.getEmployeeById(workdayData.employeeId);
+    const empName = workdayData.employeeName || emp?.name || "Team Member";
+
+    const payload: any = {
+      id: `wd-${workdayData.employeeId}-${today}`,
+      employee_id: workdayData.employeeId,
+      employee_name: empName,
+      date: today,
+      work_mode: workdayData.workMode || emp?.workMode || "OFFICE",
+    };
+
+    if (workdayData.sodStatus !== undefined) payload.sod_status = workdayData.sodStatus;
+    if (workdayData.sodTime !== undefined) payload.sod_time = workdayData.sodTime;
+    if (workdayData.sodVerifiedBy !== undefined) payload.sod_verified_by = workdayData.sodVerifiedBy;
+    if (workdayData.sodVerifiedAt !== undefined) payload.sod_verified_at = workdayData.sodVerifiedAt;
+    if (workdayData.sodLeadNote !== undefined) payload.lead_feedback_note = workdayData.sodLeadNote;
+    if (workdayData.eodStatus !== undefined) payload.eod_status = workdayData.eodStatus;
+    if (workdayData.eodTime !== undefined) payload.eod_time = workdayData.eodTime;
+    if (workdayData.eodVerifiedBy !== undefined) payload.eod_verified_by = workdayData.eodVerifiedBy;
+    if (workdayData.eodVerifiedAt !== undefined) payload.eod_verified_at = workdayData.eodVerifiedAt;
+    if (workdayData.eodLeadRating !== undefined) payload.lead_rating = workdayData.eodLeadRating;
+    if (workdayData.eodLeadComment !== undefined) payload.lead_feedback_note = workdayData.eodLeadComment;
+    if (workdayData.eodLeadActionItem !== undefined) payload.lead_action_item = workdayData.eodLeadActionItem;
+    if (workdayData.plannedTasks !== undefined) payload.planned_tasks = workdayData.plannedTasks;
+    if (workdayData.overallProgress !== undefined) payload.overall_progress = workdayData.overallProgress;
+    if (workdayData.achievements !== undefined) payload.achievements = workdayData.achievements;
+    if (workdayData.blockers !== undefined) payload.blockers = workdayData.blockers;
+    if (workdayData.tomorrowFocus !== undefined) payload.tomorrow_focus = workdayData.tomorrowFocus;
+
+    await supabase.from("workdays").upsert(payload);
+
+    if (workdayData.employeeId === "emp-sarah" || workdayData.employeeId === "employee.test@xorstack.com") {
+      try {
+        await supabase.from("workdays").delete().eq("id", "wd-sarah-today");
+      } catch {}
+    }
+  } catch (e) {
+    console.warn("Supabase workday sync error:", e);
+  }
+}
+
 export const WorkpulseSharedStore = {
   // Virtual Biometric Punch Action
   virtualPunch: (employeeId: string, punchType: "IN" | "OUT") => {
@@ -977,7 +1287,7 @@ export const WorkpulseSharedStore = {
       employeeId: employeeId || "emp-sarah",
       employeeName: employeeId === "emp-rohit" ? "Rohit Sharma" : "Sarah Dev",
       punchType,
-      location: "Bangalore HQ (Floor 4, Pod B)",
+      location: "Bangalore HQ (Floor 4, Team Bay B)",
       method: "VIRTUAL_SIMULATOR",
     });
     notify();
@@ -999,87 +1309,144 @@ export const WorkpulseSharedStore = {
     globalFeedbacks = loadFromStorage(STORAGE_KEYS.FEEDBACKS, globalFeedbacks);
     globalLeaveRequests = loadFromStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     globalWfhRequests = loadFromStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+    globalProfileQueries = loadFromStorage(STORAGE_KEYS.PROFILE_QUERIES, globalProfileQueries);
+    globalHelpRequests = loadFromStorage(STORAGE_KEYS.HELP_REQUESTS, globalHelpRequests);
+    globalTeamPresence = loadFromStorage(STORAGE_KEYS.TEAM_PRESENCE, globalTeamPresence);
+
+    // Sync saved simple tasks from localStorage if available
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const savedSimple = window.localStorage.getItem("workpulse_simple_tasks");
+        if (savedSimple) {
+          const parsed = JSON.parse(savedSimple);
+          // Keep an intentionally empty task list. Falling back to seeded tasks here
+          // makes deleted tasks return when the page is refreshed.
+          if (Array.isArray(parsed)) {
+            globalDepartments = globalDepartments.map((d) => ({
+              ...d,
+              employees: d.employees.map((emp) => {
+                if (emp.id === "emp-sarah" || emp.email.toLowerCase() === "employee.test@xorstack.com") {
+                  return {
+                    ...emp,
+                    plannedTasks: parsed.map((t: any) => ({
+                      id: t.id,
+                      title: t.title,
+                      project: t.category || t.project || "General",
+                      priority: t.priority || "MEDIUM",
+                      estimatedMinutes: t.estimatedMinutes || 60,
+                      completionPercentage: typeof t.progress === "number" ? t.progress : (t.completionPercentage || 0),
+                      status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+                      expectedOutput: t.title,
+                    })),
+                  };
+                }
+                return emp;
+              }),
+            }));
+          }
+        }
+      } catch {}
+    }
+
     listeners.forEach((l) => l());
   },
 
-  syncWithSupabase: async () => {
+  syncWithSupabase: async (force = false) => {
     if (typeof window === "undefined") return;
-    try {
-      // 1. Sync Employees
-      const res = await fetch("/api/v1/employees");
-      if (res.ok) {
-        const json = await res.json();
-        const employees = json.data?.employees || json.employees;
-        if (Array.isArray(employees) && employees.length > 0) {
-          WorkpulseSharedStore.setEmployeesFromSupabase(employees);
+    if (activeSyncPromise) return activeSyncPromise;
+    const now = Date.now();
+    if (!force && now - lastSyncTimestamp < 5000) {
+      return;
+    }
+    lastSyncTimestamp = now;
+
+    activeSyncPromise = (async () => {
+      try {
+        // 1. Sync Employees
+        const res = await fetch("/api/v1/employees");
+        if (res.ok) {
+          const json = await res.json();
+          const employees = json.data?.employees || json.employees;
+          if (Array.isArray(employees) && employees.length > 0) {
+            WorkpulseSharedStore.setEmployeesFromSupabase(employees);
+          }
         }
-      }
 
-      // 2. Sync Leave & WFH Requests & Feedbacks directly from Supabase
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
+        // 2. Sync Leave, WFH Requests, Feedbacks & Workdays directly from Supabase
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
 
-      const [lrRes, wfhRes, fbRes] = await Promise.all([
-        supabase.from("leave_requests").select("*").order("created_at", { ascending: false }),
-        supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }),
-        supabase.from("feedbacks").select("*").order("created_at", { ascending: false }),
-      ]);
+        const [lrRes, wfhRes, fbRes, wdRes] = await Promise.all([
+          supabase.from("leave_requests").select("*").order("created_at", { ascending: false }),
+          supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }),
+          supabase.from("feedbacks").select("*").order("created_at", { ascending: false }),
+          supabase.from("workdays").select("*").order("created_at", { ascending: false }),
+        ]);
+
+        const deletedLeaveIds = getDeletedLeaveIds();
+        const deletedWfhIds = getDeletedWfhIds();
 
       if (lrRes.data && lrRes.data.length > 0) {
-        const mappedLeaves: SharedLeaveRequest[] = lrRes.data.map((r) => ({
-          id: r.id,
-          employeeId: r.employee_id,
-          employeeName: r.employee_name,
-          departmentId: r.department_id || "dept-development",
-          departmentName: r.department_name || "Development",
-          designation: r.designation || "Engineer",
-          leaveType: r.leave_type || "CASUAL",
-          startDate: r.start_date,
-          endDate: r.end_date,
-          daysCount: Number(r.days_count) || 1,
-          reason: r.reason,
-          handoverNotes: r.handover_notes,
-          backupPersonName: r.backup_person_name,
-          remainingBalance: Number(r.remaining_balance) || 11.0,
-          status: r.status,
-          tlApproverName: r.tl_approver_name,
-          tlApprovedAt: r.tl_approved_at,
-          tlComment: r.tl_comment,
-          hrApproverName: r.hr_approver_name,
-          hrApprovedAt: r.hr_approved_at,
-          hrComment: r.hr_comment,
-          rejectionReason: r.rejection_reason,
-          createdAt: r.created_at,
-        }));
+        const mappedLeaves: SharedLeaveRequest[] = lrRes.data
+          .map((r) => ({
+            id: r.id,
+            employeeId: r.employee_id,
+            employeeName: r.employee_name,
+            departmentId: r.department_id || "dept-development",
+            departmentName: r.department_name || "Development",
+            designation: r.designation || "Engineer",
+            leaveType: r.leave_type || "CASUAL",
+            startDate: r.start_date,
+            endDate: r.end_date,
+            daysCount: Number(r.days_count) || 1,
+            reason: r.reason,
+            handoverNotes: r.handover_notes,
+            backupPersonName: r.backup_person_name,
+            remainingBalance: Number(r.remaining_balance) || 11.0,
+            status: r.status,
+            tlApproverName: r.tl_approver_name,
+            tlApprovedAt: r.tl_approved_at,
+            tlComment: r.tl_comment,
+            hrApproverName: r.hr_approver_name,
+            hrApprovedAt: r.hr_approved_at,
+            hrComment: r.hr_comment,
+            rejectionReason: r.rejection_reason,
+            createdAt: r.created_at,
+          }))
+          .filter((r) => !deletedLeaveIds.has(r.id));
         globalLeaveRequests = mappedLeaves;
+        saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
       }
 
       if (wfhRes.data && wfhRes.data.length > 0) {
-        const mappedWfh: SharedWfhRequest[] = wfhRes.data.map((r) => ({
-          id: r.id,
-          employeeId: r.employee_id,
-          employeeName: r.employee_name,
-          departmentId: r.department_id || "dept-development",
-          departmentName: r.department_name || "Development",
-          designation: r.designation || "Engineer",
-          startDate: r.start_date,
-          endDate: r.end_date,
-          daysCount: Number(r.days_count) || 1,
-          reason: r.reason,
-          availabilityHours: r.availability_hours || "10:00 AM – 07:00 PM",
-          contactMethod: r.contact_method || "Slack & Zoom",
-          plannedDeliverables: r.planned_deliverables,
-          status: r.status,
-          tlApproverName: r.tl_approver_name,
-          tlApprovedAt: r.tl_approved_at,
-          tlComment: r.tl_comment,
-          hrApproverName: r.hr_approver_name,
-          hrApprovedAt: r.hr_approved_at,
-          hrComment: r.hr_comment,
-          rejectionReason: r.rejection_reason,
-          createdAt: r.created_at,
-        }));
+        const mappedWfh: SharedWfhRequest[] = wfhRes.data
+          .map((r) => ({
+            id: r.id,
+            employeeId: r.employee_id,
+            employeeName: r.employee_name,
+            departmentId: r.department_id || "dept-development",
+            departmentName: r.department_name || "Development",
+            designation: r.designation || "Engineer",
+            startDate: r.start_date,
+            endDate: r.end_date,
+            daysCount: Number(r.days_count) || 1,
+            reason: r.reason,
+            availabilityHours: r.availability_hours || "10:00 AM – 07:00 PM",
+            contactMethod: r.contact_method || "Slack & Zoom",
+            plannedDeliverables: r.planned_deliverables,
+            status: r.status,
+            tlApproverName: r.tl_approver_name,
+            tlApprovedAt: r.tl_approved_at,
+            tlComment: r.tl_comment,
+            hrApproverName: r.hr_approver_name,
+            hrApprovedAt: r.hr_approved_at,
+            hrComment: r.hr_comment,
+            rejectionReason: r.rejection_reason,
+            createdAt: r.created_at,
+          }))
+          .filter((r) => !deletedWfhIds.has(r.id));
         globalWfhRequests = mappedWfh;
+        saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
       }
 
       if (fbRes.data && fbRes.data.length > 0) {
@@ -1103,11 +1470,82 @@ export const WorkpulseSharedStore = {
         globalFeedbacks = mappedFb;
       }
 
+      // Merge Supabase workdays into employee states
+      if (wdRes.data && wdRes.data.length > 0) {
+        // Filter out legacy dummy rows like 'wd-sarah-today'
+        const workdaysList = wdRes.data.filter((wd) => wd.id !== "wd-sarah-today");
+
+        for (const wd of workdaysList) {
+          const empId = wd.employee_id;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              if (emp.id === empId || emp.email.toLowerCase() === empId?.toLowerCase()) {
+                let currentTasks = Array.isArray(wd.planned_tasks) && wd.planned_tasks.length > 0 ? wd.planned_tasks : emp.plannedTasks;
+                
+                // If Sarah Dev has local tasks saved in workpulse_simple_tasks with higher task count, preserve them
+                if (typeof window !== "undefined" && (emp.id === "emp-sarah" || emp.email.toLowerCase() === "employee.test@xorstack.com")) {
+                  try {
+                    const localSaved = localStorage.getItem("workpulse_simple_tasks");
+                    if (localSaved) {
+                      const parsed = JSON.parse(localSaved);
+                      // Browser task storage is the source of truth for this interactive
+                      // task list, including an intentionally empty list after deletions.
+                      if (Array.isArray(parsed)) {
+                        currentTasks = parsed.map((t: any) => ({
+                          id: t.id,
+                          title: t.title,
+                          project: t.category || t.project || "General",
+                          priority: t.priority || "MEDIUM",
+                          estimatedMinutes: 60,
+                          completionPercentage: t.progress || 0,
+                          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+                          expectedOutput: t.title,
+                        }));
+                      }
+                    }
+                  } catch {}
+                }
+
+                return {
+                  ...emp,
+                  sodStatus: wd.sod_status === "VERIFIED" ? "VERIFIED" : wd.sod_status === "SUBMITTED" ? "SUBMITTED" : emp.sodStatus,
+                  sodTime: wd.sod_time || emp.sodTime,
+                  sodVerifiedBy: wd.sod_verified_by || emp.sodVerifiedBy,
+                  sodVerifiedAt: wd.sod_verified_at || emp.sodVerifiedAt,
+                  sodLeadNote: wd.sod_lead_note || wd.lead_feedback_note || emp.sodLeadNote,
+                  eodStatus: wd.eod_status === "VERIFIED" ? "VERIFIED" : wd.eod_status === "SUBMITTED" ? "SUBMITTED" : emp.eodStatus,
+                  eodTime: wd.eod_time || emp.eodTime,
+                  eodVerifiedBy: wd.eod_verified_by || emp.eodVerifiedBy,
+                  eodVerifiedAt: wd.eod_verified_at || emp.eodVerifiedAt,
+                  eodLeadRating: Number(wd.lead_rating) || emp.eodLeadRating,
+                  eodLeadComment: wd.lead_feedback_note || emp.eodLeadComment,
+                  eodLeadActionItem: wd.lead_action_item || emp.eodLeadActionItem,
+                  plannedTasks: currentTasks,
+                  overallProgress: Number(wd.overall_progress) ?? emp.overallProgress,
+                  eodAchievements: wd.achievements || emp.eodAchievements,
+                  eodBlockers: wd.blockers || emp.eodBlockers,
+                  eodTomorrowFocus: wd.tomorrow_focus || emp.eodTomorrowFocus,
+                };
+              }
+              return emp;
+            }),
+          }));
+        }
+      }
+
       notify();
     } catch {
       // Graceful offline fallback
     }
-  },
+  })();
+
+  try {
+    await activeSyncPromise;
+  } finally {
+    activeSyncPromise = null;
+  }
+},
 
   setEmployeesFromSupabase: (supaEmployees: any[]) => {
     if (!Array.isArray(supaEmployees) || supaEmployees.length === 0) return;
@@ -1176,8 +1614,8 @@ export const WorkpulseSharedStore = {
         workMode: se.workMode || se.work_mode || "OFFICE",
         status: se.status || "ACTIVE",
         employmentType: se.employmentType || se.employment_type || "Full-Time",
-        sodStatus: se.sodStatus || "SUBMITTED",
-        sodTime: se.sodTime || "10:15 AM",
+        sodStatus: se.sodStatus || "PENDING",
+        sodTime: se.sodTime,
         eodStatus: se.eodStatus || "IN_PROGRESS",
         overallProgress: se.overallProgress || 80,
         remainingLeaveBalance: Number(se.remainingLeaveBalance ?? se.leave_balance) || 12.0,
@@ -1189,9 +1627,22 @@ export const WorkpulseSharedStore = {
       };
     });
 
+    // Merge: Keep existing employees that might have been added in memory
+    const existingEmps = WorkpulseSharedStore.getAllEmployees();
+    const mergedMap = new Map<string, OrgEmployee>();
+    for (const emp of allMapped) {
+      mergedMap.set(emp.id, emp);
+    }
+    for (const emp of existingEmps) {
+      if (!mergedMap.has(emp.id)) {
+        mergedMap.set(emp.id, emp);
+      }
+    }
+    const finalEmployees = Array.from(mergedMap.values());
+
     // Populate each department cleanly with its direct members
     globalDepartments = XORSTACK_DEPARTMENTS.map((baseDept) => {
-      const deptEmployees = allMapped.filter(
+      const deptEmployees = finalEmployees.filter(
         (emp) =>
           emp.departmentId === baseDept.id ||
           emp.departmentName.toLowerCase() === baseDept.name.toLowerCase()
@@ -1323,10 +1774,11 @@ export const WorkpulseSharedStore = {
   },
   getDepartmentById: (id: string) => globalDepartments.find((d) => d.id === id),
   getEmployeeById: (id: string): OrgEmployee | undefined => {
+    const targetId = String(id).trim().toLowerCase();
     for (const dept of globalDepartments) {
-      const emp = dept.employees.find((e) => e.id === id);
+      const emp = dept.employees.find((e) => e.id.toLowerCase() === targetId || e.email.toLowerCase() === targetId);
       if (emp) return emp;
-      if (dept.teamLead.id === id) {
+      if (dept.teamLead.id.toLowerCase() === targetId || dept.teamLead.email.toLowerCase() === targetId) {
         return {
           id: dept.teamLead.id,
           name: dept.teamLead.name,
@@ -1432,12 +1884,14 @@ export const WorkpulseSharedStore = {
     updates: Partial<OrgEmployee>
   ): OrgEmployee | undefined => {
     let updatedEmployee: OrgEmployee | undefined = undefined;
+    const targetId = String(id).trim().toLowerCase();
+
     const currentDept = globalDepartments.find((d) =>
-      d.employees.some((e) => e.id === id)
+      d.employees.some((e) => e.id.toLowerCase() === targetId || e.email.toLowerCase() === targetId)
     );
     if (!currentDept) return undefined;
 
-    const existing = currentDept.employees.find((e) => e.id === id);
+    const existing = currentDept.employees.find((e) => e.id.toLowerCase() === targetId || e.email.toLowerCase() === targetId);
     if (!existing) return undefined;
 
     const targetDeptId = updates.departmentId || currentDept.id;
@@ -1475,7 +1929,7 @@ export const WorkpulseSharedStore = {
         if (d.id === currentDept.id) {
           return {
             ...d,
-            employees: d.employees.filter((e) => e.id !== id),
+            employees: d.employees.filter((e) => e.id.toLowerCase() !== targetId && e.email.toLowerCase() !== targetId),
           };
         }
         if (d.id === targetDept.id) {
@@ -1489,13 +1943,14 @@ export const WorkpulseSharedStore = {
     } else {
       // In-place department update
       globalDepartments = globalDepartments.map((d) => {
-        if (d.id === currentDept.id) {
-          return {
-            ...d,
-            employees: d.employees.map((e) => (e.id === id ? updated : e)),
-          };
-        }
-        return d;
+        if (d.id !== currentDept.id) return d;
+        return {
+          ...d,
+          employees: d.employees.map((e) => {
+            if (e.id.toLowerCase() !== targetId && e.email.toLowerCase() !== targetId) return e;
+            return updated;
+          }),
+        };
       });
     }
 
@@ -1647,15 +2102,947 @@ export const WorkpulseSharedStore = {
       globalFeedbacks = [newFeedback, ...globalFeedbacks];
     }
     notify();
+  },
+
+  // Morning Plan & Start-of-Day (SOD) Methods
+  submitEmployeeMorningPlan: (
+    employeeId: string,
+    tasks: Array<{
+      id?: string;
+      title: string;
+      project?: string;
+      priority?: "HIGH" | "MEDIUM" | "LOW";
+      estimatedMinutes?: number;
+      completionPercentage?: number;
+      status?: "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | "BLOCKED";
+      expectedOutput?: string;
+    }>,
+    morningNote?: string
+  ) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const formattedTasks = tasks.map((t, idx) => ({
+      id: t.id || `task-sod-${Date.now()}-${idx}`,
+      title: t.title,
+      project: t.project || "General",
+      priority: t.priority || "MEDIUM",
+      estimatedMinutes: t.estimatedMinutes || 60,
+      completionPercentage: t.completionPercentage || 0,
+      status: t.status || "NOT_STARTED",
+      expectedOutput: t.expectedOutput || t.title,
+    }));
+
+    const targetId = String(employeeId).trim().toLowerCase();
+    let updatedEmp: OrgEmployee | undefined;
+
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          updatedEmp = {
+            ...emp,
+            sodStatus: "SUBMITTED",
+            sodTime: timeStr,
+            sodEmployeeNote: morningNote || emp.sodEmployeeNote,
+            sodVerifiedBy: undefined,
+            sodVerifiedAt: undefined,
+            sodLeadNote: undefined,
+            eodStatus: "IN_PROGRESS",
+            eodTime: undefined,
+            eodVerifiedBy: undefined,
+            eodVerifiedAt: undefined,
+            plannedTasks: formattedTasks,
+            overallProgress: 0,
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    notify();
+
+    // Persist to Supabase
+    syncWorkdayToSupabase({
+      employeeId,
+      sodStatus: "SUBMITTED",
+      sodTime: timeStr,
+      eodStatus: "IN_PROGRESS",
+      plannedTasks: formattedTasks,
+      overallProgress: 0,
+    });
+
+    // Also call API endpoint for full server route logging
+    if (typeof window !== "undefined") {
+      fetch("/api/v1/workdays/sod", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId,
+          workDate: new Date().toISOString().split("T")[0],
+          tasks: formattedTasks,
+        }),
+      }).catch((e) => console.warn("SOD API sync error:", e));
+
+      try {
+        localStorage.setItem(`workpulse_morning_plan_submitted_${employeeId}`, JSON.stringify(true));
+        localStorage.setItem(`workpulse_morning_plan_timestamp_${employeeId}`, String(Date.now()));
+        localStorage.removeItem(`workpulse_evening_wrapup_submitted_${employeeId}`);
+        localStorage.removeItem(`workpulse_eod_timestamp_${employeeId}`);
+        
+        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(formattedTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          category: t.project,
+          priority: t.priority,
+          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+          progress: t.completionPercentage,
+          dueDate: "Today",
+        }))));
+
+        localStorage.setItem(`workpulse_simple_tasks_${employeeId}`, JSON.stringify(tasks.map((t, idx) => ({
+          id: t.id || `task-${Date.now()}-${idx}`,
+          title: t.title,
+          category: t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+          progress: t.completionPercentage || 0,
+          dueDate: "Today",
+        }))));
+        if (updatedEmp?.email) {
+          const emailKey = updatedEmp.email.toLowerCase();
+          localStorage.removeItem(`workpulse_evening_wrapup_submitted_${emailKey}`);
+          localStorage.removeItem(`workpulse_eod_timestamp_${emailKey}`);
+          localStorage.setItem(`workpulse_simple_tasks_${emailKey}`, JSON.stringify(tasks.map((t, idx) => ({
+            id: t.id || `task-${Date.now()}-${idx}`,
+            title: t.title,
+            category: t.project || "General",
+            priority: t.priority || "MEDIUM",
+            status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+            progress: t.completionPercentage || 0,
+            dueDate: "Today",
+          }))));
+        }
+
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          localStorage.removeItem("workpulse_evening_wrapup_submitted_emp-sarah");
+          localStorage.removeItem("workpulse_evening_wrapup_submitted_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_eod_timestamp_emp-sarah");
+          localStorage.removeItem("workpulse_eod_timestamp_employee.test@xorstack.com");
+        }
+
+        const savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
+        if (savedFeedback[employeeId]) {
+          savedFeedback[employeeId].sodAcknowledged = false;
+          savedFeedback[employeeId].eodAcknowledged = false;
+          savedFeedback[employeeId].eodSubmittedTime = undefined;
+          savedFeedback[employeeId].eodTimestamp = undefined;
+        }
+        if (updatedEmp?.email && savedFeedback[updatedEmp.email.toLowerCase()]) {
+          savedFeedback[updatedEmp.email.toLowerCase()].sodAcknowledged = false;
+          savedFeedback[updatedEmp.email.toLowerCase()].eodAcknowledged = false;
+          savedFeedback[updatedEmp.email.toLowerCase()].eodSubmittedTime = undefined;
+          savedFeedback[updatedEmp.email.toLowerCase()].eodTimestamp = undefined;
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          if (savedFeedback["emp-sarah"]) {
+            savedFeedback["emp-sarah"].sodAcknowledged = false;
+            savedFeedback["emp-sarah"].eodAcknowledged = false;
+            savedFeedback["emp-sarah"].eodSubmittedTime = undefined;
+            savedFeedback["emp-sarah"].eodTimestamp = undefined;
+          }
+          if (savedFeedback["employee.test@xorstack.com"]) {
+            savedFeedback["employee.test@xorstack.com"].sodAcknowledged = false;
+            savedFeedback["employee.test@xorstack.com"].eodAcknowledged = false;
+            savedFeedback["employee.test@xorstack.com"].eodSubmittedTime = undefined;
+            savedFeedback["employee.test@xorstack.com"].eodTimestamp = undefined;
+          }
+        }
+        localStorage.setItem("workpulse_lead_daily_feedback", JSON.stringify(savedFeedback));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "sod_submitted" } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
+
     try {
-      realtimeEventBus.emit("review:feedback_submitted", feedback);
-    } catch {
-      // safe fallback
+      realtimeEventBus.emit("workday:sod_submitted", { employeeId, tasks: formattedTasks, morningNote });
+    } catch {}
+
+    return updatedEmp;
+  },
+
+  leadVerifyMorningPlan: (employeeId: string, leadName: string, note?: string) => {
+    const now = new Date();
+    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    const targetId = String(employeeId).trim().toLowerCase();
+    const verifiedNote = note?.trim() || "Morning plan verified & approved by Team Lead.";
+
+    let updatedEmp: OrgEmployee | undefined;
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          updatedEmp = {
+            ...emp,
+            sodStatus: "VERIFIED",
+            sodVerifiedBy: leadName || "Alex Lead",
+            sodVerifiedAt: timeStr,
+            sodLeadNote: verifiedNote,
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(`workpulse_evening_wrapup_submitted_${employeeId}`);
+        localStorage.removeItem(`workpulse_eod_timestamp_${employeeId}`);
+        if (updatedEmp?.email) {
+          const emailKey = updatedEmp.email.toLowerCase();
+          localStorage.removeItem(`workpulse_evening_wrapup_submitted_${emailKey}`);
+          localStorage.removeItem(`workpulse_eod_timestamp_${emailKey}`);
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          localStorage.removeItem("workpulse_evening_wrapup_submitted_emp-sarah");
+          localStorage.removeItem("workpulse_evening_wrapup_submitted_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_eod_timestamp_emp-sarah");
+          localStorage.removeItem("workpulse_eod_timestamp_employee.test@xorstack.com");
+        }
+
+        const savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
+        const entry = {
+          ...savedFeedback[employeeId],
+          sodAcknowledged: true,
+          leadName: leadName || "Alex Lead",
+          sodNote: verifiedNote,
+          sodTime: timeStr,
+          sodTimestampMs: Date.now(),
+          eodAcknowledged: false,
+          eodSubmittedTime: undefined,
+          eodTimestamp: undefined,
+          eodReviewed: false,
+        };
+        savedFeedback[employeeId] = entry;
+        if (updatedEmp?.email) {
+          savedFeedback[updatedEmp.email.toLowerCase()] = entry;
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          savedFeedback["emp-sarah"] = entry;
+          savedFeedback["employee.test@xorstack.com"] = entry;
+        }
+        localStorage.setItem("workpulse_lead_daily_feedback", JSON.stringify(savedFeedback));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, verifiedNote, timeStr } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
+
+    notify();
+
+    // Persist to Supabase
+    syncWorkdayToSupabase({
+      employeeId,
+      sodStatus: "VERIFIED",
+      sodVerifiedBy: leadName || "Alex Lead",
+      sodVerifiedAt: timeStr,
+      sodLeadNote: verifiedNote,
+    });
+
+    try {
+      realtimeEventBus.emit("workday:sod_verified", { employeeId, leadName, note: verifiedNote });
+    } catch {}
+
+    return updatedEmp;
+  },
+
+  leadRequestMorningPlanChanges: (employeeId: string, leadName: string, reason: string) => {
+    const targetId = String(employeeId).trim().toLowerCase();
+    let updatedEmp: OrgEmployee | undefined;
+
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          updatedEmp = {
+            ...emp,
+            sodStatus: "CHANGES_REQUESTED",
+            sodLeadNote: reason,
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    notify();
+
+    syncWorkdayToSupabase({
+      employeeId,
+      sodStatus: "CHANGES_REQUESTED",
+      sodLeadNote: reason,
+    });
+
+    try {
+      realtimeEventBus.emit("workday:sod_changes_requested", { employeeId, leadName, reason });
+    } catch {}
+
+    return updatedEmp;
+  },
+
+  assignTaskToEmployee: (
+    employeeId: string,
+    task: {
+      title: string;
+      project?: string;
+      priority?: "HIGH" | "MEDIUM" | "LOW";
+      estimatedMinutes?: number;
+      assignedBy?: string;
+      assignedById?: string;
+      assignedAt?: string;
+    }
+  ) => {
+    const targetId = String(employeeId).trim().toLowerCase();
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const dateStr = now.toLocaleDateString([], { month: "short", day: "numeric" });
+    const assignedTimestamp = task.assignedAt || `${dateStr} at ${timeStr}`;
+
+    const newTask = {
+      id: `task-assigned-${Date.now()}`,
+      title: task.title,
+      project: task.project || "Frontend & UI",
+      category: task.project || "Frontend & UI",
+      priority: task.priority || "MEDIUM",
+      estimatedMinutes: task.estimatedMinutes || 60,
+      completionPercentage: 0,
+      progress: 0,
+      status: "NOT_STARTED" as const,
+      expectedOutput: task.title,
+      dueDate: "Today",
+      assignedBy: task.assignedBy || "Alex Lead",
+      assignedById: task.assignedById || "lead-alex",
+      assignedAt: assignedTimestamp,
+      acknowledged: false,
+    };
+
+    let updatedEmp: OrgEmployee | undefined;
+
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          const updatedPlanned = [newTask, ...(emp.plannedTasks || [])];
+          updatedEmp = {
+            ...emp,
+            plannedTasks: updatedPlanned,
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    notify();
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const simpleNew = {
+          id: newTask.id,
+          title: newTask.title,
+          category: newTask.project,
+          priority: newTask.priority,
+          status: "NOT_STARTED",
+          progress: 0,
+          dueDate: "Today",
+          assignedBy: newTask.assignedBy,
+          assignedById: newTask.assignedById,
+          assignedAt: newTask.assignedAt,
+          acknowledged: false,
+        };
+
+        // 1. Employee-specific keys
+        const empKeys = [
+          `workpulse_simple_tasks_${targetId}`,
+          updatedEmp?.email ? `workpulse_simple_tasks_${updatedEmp.email.toLowerCase()}` : null,
+          targetId === "emp-sarah" || targetId === "employee.test@xorstack.com" ? "workpulse_simple_tasks" : null,
+        ].filter(Boolean) as string[];
+
+        empKeys.forEach((key) => {
+          const currentSaved = JSON.parse(window.localStorage.getItem(key) || "[]");
+          window.localStorage.setItem(key, JSON.stringify([simpleNew, ...currentSaved]));
+        });
+
+        // 2. Global assigned tasks log for leads
+        const currentLog = JSON.parse(window.localStorage.getItem("workpulse_assigned_tasks_log") || "[]");
+        const logEntry = {
+          ...simpleNew,
+          targetEmployeeId: updatedEmp?.id || targetId,
+          targetEmployeeName: updatedEmp?.name || "Team Member",
+          targetEmployeeEmail: updatedEmp?.email || "",
+          targetEmployeeAvatar: updatedEmp?.avatar || "SD",
+          targetEmployeeDesignation: updatedEmp?.designation || "Engineer",
+        };
+        window.localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify([logEntry, ...currentLog]));
+
+        // Dispatch events
+        window.dispatchEvent(
+          new CustomEvent("workpulse:task_assigned", { detail: { employeeId: targetId, task: simpleNew } })
+        );
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated"));
+      } catch {}
+    }
+
+    try {
+      realtimeEventBus.emit("workday:task_assigned", { employeeId: targetId, task: newTask });
+    } catch {}
+
+    return updatedEmp;
+  },
+
+  acknowledgeAssignedTask: (
+    employeeId: string,
+    taskId: string,
+    note?: string
+  ) => {
+    const targetId = String(employeeId).trim().toLowerCase();
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const dateStr = now.toLocaleDateString([], { month: "short", day: "numeric" });
+    const ackTime = `${dateStr} at ${timeStr}`;
+    const ackNote = note?.trim() || "Understood & accepted. Starting work on this deliverable.";
+
+    let updatedTask: any = null;
+    let empName = "Team Member";
+
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          empName = emp.name;
+          const updatedPlanned = (emp.plannedTasks || []).map((t) => {
+            if (t.id === taskId) {
+              updatedTask = {
+                ...t,
+                acknowledged: true,
+                acknowledgedAt: ackTime,
+                acknowledgementNote: ackNote,
+                status: t.status === "NOT_STARTED" ? "IN_PROGRESS" : t.status,
+                completionPercentage: t.completionPercentage > 0 ? t.completionPercentage : 20,
+              };
+              return updatedTask;
+            }
+            return t;
+          });
+          return {
+            ...emp,
+            plannedTasks: updatedPlanned,
+          };
+        }
+        return emp;
+      }),
+    }));
+
+    notify();
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        // Update employee storage keys
+        const keysToUpdate = [
+          `workpulse_simple_tasks_${targetId}`,
+          "workpulse_simple_tasks",
+        ];
+        keysToUpdate.forEach((key) => {
+          const raw = window.localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                const updated = parsed.map((t: any) => {
+                  if (t.id === taskId) {
+                    return {
+                      ...t,
+                      acknowledged: true,
+                      acknowledgedAt: ackTime,
+                      acknowledgementNote: ackNote,
+                      status: t.status === "NOT_STARTED" ? "IN_PROGRESS" : t.status,
+                      progress: t.progress > 0 ? t.progress : 20,
+                    };
+                  }
+                  return t;
+                });
+                window.localStorage.setItem(key, JSON.stringify(updated));
+              }
+            } catch {}
+          }
+        });
+
+        // Update assigned tasks log
+        const logRaw = window.localStorage.getItem("workpulse_assigned_tasks_log");
+        if (logRaw) {
+          try {
+            const logParsed = JSON.parse(logRaw);
+            if (Array.isArray(logParsed)) {
+              const updatedLog = logParsed.map((item: any) => {
+                if (item.id === taskId) {
+                  return {
+                    ...item,
+                    acknowledged: true,
+                    acknowledgedAt: ackTime,
+                    acknowledgementNote: ackNote,
+                    status: item.status === "NOT_STARTED" ? "IN_PROGRESS" : item.status,
+                    progress: item.progress > 0 ? item.progress : 20,
+                  };
+                }
+                return item;
+              });
+              window.localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(updatedLog));
+            }
+          } catch {}
+        }
+
+        window.dispatchEvent(
+          new CustomEvent("workpulse:task_acknowledged", {
+            detail: { employeeId: targetId, employeeName: empName, taskId, note: ackNote, time: ackTime },
+          })
+        );
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated"));
+      } catch {}
+    }
+
+    try {
+      realtimeEventBus.emit("workday:task_acknowledged", {
+        employeeId: targetId,
+        employeeName: empName,
+        taskId,
+        note: ackNote,
+        time: ackTime,
+      });
+    } catch {}
+
+    return updatedTask;
+  },
+
+  deleteAssignedTask: (taskId: string) => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const logRaw = window.localStorage.getItem("workpulse_assigned_tasks_log");
+        if (logRaw) {
+          const logParsed = JSON.parse(logRaw);
+          if (Array.isArray(logParsed)) {
+            const updatedLog = logParsed.filter((item: any) => item.id !== taskId);
+            window.localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(updatedLog));
+          }
+        }
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated"));
+      } catch {}
     }
   },
 
+  // Evening Wrap-Up & End-of-Day (EOD) Methods
+  submitEmployeeEveningWrapup: (
+    employeeId: string,
+    tasks: Array<{
+      id?: string;
+      title: string;
+      project?: string;
+      category?: string;
+      priority?: "HIGH" | "MEDIUM" | "LOW";
+      estimatedMinutes?: number;
+      completionPercentage?: number;
+      status?: "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED" | "BLOCKED";
+      expectedOutput?: string;
+    }>,
+    summary: {
+      achievements: string;
+      blockers?: string;
+      tomorrowFocus?: string;
+    }
+  ) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const timestampMs = Date.now();
+    const targetId = String(employeeId).trim().toLowerCase();
+
+    let totalProgress = 0;
+    const formattedTasks = tasks.map((t, idx) => {
+      const progress = Number(t.completionPercentage) || (t.status === "COMPLETED" ? 100 : 0);
+      totalProgress += progress;
+      return {
+        id: t.id || `task-eod-${Date.now()}-${idx}`,
+        title: t.title,
+        project: t.project || t.category || "General",
+        category: t.category || t.project || "General",
+        priority: t.priority || "MEDIUM",
+        estimatedMinutes: t.estimatedMinutes || 60,
+        completionPercentage: progress,
+        progress: progress,
+        status: progress === 100 ? ("COMPLETED" as const) : progress > 0 ? ("IN_PROGRESS" as const) : ("NOT_STARTED" as const),
+        expectedOutput: t.expectedOutput || t.title,
+      };
+    });
+
+    const avgProgress = formattedTasks.length > 0 ? Math.round(totalProgress / formattedTasks.length) : 100;
+
+    // Split completed vs partially completed (rollover) tasks
+    const completedTasks = formattedTasks.filter((t) => t.completionPercentage === 100 || t.status === "COMPLETED");
+    const rolloverTasks = formattedTasks.filter((t) => (t.completionPercentage || 0) < 100 && t.status !== "COMPLETED");
+
+    let updatedEmp: OrgEmployee | undefined;
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          updatedEmp = {
+            ...emp,
+            sodStatus: "PENDING",
+            sodTime: undefined,
+            sodVerifiedBy: undefined,
+            sodVerifiedAt: undefined,
+            sodLeadNote: undefined,
+            eodStatus: "SUBMITTED",
+            eodTime: timeStr,
+            eodAchievements: summary.achievements,
+            eodBlockers: summary.blockers || "None",
+            eodTomorrowFocus: summary.tomorrowFocus || "",
+            plannedTasks: formattedTasks.length > 0 ? formattedTasks : (rolloverTasks.length > 0 ? rolloverTasks : []),
+            overallProgress: avgProgress,
+            eodVerifiedBy: undefined,
+            eodVerifiedAt: undefined,
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    notify();
+
+    // Persist to Supabase
+    syncWorkdayToSupabase({
+      employeeId,
+      sodStatus: "PENDING",
+      eodStatus: "SUBMITTED",
+      eodTime: timeStr,
+      achievements: summary.achievements,
+      blockers: summary.blockers || "None",
+      tomorrowFocus: summary.tomorrowFocus || "",
+      plannedTasks: formattedTasks,
+      overallProgress: avgProgress,
+    });
+
+    // Also call API endpoint
+    if (typeof window !== "undefined") {
+      fetch("/api/v1/workdays/eod", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId,
+          achievements: summary.achievements,
+          issues: summary.blockers,
+          nextDayFocus: summary.tomorrowFocus,
+          tasks: formattedTasks,
+        }),
+      }).catch((e) => console.warn("EOD API sync error:", e));
+
+      try {
+        const todayKey = new Date().toISOString().split("T")[0]; // e.g. "2026-09-02"
+        localStorage.removeItem(`workpulse_morning_plan_submitted_${employeeId}`);
+        // Save full submitted EOD tasks snapshot
+        localStorage.setItem(`workpulse_eod_submitted_tasks_${employeeId}`, JSON.stringify(formattedTasks));
+        if (updatedEmp?.email) {
+          localStorage.setItem(`workpulse_eod_submitted_tasks_${updatedEmp.email.toLowerCase()}`, JSON.stringify(formattedTasks));
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          localStorage.setItem("workpulse_eod_submitted_tasks_emp-sarah", JSON.stringify(formattedTasks));
+          localStorage.setItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com", JSON.stringify(formattedTasks));
+        }
+
+        // Date-scoped EOD flag — automatically expires on a new day (different key)
+        localStorage.setItem(`workpulse_eod_submitted_${employeeId}_${todayKey}`, "true");
+        localStorage.setItem(`workpulse_eod_timestamp_${employeeId}`, String(timestampMs));
+        
+        // Archive completed tasks in history
+        const existingHistory = JSON.parse(localStorage.getItem(`workpulse_completed_tasks_history_${employeeId}`) || "[]");
+        const newHistory = [...existingHistory, ...completedTasks.map((t) => ({ ...t, completedDate: new Date().toISOString() }))];
+        localStorage.setItem(`workpulse_completed_tasks_history_${employeeId}`, JSON.stringify(newHistory));
+
+        // Save only partially completed rollover tasks in active task queue
+        localStorage.setItem(`workpulse_simple_tasks_${employeeId}`, JSON.stringify(rolloverTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          category: t.category || t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: (t.completionPercentage || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+          progress: t.completionPercentage || 0,
+          dueDate: "Today",
+        }))));
+        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(rolloverTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          category: t.category || t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: (t.completionPercentage || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+          progress: t.completionPercentage || 0,
+          dueDate: "Today",
+        }))));
+
+        if (updatedEmp?.email) {
+          const emailKey = updatedEmp.email.toLowerCase();
+          localStorage.removeItem(`workpulse_morning_plan_submitted_${emailKey}`);
+          localStorage.setItem(`workpulse_eod_submitted_${emailKey}_${todayKey}`, "true");
+          localStorage.setItem(`workpulse_eod_timestamp_${emailKey}`, String(timestampMs));
+          localStorage.setItem(`workpulse_simple_tasks_${emailKey}`, JSON.stringify(rolloverTasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            category: t.category || t.project || "General",
+            priority: t.priority || "MEDIUM",
+            status: (t.completionPercentage || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+            progress: t.completionPercentage || 0,
+            dueDate: "Today",
+          }))));
+        }
+
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          localStorage.removeItem("workpulse_morning_plan_submitted_emp-sarah");
+          localStorage.removeItem("workpulse_morning_plan_submitted_employee.test@xorstack.com");
+          // Set date-scoped alias flags for both known sarah keys
+          localStorage.setItem(`workpulse_eod_submitted_emp-sarah_${todayKey}`, "true");
+          localStorage.setItem(`workpulse_eod_submitted_employee.test@xorstack.com_${todayKey}`, "true");
+        }
+
+        const savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
+        const entry = {
+          ...savedFeedback[employeeId],
+          sodAcknowledged: false,
+          eodAcknowledged: false,
+          eodReviewed: false,
+          eodSubmittedTime: timeStr,
+          eodTimestamp: timestampMs,
+          achievements: summary.achievements,
+          blockers: summary.blockers,
+          tomorrowFocus: summary.tomorrowFocus,
+        };
+        savedFeedback[employeeId] = entry;
+        if (updatedEmp?.email) {
+          savedFeedback[updatedEmp.email.toLowerCase()] = entry;
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          savedFeedback["emp-sarah"] = entry;
+          savedFeedback["employee.test@xorstack.com"] = entry;
+        }
+        localStorage.setItem("workpulse_lead_daily_feedback", JSON.stringify(savedFeedback));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "eod_submitted" } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
+
+    try {
+      realtimeEventBus.emit("workday:eod_submitted", { employeeId, tasks: formattedTasks, summary });
+    } catch {}
+
+    return updatedEmp;
+  },
+
+  // Reset workday for a fresh next day (resets SOD & EOD, preserves partially completed rollover tasks)
+  startNewWorkday: (employeeId: string) => {
+    const targetId = String(employeeId).trim().toLowerCase();
+    let updatedEmp: OrgEmployee | undefined;
+
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          const carriedOverTasks = (emp.plannedTasks || []).filter(
+            (t) => (t.completionPercentage || 0) < 100 && t.status !== "COMPLETED"
+          );
+          updatedEmp = {
+            ...emp,
+            sodStatus: "PENDING",
+            sodTime: undefined,
+            sodVerifiedBy: undefined,
+            sodVerifiedAt: undefined,
+            sodLeadNote: undefined,
+            eodStatus: "PENDING",
+            eodTime: undefined,
+            eodVerifiedBy: undefined,
+            eodVerifiedAt: undefined,
+            eodLeadRating: undefined,
+            eodLeadComment: undefined,
+            eodLeadActionItem: undefined,
+            plannedTasks: carriedOverTasks,
+            overallProgress: 0,
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(`workpulse_morning_plan_submitted_${employeeId}`);
+        localStorage.removeItem(`workpulse_evening_wrapup_submitted_${employeeId}`);
+        localStorage.removeItem(`workpulse_eod_timestamp_${employeeId}`);
+        if (updatedEmp?.email) {
+          const emailKey = updatedEmp.email.toLowerCase();
+          localStorage.removeItem(`workpulse_morning_plan_submitted_${emailKey}`);
+          localStorage.removeItem(`workpulse_evening_wrapup_submitted_${emailKey}`);
+          localStorage.removeItem(`workpulse_eod_timestamp_${emailKey}`);
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          localStorage.removeItem("workpulse_morning_plan_submitted_emp-sarah");
+          localStorage.removeItem("workpulse_evening_wrapup_submitted_emp-sarah");
+          localStorage.removeItem("workpulse_eod_timestamp_emp-sarah");
+          localStorage.removeItem("workpulse_morning_plan_submitted_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_evening_wrapup_submitted_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_eod_timestamp_employee.test@xorstack.com");
+        }
+
+        const savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
+        if (savedFeedback[employeeId]) {
+          savedFeedback[employeeId].sodAcknowledged = false;
+          savedFeedback[employeeId].eodAcknowledged = false;
+        }
+        if (updatedEmp?.email && savedFeedback[updatedEmp.email.toLowerCase()]) {
+          savedFeedback[updatedEmp.email.toLowerCase()].sodAcknowledged = false;
+          savedFeedback[updatedEmp.email.toLowerCase()].eodAcknowledged = false;
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          if (savedFeedback["emp-sarah"]) {
+            savedFeedback["emp-sarah"].sodAcknowledged = false;
+            savedFeedback["emp-sarah"].eodAcknowledged = false;
+          }
+          if (savedFeedback["employee.test@xorstack.com"]) {
+            savedFeedback["employee.test@xorstack.com"].sodAcknowledged = false;
+            savedFeedback["employee.test@xorstack.com"].eodAcknowledged = false;
+          }
+        }
+        localStorage.setItem("workpulse_lead_daily_feedback", JSON.stringify(savedFeedback));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "new_workday" } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
+
+    notify();
+    return updatedEmp;
+  },
+
+  leadVerifyEveningWrapup: (
+    employeeId: string,
+    leadName: string,
+    feedback: {
+      rating: number;
+      comment: string;
+      actionItem?: string;
+    }
+  ) => {
+    const now = new Date();
+    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    const targetId = String(employeeId).trim().toLowerCase();
+
+    let updatedEmp: OrgEmployee | undefined;
+    globalDepartments = globalDepartments.map((dept) => ({
+      ...dept,
+      employees: dept.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+          updatedEmp = {
+            ...emp,
+            eodStatus: "VERIFIED",
+            eodVerifiedBy: leadName || "Alex Lead",
+            eodVerifiedAt: timeStr,
+            eodLeadRating: feedback.rating,
+            eodLeadComment: feedback.comment,
+            eodLeadActionItem: feedback.actionItem || "Present highlights in tomorrow's sync.",
+          };
+          return updatedEmp;
+        }
+        return emp;
+      }),
+    }));
+
+    // Cascade update to global feedbacks
+    WorkpulseSharedStore.updateLeadFeedback({
+      employeeId,
+      employeeName: updatedEmp?.name || "Employee",
+      note: feedback.comment,
+      rating: feedback.rating,
+      actionItem: feedback.actionItem,
+    });
+
+    notify();
+
+    // Persist to Supabase
+    syncWorkdayToSupabase({
+      employeeId,
+      eodStatus: "VERIFIED",
+      eodVerifiedBy: leadName || "Alex Lead",
+      eodVerifiedAt: timeStr,
+      eodLeadRating: feedback.rating,
+      eodLeadComment: feedback.comment,
+      eodLeadActionItem: feedback.actionItem,
+    });
+
+    if (typeof window !== "undefined") {
+      try {
+        const savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
+        const entry = {
+          ...savedFeedback[employeeId],
+          eodAcknowledged: true,
+          eodReviewed: true,
+          rating: feedback.rating,
+          eodLeadRating: feedback.rating,
+          eodLeadComment: feedback.comment,
+          eodComment: feedback.comment,
+          actionItem: feedback.actionItem,
+          eodLeadActionItem: feedback.actionItem,
+          eodTime: timeStr,
+          eodVerifiedBy: leadName || "Alex Lead",
+        };
+        savedFeedback[employeeId] = entry;
+        if (updatedEmp?.email) {
+          savedFeedback[updatedEmp.email.toLowerCase()] = entry;
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          savedFeedback["emp-sarah"] = entry;
+          savedFeedback["employee.test@xorstack.com"] = entry;
+        }
+        localStorage.setItem("workpulse_lead_daily_feedback", JSON.stringify(savedFeedback));
+        window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "eod_verified" } }));
+      } catch {}
+    }
+
+    try {
+      realtimeEventBus.emit("workday:eod_verified", { employeeId, leadName, feedback });
+    } catch {}
+
+    return updatedEmp;
+  },
+
   // Leave Requests
-  getLeaveRequests: () => globalLeaveRequests,
+  getLeaveRequests: () => {
+    if (typeof window !== "undefined") {
+      const deletedIds = getDeletedLeaveIds();
+      const saved = loadFromStorage<SharedLeaveRequest[] | null>(STORAGE_KEYS.LEAVE, null);
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        globalLeaveRequests = saved.filter((r) => !deletedIds.has(r.id));
+      } else {
+        globalLeaveRequests = globalLeaveRequests.filter((r) => !deletedIds.has(r.id));
+      }
+    }
+    return globalLeaveRequests;
+  },
+  setLeaveRequestsFromSupabase: (requests: SharedLeaveRequest[]) => {
+    if (Array.isArray(requests)) {
+      const deletedIds = getDeletedLeaveIds();
+      globalLeaveRequests = requests.filter((r) => !deletedIds.has(r.id));
+      saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+      notify();
+    }
+  },
   tlApproveLeave: (requestId: string, comment?: string, leadName?: string) => {
     let updatedReq: SharedLeaveRequest | undefined;
     globalLeaveRequests = globalLeaveRequests.map((req) => {
@@ -1814,6 +3201,26 @@ export const WorkpulseSharedStore = {
     return newReq;
   },
 
+  deleteLeaveRequest: (requestId: string) => {
+    globalLeaveRequests = globalLeaveRequests.filter((req) => req.id !== requestId);
+    if (typeof window !== "undefined") {
+      try {
+        const deleted = Array.from(getDeletedLeaveIds());
+        if (!deleted.includes(requestId)) {
+          deleted.push(requestId);
+          window.localStorage.setItem(STORAGE_KEYS.DELETED_LEAVE_IDS, JSON.stringify(deleted));
+        }
+        saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+      } catch {}
+      fetch(`/api/v1/leave/${requestId}`, { method: "DELETE" }).catch(() => {});
+      fetch(`/api/v1/leave-requests/${requestId}`, { method: "DELETE" }).catch(() => {});
+    }
+    notify();
+    try {
+      realtimeEventBus.emit("leave:deleted", { id: requestId });
+    } catch {}
+  },
+
   addWfhRequest: (req: {
     employeeId?: string;
     employeeName?: string;
@@ -1851,8 +3258,47 @@ export const WorkpulseSharedStore = {
     return newReq;
   },
 
+  deleteWfhRequest: (requestId: string) => {
+    globalWfhRequests = globalWfhRequests.filter((req) => req.id !== requestId);
+    if (typeof window !== "undefined") {
+      try {
+        const deleted = Array.from(getDeletedWfhIds());
+        if (!deleted.includes(requestId)) {
+          deleted.push(requestId);
+          window.localStorage.setItem(STORAGE_KEYS.DELETED_WFH_IDS, JSON.stringify(deleted));
+        }
+        saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+      } catch {}
+      fetch(`/api/v1/leave/wfh/${requestId}`, { method: "DELETE" }).catch(() => {});
+      fetch(`/api/v1/work-mode-requests/${requestId}`, { method: "DELETE" }).catch(() => {});
+    }
+    notify();
+    try {
+      realtimeEventBus.emit("wfh:deleted", { id: requestId });
+    } catch {}
+  },
+
   // WFH Requests
-  getWfhRequests: () => globalWfhRequests,
+  getWfhRequests: () => {
+    if (typeof window !== "undefined") {
+      const deletedIds = getDeletedWfhIds();
+      const saved = loadFromStorage<SharedWfhRequest[] | null>(STORAGE_KEYS.WFH, null);
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        globalWfhRequests = saved.filter((r) => !deletedIds.has(r.id));
+      } else {
+        globalWfhRequests = globalWfhRequests.filter((r) => !deletedIds.has(r.id));
+      }
+    }
+    return globalWfhRequests;
+  },
+  setWfhRequestsFromSupabase: (requests: SharedWfhRequest[]) => {
+    if (Array.isArray(requests)) {
+      const deletedIds = getDeletedWfhIds();
+      globalWfhRequests = requests.filter((r) => !deletedIds.has(r.id));
+      saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+      notify();
+    }
+  },
   tlApproveWfh: (requestId: string, comment?: string, leadName?: string) => {
     let updatedReq: SharedWfhRequest | undefined;
     globalWfhRequests = globalWfhRequests.map((req) => {
@@ -1941,6 +3387,222 @@ export const WorkpulseSharedStore = {
       // safe fallback
     }
   },
+
+  // Profile Change Queries
+  getProfileQueries: () => globalProfileQueries,
+  submitProfileQuery: (query: {
+    employeeId: string;
+    employeeName: string;
+    employeeEmail: string;
+    departmentName?: string;
+    category: string;
+    requestedChange: string;
+    reason?: string;
+  }) => {
+    const newTicketNum = `HR-REQ-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newQuery: SharedProfileQuery = {
+      id: `qry-${Date.now()}`,
+      ticketNumber: newTicketNum,
+      employeeId: query.employeeId,
+      employeeName: query.employeeName,
+      employeeEmail: query.employeeEmail,
+      departmentName: query.departmentName || "Development",
+      category: query.category,
+      requestedChange: query.requestedChange,
+      reason: query.reason || "Profile record update request.",
+      status: "PENDING_HR_REVIEW",
+      submittedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+    };
+    globalProfileQueries = [newQuery, ...globalProfileQueries];
+    notify();
+    try {
+      realtimeEventBus.emit("profile:query_submitted", newQuery);
+    } catch {
+      // safe fallback
+    }
+    return newQuery;
+  },
+  hrApproveProfileQuery: (queryId: string, remarks?: string) => {
+    let affectedQuery: SharedProfileQuery | undefined;
+    const targetId = String(queryId).trim().toLowerCase();
+    globalProfileQueries = globalProfileQueries.map((q) => {
+      if (q.id.toLowerCase() === targetId || q.ticketNumber.toLowerCase() === targetId) {
+        affectedQuery = {
+          ...q,
+          status: "APPROVED",
+          hrRemarks: remarks || "Approved and applied to employee records.",
+          resolvedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        };
+        return affectedQuery;
+      }
+      return q;
+    });
+
+    if (affectedQuery) {
+      // Automatically apply changes to the employee record
+      const emp = WorkpulseSharedStore.getAllEmployees().find(
+        (e) =>
+          e.id === affectedQuery?.employeeId ||
+          e.email.toLowerCase() === affectedQuery?.employeeEmail.toLowerCase()
+      );
+
+      if (emp) {
+        const cat = affectedQuery.category.toLowerCase();
+        const change = affectedQuery.requestedChange;
+
+        if (cat.includes("contact") || cat.includes("phone") || cat.includes("mobile")) {
+          // Extract phone number or use requestedChange
+          const phoneMatch = change.match(/(\+?\d[\d\s-]{7,}\d)/);
+          const newPhone = phoneMatch ? phoneMatch[0] : change;
+          WorkpulseSharedStore.updateEmployee(emp.id, { phoneNumber: newPhone });
+        } else if (cat.includes("name")) {
+          WorkpulseSharedStore.updateEmployee(emp.id, { name: change });
+        } else if (cat.includes("department")) {
+          WorkpulseSharedStore.updateEmployee(emp.id, { departmentName: change });
+        } else if (cat.includes("shift") || cat.includes("location")) {
+          WorkpulseSharedStore.updateEmployee(emp.id, { workLocation: change });
+        }
+      }
+    }
+
+    notify();
+    try {
+      realtimeEventBus.emit("profile:query_approved", { id: queryId, remarks });
+    } catch {
+      // safe fallback
+    }
+    return affectedQuery;
+  },
+  hrRejectProfileQuery: (queryId: string, remarks?: string) => {
+    let affectedQuery: SharedProfileQuery | undefined;
+    const targetId = String(queryId).trim().toLowerCase();
+    globalProfileQueries = globalProfileQueries.map((q) => {
+      if (q.id.toLowerCase() === targetId || q.ticketNumber.toLowerCase() === targetId) {
+        affectedQuery = {
+          ...q,
+          status: "REJECTED",
+          hrRemarks: remarks || "Declined: Details could not be verified.",
+          resolvedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        };
+        return affectedQuery;
+      }
+      return q;
+    });
+    notify();
+    try {
+      realtimeEventBus.emit("profile:query_rejected", { id: queryId, remarks });
+    } catch {
+      // safe fallback
+    }
+    return affectedQuery;
+  },
+  getHelpRequests: () => [...globalHelpRequests],
+  requestLeadHelp: (req: Omit<SharedLeadHelpRequest, "id" | "createdAt" | "status">) => {
+    const now = new Date();
+    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    const newHelp: SharedLeadHelpRequest = {
+      id: `help-${Date.now()}`,
+      ...req,
+      status: "PENDING",
+      createdAt: timeStr,
+    };
+    globalHelpRequests = [newHelp, ...globalHelpRequests.filter((h) => h.employeeId !== req.employeeId || h.status === "RESOLVED")];
+    notify();
+    try {
+      realtimeEventBus.emit("workday:help_requested", newHelp);
+    } catch {}
+    return newHelp;
+  },
+  acknowledgeHelpRequest: (id: string, responseNote?: string) => {
+    const now = new Date();
+    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    globalHelpRequests = globalHelpRequests.map((h) =>
+      h.id === id
+        ? {
+            ...h,
+            status: "ACKNOWLEDGED",
+            acknowledgedAt: timeStr,
+            leadResponse: responseNote || "Lead has acknowledged your request and is connecting with you.",
+          }
+        : h
+    );
+    notify();
+    try {
+      realtimeEventBus.emit("workday:help_acknowledged", { id, responseNote });
+    } catch {}
+  },
+  resolveHelpRequest: (id: string) => {
+    const now = new Date();
+    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    globalHelpRequests = globalHelpRequests.map((h) =>
+      h.id === id
+        ? {
+            ...h,
+            status: "RESOLVED",
+            resolvedAt: timeStr,
+          }
+        : h
+    );
+    notify();
+    try {
+      realtimeEventBus.emit("workday:help_resolved", { id });
+    } catch {}
+  },
+  cancelHelpRequest: (id: string) => {
+    globalHelpRequests = globalHelpRequests.filter((h) => h.id !== id);
+    notify();
+  },
+  getTeamPresence: () => [...globalTeamPresence],
+  verifyMemberPresence: (id: string, verifierName: string = "Alex Lead") => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    globalTeamPresence = globalTeamPresence.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            verified: true,
+            verifiedAt: timeStr,
+            verifiedBy: verifierName,
+            status: "ON_TIME",
+          }
+        : p
+    );
+    notify();
+    try {
+      realtimeEventBus.emit("attendance:presence_verified", { id, verifierName, verifiedAt: timeStr });
+    } catch {}
+  },
+  verifyAllMemberPresence: (verifierName: string = "Alex Lead") => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    globalTeamPresence = globalTeamPresence.map((p) => ({
+      ...p,
+      verified: true,
+      verifiedAt: timeStr,
+      verifiedBy: verifierName,
+      status: "ON_TIME",
+    }));
+    notify();
+    try {
+      realtimeEventBus.emit("attendance:all_presence_verified", { verifierName, verifiedAt: timeStr });
+    } catch {}
+  },
+  unverifyMemberPresence: (id: string) => {
+    globalTeamPresence = globalTeamPresence.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            verified: false,
+            verifiedAt: undefined,
+            verifiedBy: undefined,
+          }
+        : p
+    );
+    notify();
+    try {
+      realtimeEventBus.emit("attendance:presence_verified", { id, unverified: true });
+    } catch {}
+  },
 };
 
 // React hook for consuming shared state
@@ -1980,7 +3642,7 @@ const globalWeeklyReviews: any[] = [
     id: "rev-sprint34",
     employeeId: "emp-sarah",
     employeeName: "Sarah Dev",
-    period: "Sprint 34 (Aug 18 - Aug 22, 2026)",
+    period: "This Week (Aug 18 - Aug 22, 2026)",
     status: "APPROVED",
     selfSummary: "Completed REST route handlers and enhanced biometric edge connectors.",
     managerFeedback: "Exceptional architecture work and timely delivery.",
@@ -2031,6 +3693,12 @@ export const workpulseSharedStore = {
     tlRejectWfh: WorkpulseSharedStore.tlRejectWfh,
     hrApproveWfh: WorkpulseSharedStore.hrApproveWfh,
     hrRejectWfh: WorkpulseSharedStore.hrRejectWfh,
+    submitEmployeeMorningPlan: WorkpulseSharedStore.submitEmployeeMorningPlan,
+    leadVerifyMorningPlan: WorkpulseSharedStore.leadVerifyMorningPlan,
+    leadRequestMorningPlanChanges: WorkpulseSharedStore.leadRequestMorningPlanChanges,
+    submitEmployeeEveningWrapup: WorkpulseSharedStore.submitEmployeeEveningWrapup,
+    leadVerifyEveningWrapup: WorkpulseSharedStore.leadVerifyEveningWrapup,
+    startNewWorkday: WorkpulseSharedStore.startNewWorkday,
     virtualPunch: () => {
       globalMyPunches.unshift({
         id: `punch-${Date.now()}`,
@@ -2051,4 +3719,3 @@ export const workpulseSharedStore = {
     },
   }),
 };
-

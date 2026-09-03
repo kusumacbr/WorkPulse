@@ -11,16 +11,14 @@ import { useCurrentUser } from "@/components/layout/UserContext";
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
 import {
   Calendar,
-  Laptop,
   CheckCircle2,
   XCircle,
-  Plus,
   Users,
   Clock,
   ShieldCheck,
 } from "lucide-react";
 
-type LeadLeaveTab = "POD_APPROVALS" | "HR_STAGE_2" | "MY_LEAVES" | "POD_BALANCES";
+type LeadLeaveTab = "TEAM_APPROVALS" | "HR_STAGE_2" | "MY_LEAVES" | "TEAM_BALANCES";
 
 export function LeadLeaveManager() {
   const user = useCurrentUser();
@@ -29,7 +27,7 @@ export function LeadLeaveManager() {
     user.primaryRole === "HR" ||
     user.userEmail.toLowerCase().includes("hr");
 
-  const [activeTab, setActiveTab] = useState<LeadLeaveTab>(isHR ? "HR_STAGE_2" : "POD_APPROVALS");
+  const [activeTab, setActiveTab] = useState<LeadLeaveTab>(isHR ? "HR_STAGE_2" : "TEAM_APPROVALS");
   const [approvalFilter, setApprovalFilter] = useState<"ALL" | "LEAVE" | "WFH">("ALL");
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
@@ -70,52 +68,161 @@ export function LeadLeaveManager() {
   const totalPending = pendingLeaveRequests.length + pendingWfhRequests.length;
   const totalStage2 = stage2LeaveRequests.length + stage2WfhRequests.length;
 
-  const handleApproveLeave = (id: string, name: string) => {
-    tlApproveLeave(id, "Approved by Team Lead (Alex Lead). Forwarded to HR.");
+  React.useEffect(() => {
+    // Fetch latest leave and WFH requests from Supabase via API
+    fetch("/api/v1/leave")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data?.requests) {
+          // store will be synced
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/v1/leave/wfh")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data?.requests) {
+          // store will be synced
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleApproveLeave = async (id: string, name: string) => {
+    const comment = "Approved by Team Lead (Alex Lead). Forwarded to HR.";
+    tlApproveLeave(id, comment);
     fireSuccessBurst();
     showToast(`✓ Leave request for ${name} approved & forwarded to HR for final sign-off!`);
+
+    try {
+      await fetch(`/api/v1/leave/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist leave approval to API:", e);
+    }
   };
 
-  const handleRejectLeave = (id: string, name: string) => {
-    tlRejectLeave(id, "Declined due to sprint release deadlines.");
+  const handleRejectLeave = async (id: string, name: string) => {
+    const reason = "Declined due to sprint release deadlines.";
+    tlRejectLeave(id, reason);
     showToast(`Leave request for ${name} declined.`);
+
+    try {
+      await fetch(`/api/v1/leave/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist leave rejection to API:", e);
+    }
   };
 
-  const handleApproveWfh = (id: string, name: string) => {
-    tlApproveWfh(id, "Approved by Team Lead (Alex Lead). Forwarded to HR.");
+  const handleApproveWfh = async (id: string, name: string) => {
+    const comment = "Approved by Team Lead (Alex Lead). Forwarded to HR.";
+    tlApproveWfh(id, comment);
     fireSuccessBurst();
     showToast(`✓ WFH request for ${name} approved & forwarded to HR!`);
+
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist WFH approval to API:", e);
+    }
   };
 
-  const handleRejectWfh = (id: string, name: string) => {
-    tlRejectWfh(id, "Declined due to in-person sprint requirements.");
+  const handleRejectWfh = async (id: string, name: string) => {
+    const reason = "Declined due to in-person sprint requirements.";
+    tlRejectWfh(id, reason);
     showToast(`WFH request for ${name} declined.`);
+
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist WFH rejection to API:", e);
+    }
   };
 
-  const handleHRApproveLeave = (id: string, name: string) => {
-    hrApproveLeave(id, "Authorized by HR People Operations. Balance deducted.");
+  const handleHRApproveLeave = async (id: string, name: string) => {
+    const comment = "Authorized by HR People Operations. Balance deducted.";
+    hrApproveLeave(id, comment);
     fireCelebrationConfetti();
     showToast(`🎉 Final Stage-2 Leave approval granted for ${name}! Balance deducted.`);
+
+    try {
+      await fetch(`/api/v1/leave/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR leave approval to API:", e);
+    }
   };
 
-  const handleHRRejectLeave = (id: string, name: string) => {
-    hrRejectLeave(id, "Declined by HR People Operations.");
+  const handleHRRejectLeave = async (id: string, name: string) => {
+    const reason = "Declined by HR People Operations.";
+    hrRejectLeave(id, reason);
     showToast(`Stage-2 Leave request for ${name} declined.`);
+
+    try {
+      await fetch(`/api/v1/leave/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR leave rejection to API:", e);
+    }
   };
 
-  const handleHRApproveWfh = (id: string, name: string) => {
-    hrApproveWfh(id, "Authorized by HR People Operations.");
+  const handleHRApproveWfh = async (id: string, name: string) => {
+    const comment = "Authorized by HR People Operations.";
+    hrApproveWfh(id, comment);
     fireCelebrationConfetti();
     showToast(`✓ Final Stage-2 WFH approval granted for ${name}!`);
+
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR WFH approval to API:", e);
+    }
   };
 
-  const handleHRRejectWfh = (id: string, name: string) => {
-    hrRejectWfh(id, "Declined by HR People Operations.");
+  const handleHRRejectWfh = async (id: string, name: string) => {
+    const reason = "Declined by HR People Operations.";
+    hrRejectWfh(id, reason);
     showToast(`Stage-2 WFH request for ${name} declined.`);
+
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR WFH rejection to API:", e);
+    }
   };
 
-  // Pod members' balances
-  const podBalances = [
+  // Team members' balances
+  const teamBalances = [
     { name: "Sarah Dev", role: "Senior Backend Engineer", avatar: "SD", casual: 6.0, sick: 5.0, total: 11.0 },
     { name: "Rohit Sharma", role: "Frontend Engineer", avatar: "RS", casual: 7.0, sick: 5.0, total: 12.0 },
     { name: "Priya Patel", role: "QA Engineer", avatar: "PP", casual: 8.0, sick: 6.0, total: 14.0 },
@@ -142,10 +249,10 @@ export function LeadLeaveManager() {
             <span>{isHR ? "Stage-2 Approvals" : "Pending Team Approvals"}</span>
             <ShieldCheck className="h-4 w-4 text-rose-400" />
           </div>
-          <p className="text-2xl font-bold text-rose-400">
+          <p className="text-2xl font-bold text-rose-400" suppressHydrationWarning>
             {isHR ? totalStage2 : totalPending} Pending
           </p>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>
             {isHR
               ? `${stage2LeaveRequests.length} Leave · ${stage2WfhRequests.length} WFH`
               : `${pendingLeaveRequests.length} Leave · ${pendingWfhRequests.length} WFH`}
@@ -154,14 +261,14 @@ export function LeadLeaveManager() {
 
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{isHR ? "Organization Staff" : "Pod Members"}</span>
+            <span>{isHR ? "Organization Staff" : "Team Members"}</span>
             <Users className="h-4 w-4 text-cyan-400" />
           </div>
-          <p className="text-2xl font-bold text-cyan-400">
+          <p className="text-2xl font-bold text-cyan-400" suppressHydrationWarning>
             {isHR ? "19 Staff" : "4 Reports"}
           </p>
-          <span className="text-[11px] text-muted-foreground">
-            {isHR ? "Across 6 Departments" : "Development Pod"}
+          <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>
+            {isHR ? "Across 6 Departments" : "Development Team"}
           </span>
         </div>
 
@@ -170,7 +277,7 @@ export function LeadLeaveManager() {
             <span>My Personal Balance</span>
             <Clock className="h-4 w-4 text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-emerald-400">12.0 Days</p>
+          <p className="text-2xl font-bold text-emerald-400" suppressHydrationWarning>12.0 Days</p>
           <span className="text-[11px] text-muted-foreground">Available Time-Off</span>
         </div>
       </div>
@@ -183,9 +290,9 @@ export function LeadLeaveManager() {
             {!isHR && (
               <button
                 type="button"
-                onClick={() => setActiveTab("POD_APPROVALS")}
+                onClick={() => setActiveTab("TEAM_APPROVALS")}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
-                  activeTab === "POD_APPROVALS"
+                  activeTab === "TEAM_APPROVALS"
                     ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                 }`}
@@ -217,9 +324,9 @@ export function LeadLeaveManager() {
             {/* Team Balances */}
             <button
               type="button"
-              onClick={() => setActiveTab("POD_BALANCES")}
+              onClick={() => setActiveTab("TEAM_BALANCES")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
-                activeTab === "POD_BALANCES"
+                activeTab === "TEAM_BALANCES"
                   ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
@@ -242,33 +349,10 @@ export function LeadLeaveManager() {
               <span>My Time Off</span>
             </button>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowWfhModal(true)}
-              className="text-xs h-9 gap-1.5"
-            >
-              <Laptop className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Request WFH</span>
-            </Button>
-
-            <Button
-              size="sm"
-              variant="brand"
-              onClick={() => setShowLeaveModal(true)}
-              className="text-xs font-bold gap-1.5 h-9"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Apply for Leave</span>
-            </Button>
-          </div>
         </div>
 
         {/* Sub-filter inside approvals */}
-        {activeTab === "POD_APPROVALS" && totalPending > 0 && (
+        {activeTab === "TEAM_APPROVALS" && totalPending > 0 && (
           <div className="flex items-center gap-1.5 pt-1 text-xs border-t border-border/50">
             <span className="text-[11px] text-muted-foreground mr-1">Filter Requests:</span>
             <button
@@ -311,7 +395,7 @@ export function LeadLeaveManager() {
       {/* 3. Tab Contents */}
 
       {/* TAB 1: TEAM APPROVALS QUEUE (Leave + WFH) */}
-      {activeTab === "POD_APPROVALS" && (
+      {activeTab === "TEAM_APPROVALS" && (
         <div className="space-y-3">
           {totalPending === 0 ? (
             <div className="p-12 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
@@ -545,8 +629,8 @@ export function LeadLeaveManager() {
         </div>
       )}
 
-      {/* TAB: POD BALANCES */}
-      {activeTab === "POD_BALANCES" && (
+      {/* TAB: TEAM BALANCES */}
+      {activeTab === "TEAM_BALANCES" && (
         <div className="p-5 rounded-xl border border-border bg-card space-y-4 shadow-sm">
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-foreground">Direct Reports Time-Off Balances</h4>
@@ -567,7 +651,7 @@ export function LeadLeaveManager() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {podBalances.map((m) => (
+                {teamBalances.map((m) => (
                   <tr key={m.name} className="hover:bg-muted/20">
                     <td className="py-3 font-bold text-foreground flex items-center gap-2">
                       <span className="h-7 w-7 rounded-full bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-bold text-[10px]">

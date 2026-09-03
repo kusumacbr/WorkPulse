@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { MetricTile3D } from "@/components/3d/MetricTile3D";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { ExportReportModal } from "@/features/communication/components/ExportReportModal";
@@ -189,51 +188,50 @@ export function HREnterpriseAttendanceOversight() {
       </div>
 
       {/* Main Grid: Biometric Muster Roll & Regularization Queue */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Enterprise Biometric Attendance Muster Roll */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left 2 Cols: Biometric Attendance Muster Roll */}
         <div className="lg:col-span-2 space-y-4">
-          <Interactive3DCard className="p-6 space-y-4 border-border/80">
+          <div className="p-5 sm:p-6 rounded-3xl bg-card/80 border border-border/70 space-y-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4 text-cyan-400" />
-                Daily Attendance
-              </h3>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="outline" className="text-[10px] text-cyan-300 border-cyan-500/30">
-                  <Radio className="h-3 w-3 mr-1 text-cyan-400 animate-pulse" />
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-cyan-400" />
+                  <span>Daily Attendance</span>
+                </h3>
+                <Badge variant="outline" className="text-[10px] text-cyan-300 border-cyan-500/30 font-semibold">
+                  <Radio className="h-2.5 w-2.5 mr-1 text-cyan-400 animate-pulse" />
                   Live Sync
                 </Badge>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowExportModal(true)}
-                  className="text-xs font-bold gap-1.5 h-8 border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5" />
-                  <span>Export Sheet</span>
-                </Button>
               </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExportModal(true)}
+                className="text-xs font-bold gap-1.5 h-8 border-border/80 bg-background/60 hover:bg-muted/40 rounded-xl"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Export Sheet</span>
+              </Button>
             </div>
 
             {/* Filter & Search Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div className="relative">
                 <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search employee, title..."
+                  placeholder="Search staff by name, role..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-card border border-border/80 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-cyan-500/50"
+                  className="w-full pl-9 pr-3 h-9 rounded-xl bg-background/80 border border-border/70 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
 
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="px-3 py-1.5 rounded-xl bg-card border border-border/80 text-xs text-foreground focus:outline-none focus:border-cyan-500/50"
+                className="h-9 px-3 rounded-xl bg-background/80 border border-border/70 text-xs font-semibold text-foreground focus:outline-none focus:border-cyan-500/50"
               >
                 <option value="ALL">All Departments ({departments.length})</option>
                 {departments.map((d) => (
@@ -245,60 +243,53 @@ export function HREnterpriseAttendanceOversight() {
             </div>
 
             {/* Employee Muster List */}
-            <div className="space-y-2.5 pt-2 max-h-[520px] overflow-y-auto pr-1">
+            <div className="divide-y divide-border/40 max-h-[540px] overflow-y-auto pr-1">
               {filteredEmployees.map((emp) => (
                 <div
                   key={emp.id}
-                  className="p-3.5 rounded-xl bg-card/60 border border-border/70 hover:border-cyan-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-muted/80 border border-border flex items-center justify-center font-bold text-foreground text-xs shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-8 w-8 rounded-xl bg-muted/60 border border-border/80 flex items-center justify-center font-bold text-foreground text-xs shrink-0">
                       {emp.avatar}
                     </div>
 
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground text-xs">{emp.name}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">({emp.departmentName})</span>
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <strong className="text-foreground font-bold">{emp.name}</strong>
+                        <span className="text-muted-foreground text-[11px]">({emp.departmentName})</span>
                         {emp.isProbation && (
-                          <Badge variant="outline" className="text-[9px] bg-amber-500/15 text-amber-300 border-amber-500/30">
+                          <Badge variant="outline" className="text-[9px] text-amber-300 border-amber-500/30">
                             Probation
                           </Badge>
                         )}
                       </div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                      <div className="text-[11px] text-muted-foreground">
                         <span>{emp.designation}</span>
-                        <span>·</span>
-                        <span>In: <strong className="text-foreground">{emp.firstIn}</strong></span>
-                        <span>·</span>
-                        <span>Out: <strong className="text-foreground">{emp.lastOut}</strong></span>
+                        <span className="mx-1.5">·</span>
+                        <span>In: <strong className="text-foreground font-mono">{emp.firstIn}</strong></span>
+                        <span className="mx-1.5">·</span>
+                        <span>Out: <strong className="text-foreground font-mono">{emp.lastOut}</strong></span>
                       </div>
-                      {emp.punchAnomaly && (
-                        <span className="text-[10px] text-amber-400 font-semibold block">
-                          ⚠ {emp.punchAnomaly}
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 sm:text-right shrink-0">
-                    <div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] font-bold uppercase ${
-                          emp.status === "ON_TIME"
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                            : emp.status === "LATE_ARRIVAL"
-                            ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                            : "bg-purple-500/15 text-purple-300 border-purple-500/30"
-                        }`}
-                      >
-                        {emp.status.replace("_", " ")}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground block font-mono mt-0.5">
-                        {emp.workedHours} hrs
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] font-bold ${
+                        emp.status === "ON_TIME"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          : emp.status === "LATE_ARRIVAL"
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                          : "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                      }`}
+                    >
+                      {emp.status === "LATE_ARRIVAL" ? "Late (7m)" : emp.status.replace("_", " ")}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground font-mono font-bold">
+                      {emp.workedHours}h
+                    </span>
                   </div>
                 </div>
               ))}
@@ -309,23 +300,23 @@ export function HREnterpriseAttendanceOversight() {
                 </div>
               )}
             </div>
-          </Interactive3DCard>
+          </div>
         </div>
 
-        {/* Right Col: Biometric Regularization & Discrepancy Desk */}
+        {/* Right Col: Missed Punches Desk */}
         <div className="space-y-4">
-          <Interactive3DCard className="p-6 space-y-4 border-border/80">
-            <div className="flex items-center justify-between">
+          <div className="p-5 sm:p-6 rounded-3xl bg-card/80 border border-border/70 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between pb-1 border-b border-border/40">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-400" />
-                Missed Punches
+                <span>Missed Punches</span>
               </h3>
-              <Badge variant="brand" className="text-[10px] bg-amber-500/15 text-amber-300 border-amber-500/30 font-bold">
+              <Badge variant="outline" className="text-[10px] text-amber-300 border-amber-500/30 font-bold">
                 {pendingRegsCount} Pending
               </Badge>
             </div>
 
-            <div className="space-y-3 pt-1">
+            <div className="divide-y divide-border/40 text-xs">
               {regularizations.map((reg) => {
                 const matchedEmp = allEmployees.find(
                   (e) => e.id === reg.employeeId || e.name.toLowerCase() === reg.employeeName.toLowerCase()
@@ -335,63 +326,60 @@ export function HREnterpriseAttendanceOversight() {
                 return (
                   <div
                     key={reg.id}
-                    className="p-3.5 rounded-xl bg-card/60 border border-border/70 space-y-2.5 text-xs transition-all hover:border-amber-500/40"
+                    className="py-3 space-y-2"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-foreground">{employeeName}</span>
-                    <Badge
-                      variant="outline"
-                      className={`text-[9px] uppercase font-bold ${
-                        reg.status === "APPROVED"
-                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                          : reg.status === "REJECTED"
-                          ? "bg-red-500/15 text-red-400 border-red-500/30"
-                          : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                      }`}
-                    >
-                      {reg.status}
-                    </Badge>
-                  </div>
-
-                  <div className="text-[11px] text-muted-foreground space-y-0.5">
-                    <div>
-                      <span className="font-mono text-cyan-400">{reg.date}</span> ·{" "}
-                      <span className="text-foreground">{reg.punchType.replace("_", " ")}</span> ({reg.actualTime})
-                    </div>
-                    <p className="italic text-foreground/80">&quot;{reg.reason}&quot;</p>
-                  </div>
-
-                  <div className="p-2 rounded-lg bg-muted/40 text-[10px] text-muted-foreground border border-border/50">
-                    <span className="font-bold text-foreground">Lead:</span> {reg.leadRecommendation}
-                  </div>
-
-                  {reg.status === "PENDING" && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        variant="brand"
-                        size="sm"
-                        onClick={() => handleApproveReg(reg.id, reg.employeeName)}
-                        className="flex-1 text-xs font-bold h-7 bg-gradient-to-r from-emerald-500 to-teal-600 text-white gap-1"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Approve</span>
-                      </Button>
-                      <Button
+                    <div className="flex items-center justify-between gap-2">
+                      <strong className="text-foreground font-bold">{employeeName}</strong>
+                      <Badge
                         variant="outline"
-                        size="sm"
-                        onClick={() => handleRejectReg(reg.id, reg.employeeName)}
-                        className="text-xs font-bold h-7 border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1"
+                        className={`text-[9px] font-bold ${
+                          reg.status === "APPROVED"
+                            ? "text-emerald-400 border-emerald-500/30"
+                            : reg.status === "REJECTED"
+                            ? "text-rose-400 border-rose-500/30"
+                            : "text-amber-300 border-amber-500/30"
+                        }`}
                       >
-                        <X className="h-3.5 w-3.5" />
-                        <span>Reject</span>
-                      </Button>
+                        {reg.status}
+                      </Badge>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+
+                    <div className="text-[11px] text-muted-foreground">
+                      <span className="font-mono text-cyan-400">{reg.date}</span> ·{" "}
+                      <span>{reg.punchType.replace("_", " ")} ({reg.actualTime})</span>
+                    </div>
+
+                    <p className="text-[11px] text-foreground/80 italic line-clamp-2">
+                      &quot;{reg.reason}&quot;
+                    </p>
+
+                    {reg.status === "PENDING" && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          variant="brand"
+                          size="sm"
+                          onClick={() => handleApproveReg(reg.id, reg.employeeName)}
+                          className="flex-1 text-xs font-bold h-7 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm"
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          <span>Approve</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRejectReg(reg.id, reg.employeeName)}
+                          className="text-xs font-semibold h-7 px-3 border-border text-muted-foreground hover:text-foreground rounded-lg"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" />
+                          <span>Reject</span>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </Interactive3DCard>
         </div>
       </div>
 

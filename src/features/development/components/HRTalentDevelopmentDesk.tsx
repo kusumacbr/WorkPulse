@@ -119,7 +119,7 @@ export function HRTalentDevelopmentDesk() {
         <MetricTile3D
           title="Active PIP Governance"
           value="1 Formal Plan"
-          subtitle="Rohit Sharma (Dev Pod) · Week 3 on-track"
+          subtitle="Rohit Sharma (Dev Team) · Week 3 on-track"
           icon={AlertTriangle}
           change="75% Milestones Green"
           changePositive={true}

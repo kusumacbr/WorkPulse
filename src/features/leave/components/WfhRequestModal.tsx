@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { useCurrentUser } from "@/components/layout/UserContext";
 import { WorkpulseApi } from "@/lib/api/api-client";
 import {
   Laptop,
@@ -31,10 +32,17 @@ export function WfhRequestModal({
   monthlySelfMarkUsed = 1,
   monthlyThreshold = 2,
 }: WfhRequestModalProps) {
-  const { addWfhRequest } = useWorkpulseSharedStore();
+  const user = useCurrentUser();
+  const { addWfhRequest, allEmployees } = useWorkpulseSharedStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const currentEmp = allEmployees.find(
+    (e) =>
+      e.email.toLowerCase() === user.userEmail.toLowerCase() ||
+      e.name.toLowerCase() === user.userName.toLowerCase()
+  ) || allEmployees.find(e => e.id === "emp-sarah") || allEmployees[0];
 
   const form = useForm<WfhRequestCreateInput>({
     resolver: zodResolver(wfhRequestCreateSchema),
@@ -58,6 +66,11 @@ export function WfhRequestModal({
 
       // 1. Immediately register in shared store
       addWfhRequest({
+        employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
+        employeeName: currentEmp?.name || user.userName || "Sarah Dev",
+        departmentId: currentEmp?.departmentId || "dept-development",
+        departmentName: currentEmp?.departmentName || "Development",
+        designation: currentEmp?.designation || "Senior Backend Engineer",
         startDate: values.startDate,
         endDate: values.endDate,
         reason: values.reason,

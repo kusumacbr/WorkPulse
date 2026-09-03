@@ -32,45 +32,80 @@ export function UserProvider({
   children: React.ReactNode;
 }) {
   const { allEmployees, departments } = useWorkpulseSharedStore();
+  const [tabEmail, setTabEmail] = React.useState<string>(user.userEmail || "");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("workpulse_session_email");
+      if (!stored && user.userEmail) {
+        sessionStorage.setItem("workpulse_session_email", user.userEmail);
+      } else if (stored && stored !== tabEmail) {
+        setTabEmail(stored);
+        fetch("/api/auth/dev-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: stored }),
+        }).catch(() => {});
+      }
+    }
+  }, [user.userEmail, tabEmail]);
+
+  // Sync dev session when tab gets focus so API requests from this tab match its persona
+  React.useEffect(() => {
+    const handleFocus = () => {
+      if (typeof window !== "undefined") {
+        const stored = sessionStorage.getItem("workpulse_session_email");
+        if (stored) {
+          fetch("/api/auth/dev-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: stored }),
+          }).catch(() => {});
+        }
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
 
   const dynamicUser: UserContextValue = useMemo(() => {
-    const emailLower = (user.userEmail || "").toLowerCase();
-    const nameLower = (user.userName || "").toLowerCase();
+    const activeEmail = (tabEmail || user.userEmail || "").toLowerCase();
+    const activeName = (user.userName || "").toLowerCase();
 
     // 1. Direct email or ID match
     let matched = allEmployees.find(
       (e) =>
-        e.email.toLowerCase() === emailLower ||
-        e.id === user.userEmail ||
-        (emailLower === "employee.test@xorstack.com" && e.id === "emp-sarah")
+        e.email.toLowerCase() === activeEmail ||
+        e.id === activeEmail ||
+        (activeEmail === "employee.test@xorstack.com" && e.id === "emp-sarah") ||
+        (activeEmail === "lead.test@xorstack.com" && e.id === "lead-alex")
     );
 
     // 2. Name match if still not found
     if (!matched) {
       matched = allEmployees.find(
-        (e) => e.name.toLowerCase() === nameLower
+        (e) => e.name.toLowerCase() === activeName
       );
     }
 
-    const isLead =
-      emailLower === "lead.test@xorstack.com" ||
-      emailLower.includes("alex.lead") ||
-      nameLower.includes("alex lead") ||
-      user.roles.includes("MANAGER") ||
-      departments.some(
-        (d) =>
-          d.teamLead.email.toLowerCase() === emailLower ||
-          (emailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex") ||
-          d.teamLead.name.toLowerCase() === nameLower
-      );
-
+    // Strict role detection based on authenticated email and credentials mapping
     const isHR =
-      emailLower === "hr.test@xorstack.com" ||
-      emailLower === "director.test@xorstack.com" ||
-      emailLower.includes("admin") ||
-      emailLower.includes("hr.rachel") ||
-      nameLower.includes("rachel") ||
-      user.roles.includes("HR");
+      activeEmail === "hr.test@xorstack.com" ||
+      activeEmail === "rachel.hr@xorstack.com" ||
+      activeEmail === "director.test@xorstack.com" ||
+      activeEmail === "david.director@xorstack.com" ||
+      activeEmail === "admin.test@xorstack.com" ||
+      (user.primaryRole === "HR" && !activeEmail.includes("employee") && !activeEmail.includes("lead") && !activeEmail.includes("rohit") && !activeEmail.includes("sara"));
+
+    const isLead =
+      !isHR &&
+      (activeEmail === "lead.test@xorstack.com" ||
+        activeEmail === "alex.lead@xorstack.com" ||
+        activeEmail === "lead.devops@xorstack.com" ||
+        activeEmail === "marcus.vance@xorstack.com" ||
+        activeEmail === "lead.data@xorstack.com" ||
+        activeEmail === "vikram.rao@xorstack.com" ||
+        (user.primaryRole === "MANAGER" && !activeEmail.includes("employee") && !activeEmail.includes("rohit") && !activeEmail.includes("sara")));
 
     const effectivePrimaryRole: RoleType = isHR
       ? "HR"
@@ -88,40 +123,42 @@ export function UserProvider({
     if (matched) {
       return {
         ...user,
+        userEmail: matched.email || activeEmail,
         userName: matched.name,
         roles: effectiveRoles,
         primaryRole: effectivePrimaryRole,
         designation: matched.designation,
         department: matched.departmentName,
-        team: `${matched.departmentName} Pod`,
+        team: `${matched.departmentName} Team`,
       };
     }
 
     const matchedLead = departments.find(
       (d) =>
-        d.teamLead.email.toLowerCase() === emailLower ||
-        d.teamLead.id === user.userEmail ||
-        (emailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex") ||
-        d.teamLead.name.toLowerCase() === nameLower
+        d.teamLead.email.toLowerCase() === activeEmail ||
+        d.teamLead.id === activeEmail ||
+        (activeEmail === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex")
     );
-    if (matchedLead) {
+    if (matchedLead && isLead) {
       return {
         ...user,
+        userEmail: matchedLead.teamLead.email || activeEmail,
         userName: matchedLead.teamLead.name,
         roles: effectiveRoles,
         primaryRole: effectivePrimaryRole,
         designation: matchedLead.teamLead.designation,
         department: matchedLead.name,
-        team: `${matchedLead.name} Pod`,
+        team: `${matchedLead.name} Team`,
       };
     }
 
     return {
       ...user,
+      userEmail: activeEmail || user.userEmail,
       roles: effectiveRoles,
       primaryRole: effectivePrimaryRole,
     };
-  }, [user, allEmployees, departments]);
+  }, [tabEmail, user, allEmployees, departments]);
 
   return <UserContext.Provider value={dynamicUser}>{children}</UserContext.Provider>;
 }

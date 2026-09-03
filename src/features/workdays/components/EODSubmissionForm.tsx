@@ -57,12 +57,16 @@ export function EODSubmissionForm({ workday, onSuccess, onCancel }: EODSubmissio
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Simulating / calling server action / API endpoint
-      await fetch("/api/v1/workdays/eod", {
+      const res = await fetch("/api/v1/workdays/eod", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
-      }).catch(() => null);
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.message || json?.error?.message || "Failed to submit End-of-Day results.");
+      }
 
       setSubmitSuccess(true);
       if (onSuccess) onSuccess(values);

@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { useWorkpulseSharedStore, OrgDepartment } from "@/lib/stores/workpulse-shared-store";
 import { fireCelebrationConfetti } from "@/lib/ui/confetti";
+import { createClient } from "@/lib/supabase/client";
 import {
   Users,
   Search,
   Building2,
   CheckCircle2,
-  Clock,
   UserCheck,
   UserPlus,
   UserMinus,
@@ -33,6 +33,7 @@ import {
   X,
   MapPin,
   Phone,
+  FileQuestion,
 } from "lucide-react";
 
 interface NewJoiner {
@@ -197,8 +198,8 @@ const INITIAL_NOTICE_RECORDS: NoticeExitRecord[] = [
 ];
 
 export interface HRPeopleOperationsDeckProps {
-  defaultSubTab?: "joiners_probation" | "org_tree" | "directory" | "exits";
-  allowedSubTabs?: ("joiners_probation" | "org_tree" | "directory" | "exits")[];
+  defaultSubTab?: "joiners_probation" | "org_tree" | "directory" | "exits" | "profile_queries";
+  allowedSubTabs?: ("joiners_probation" | "org_tree" | "directory" | "exits" | "profile_queries")[];
   hideSubTabBar?: boolean;
 }
 
@@ -207,8 +208,18 @@ export function HRPeopleOperationsDeck({
   allowedSubTabs,
   hideSubTabBar = false,
 }: HRPeopleOperationsDeckProps = {}) {
-  const { allEmployees, departments, addEmployee, updateEmployee, deleteEmployee, syncWithSupabase } = useWorkpulseSharedStore();
-  const [subTab, setSubTab] = useState<"joiners_probation" | "org_tree" | "directory" | "exits">(defaultSubTab);
+  const {
+    allEmployees,
+    departments,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
+    profileQueries,
+    hrApproveProfileQuery,
+    hrRejectProfileQuery,
+    syncWithSupabase,
+  } = useWorkpulseSharedStore();
+  const [subTab, setSubTab] = useState<"joiners_probation" | "org_tree" | "directory" | "exits" | "profile_queries">(defaultSubTab);
 
   useEffect(() => {
     syncWithSupabase();
@@ -227,9 +238,8 @@ export function HRPeopleOperationsDeck({
   // Directory search & filtering state
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDeptFilter, setSelectedDeptFilter] = useState("ALL");
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(8);
+  const pageSize = 20;
 
   // CRUD Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -289,12 +299,23 @@ export function HRPeopleOperationsDeck({
         (emp.designation && (emp.designation.toLowerCase().includes("lead") || emp.designation.toLowerCase().includes("director"))) ||
         departments.some((d) => d.teamLead.id === emp.id);
 
-      const isProbation = INITIAL_PROBATION_RECORDS.some(
-        (p) => p.employeeName.toLowerCase() === emp.name.toLowerCase() && p.status === "PENDING_HR_DECISION"
+      const isProbation = probationList.some(
+        (p) =>
+          (p.employeeName.toLowerCase() === emp.name.toLowerCase() || p.id === emp.id) &&
+          p.status === "PENDING_HR_DECISION"
       );
       const isNotice = INITIAL_NOTICE_RECORDS.some(
-        (n) => n.employeeName.toLowerCase() === emp.name.toLowerCase() && n.type === "NOTICE_PERIOD"
+        (n) => (n.employeeName.toLowerCase() === emp.name.toLowerCase() || n.id === emp.id) && n.type === "NOTICE_PERIOD"
       );
+
+      let empStatus: "Full-Time" | "Probation" | "Notice Period" = "Full-Time";
+      if (isNotice || emp.status === "Notice Period" || emp.status === "RESIGNED") {
+        empStatus = "Notice Period";
+      } else if (isProbation || emp.status === "Probation" || emp.status === "PROBATION") {
+        empStatus = "Probation";
+      } else {
+        empStatus = "Full-Time";
+      }
 
       list.push({
         id: emp.id,
@@ -305,9 +326,7 @@ export function HRPeopleOperationsDeck({
         departmentId: emp.departmentId,
         teamLeadName: isLead ? "Executive Leadership" : emp.teamLeadName,
         workMode: emp.workMode || "OFFICE",
-        status:
-          (emp.status as any) ||
-          (isNotice ? "Notice Period" : isProbation ? "Probation" : "Full-Time"),
+        status: empStatus,
         joiningDate: emp.joiningDate || "2025-06-01",
         leaveBalance: emp.remainingLeaveBalance ?? 12.0,
         phoneNumber: emp.phoneNumber || "+91 98450 88771",
@@ -320,7 +339,7 @@ export function HRPeopleOperationsDeck({
     });
 
     return list;
-  }, [allEmployees, departments]);
+  }, [allEmployees, departments, probationList]);
 
   // Filtered directory
   const filteredDirectory = useMemo(() => {
@@ -331,10 +350,9 @@ export function HRPeopleOperationsDeck({
         emp.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDept = selectedDeptFilter === "ALL" || emp.department === selectedDeptFilter;
-      const matchesStatus = selectedStatusFilter === "ALL" || emp.status === selectedStatusFilter;
-      return matchesSearch && matchesDept && matchesStatus;
+      return matchesSearch && matchesDept;
     });
-  }, [fullDirectory, searchQuery, selectedDeptFilter, selectedStatusFilter]);
+  }, [fullDirectory, searchQuery, selectedDeptFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredDirectory.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -367,23 +385,37 @@ export function HRPeopleOperationsDeck({
       workLocation: addForm.location,
     };
 
-    const created = addEmployee(payload);
-
     try {
-      await fetch("/api/v1/employees", {
+      const response = await fetch("/api/v1/employees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-    } catch {
-      // safe fallback
-    }
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.data?.employee) {
+        throw new Error(result.error?.message || "Unable to save the employee in Supabase.");
+      }
 
-    if (created) {
+      // Update the local view only after Supabase has accepted the new record.
+      const created = addEmployee(result.data.employee);
+      if (!created) throw new Error("Employee was saved but could not be displayed.");
+
       const targetDept = departments.find((d) => d.id === addForm.departmentId);
       fireCelebrationConfetti();
       showToast(`🎉 Employee "${created.name}" onboarded successfully into ${targetDept?.name || "the organization"} & synced to Supabase!`);
       setShowAddModal(false);
+
+      // Broadcast real-time creation across tabs & sessions
+      try {
+        const supabase = createClient();
+        const ch = supabase.channel("workpulse-supabase-live-channel");
+        ch.send({
+          type: "broadcast",
+          event: "employee:created",
+          payload: created,
+        });
+      } catch {}
+
       // Reset form
       setAddForm({
         name: "",
@@ -397,6 +429,8 @@ export function HRPeopleOperationsDeck({
         phoneNumber: "+91 98450 11223",
         location: "Bangalore HQ",
       });
+    } catch (error: any) {
+      showToast(error?.message || "Unable to save the employee in Supabase.");
     }
   };
 
@@ -418,16 +452,30 @@ export function HRPeopleOperationsDeck({
       joiningDate: editingEmployee.joiningDate,
     };
 
-    updateEmployee(editingEmployee.id, updates);
-
     try {
-      await fetch(`/api/v1/employees/${editingEmployee.id}`, {
+      const response = await fetch(`/api/v1/employees/${editingEmployee.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
-    } catch {
-      // safe fallback
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.data?.employee) {
+        throw new Error(result.error?.message || "Unable to save employee changes in Supabase.");
+      }
+
+      updateEmployee(editingEmployee.id, result.data.employee);
+
+      // Broadcast real-time update across tabs & sessions
+      const supabase = createClient();
+      const ch = supabase.channel("workpulse-supabase-live-channel");
+      ch.send({
+        type: "broadcast",
+        event: "employee:updated",
+        payload: result.data.employee,
+      });
+    } catch (error: any) {
+      showToast(error?.message || "Unable to save employee changes in Supabase.");
+      return;
     }
 
     showToast(`✓ Employee record for "${editingEmployee.name}" updated in Supabase & application roster.`);
@@ -440,14 +488,28 @@ export function HRPeopleOperationsDeck({
     const empId = deletingEmployee.id;
     const empName = deletingEmployee.name;
 
-    deleteEmployee(empId);
-
     try {
-      await fetch(`/api/v1/employees/${empId}`, {
+      const response = await fetch(`/api/v1/employees/${empId}`, {
         method: "DELETE",
       });
-    } catch {
-      // safe fallback
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error?.message || "Unable to delete the employee from Supabase.");
+      }
+
+      deleteEmployee(empId);
+
+      // Broadcast real-time deletion across tabs & sessions
+      const supabase = createClient();
+      const ch = supabase.channel("workpulse-supabase-live-channel");
+      ch.send({
+        type: "broadcast",
+        event: "employee:deleted",
+        payload: { id: empId },
+      });
+    } catch (error: any) {
+      showToast(error?.message || "Unable to delete the employee from Supabase.");
+      return;
     }
 
     showToast(`🗑️ Employee "${empName}" offboarded & archived from Supabase & application.`);
@@ -547,6 +609,26 @@ export function HRPeopleOperationsDeck({
               <span>Notice Period & Exits</span>
             </button>
           )}
+
+          {(!allowedSubTabs || allowedSubTabs.includes("profile_queries")) && (
+            <button
+              type="button"
+              onClick={() => setSubTab("profile_queries")}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+                subTab === "profile_queries"
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              }`}
+            >
+              <FileQuestion className="h-3.5 w-3.5" />
+              <span>Profile Change Queries</span>
+              {profileQueries.filter((q) => q.status === "PENDING_HR_REVIEW").length > 0 && (
+                <Badge variant="outline" className="text-[9px] ml-1 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                  {profileQueries.filter((q) => q.status === "PENDING_HR_REVIEW").length} New
+                </Badge>
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -555,72 +637,21 @@ export function HRPeopleOperationsDeck({
       {/* ============================================================== */}
       {subTab === "directory" && (
         <div className="space-y-4">
-          <div className="p-6 rounded-2xl bg-card/80 border border-cyan-500/30 backdrop-blur-xl shadow-lg space-y-5">
-            {/* Header & Quick Action */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Users className="h-4 w-4 text-cyan-400" />
-                  All Employees ({filteredDirectory.length})
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Search, view, and manage company employee profiles.
-                </p>
-              </div>
-
-              {/* Add New Employee CTA Button */}
-              <Button
-                variant="brand"
-                size="sm"
-                onClick={() => setShowAddModal(true)}
-                className="text-xs font-bold bg-gradient-to-r from-cyan-400 via-teal-500 to-emerald-500 text-black gap-1.5 shadow-sm hover:opacity-95 shrink-0"
-              >
-                <UserPlus className="h-4 w-4" />
-                <span>+ Add Employee</span>
-              </Button>
-            </div>
-
-            {/* Simplified Search & Category Filter Toolbar */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs pt-1">
-              {/* Quick Status Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-                {[
-                  { id: "ALL", label: "All Staff", count: fullDirectory.length },
-                  { id: "Full-Time", label: "Full-Time", count: fullDirectory.filter((e) => e.status === "Full-Time").length },
-                  { id: "Probation", label: "Probation", count: fullDirectory.filter((e) => e.status === "Probation").length },
-                  { id: "Notice Period", label: "Notice Period", count: fullDirectory.filter((e) => e.status === "Notice Period").length },
-                ].map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedStatusFilter(chip.id);
-                      setCurrentPage(1);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                      selectedStatusFilter === chip.id
-                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                        : "bg-card/60 text-muted-foreground hover:text-foreground border border-border/60"
-                    }`}
-                  >
-                    <span>{chip.label}</span>
-                    <span className="text-[10px] font-mono opacity-70">({chip.count})</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Search & Department Selector */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 md:w-56">
-                  <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <div className="p-5 sm:p-6 rounded-3xl bg-card/80 border border-border/70 space-y-4 shadow-sm">
+            {/* Simple Top Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Left: Search & Department Filter */}
+              <div className="flex flex-wrap items-center gap-2.5 flex-1 max-w-xl">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setCurrentPage(1);
                     }}
-                    placeholder="Search staff..."
-                    className="h-8.5 text-xs pl-8 bg-card/80 border-border/80 rounded-xl"
+                    placeholder="Search staff by name, email, role..."
+                    className="h-9 text-xs pl-9 bg-background/80 border-border/70 rounded-xl"
                   />
                 </div>
 
@@ -630,71 +661,85 @@ export function HRPeopleOperationsDeck({
                     setSelectedDeptFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="h-8.5 px-3 rounded-xl border border-border/80 bg-card text-xs font-semibold text-foreground focus:outline-none shrink-0"
+                  className="h-9 px-3 rounded-xl border border-border/70 bg-background/80 text-xs font-semibold text-foreground focus:outline-none shrink-0"
                 >
                   <option value="ALL">All Departments ({departments.length})</option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.name}>
-                      {d.shortName}
+                      {d.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Right: + Add Employee */}
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={() => setShowAddModal(true)}
+                className="text-xs font-bold gap-1.5 h-9 rounded-xl shadow-sm shrink-0"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Add Employee</span>
+              </Button>
             </div>
 
-            {/* Directory Table */}
-            <div className="overflow-x-auto rounded-2xl border border-border/80 bg-card/60">
+            {/* Clean Directory Table */}
+            <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/40">
               <table className="w-full text-left text-xs">
-                <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
+                <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/50 text-[11px]">
                   <tr>
-                    <th className="p-3.5">Employee</th>
-                    <th className="p-3.5">Department &amp; Lead</th>
-                    <th className="p-3.5">Designation</th>
+                    <th className="p-3.5 pl-4">Staff Member</th>
+                    <th className="p-3.5">Department</th>
+                    <th className="p-3.5">Role</th>
                     <th className="p-3.5">Work Mode</th>
                     <th className="p-3.5">Status</th>
                     <th className="p-3.5 text-right">Leave Balance</th>
-                    <th className="p-3.5 text-right">Actions</th>
+                    <th className="p-3.5 pr-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/50">
+                <tbody className="divide-y divide-border/40">
                   {paginatedDirectory.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                        No employees found matching your filter criteria.
+                        No employees found matching &quot;{searchQuery}&quot;.
                       </td>
                     </tr>
                   ) : (
                     paginatedDirectory.map((emp) => (
-                      <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
-                        <td className="p-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center font-black text-cyan-300 text-xs shrink-0">
+                      <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="p-3.5 pl-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-300 text-xs shrink-0">
                               {emp.name.slice(0, 2).toUpperCase()}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <div className="font-bold text-foreground flex items-center gap-1.5">
-                                <span>{emp.name}</span>
+                                <span className="truncate">{emp.name}</span>
                                 {emp.isLead && (
-                                  <Badge variant="brand" className="text-[8px] px-1 py-0 bg-purple-500/20 text-purple-300 border-purple-500/40">
+                                  <Badge variant="purple" className="text-[8px] px-1 py-0 font-bold">
                                     Lead
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
-                                <Mail className="h-2.5 w-2.5" />
-                                <span>{emp.email}</span>
-                              </div>
+                              <span className="text-[11px] text-muted-foreground font-mono block truncate">
+                                {emp.email}
+                              </span>
                             </div>
                           </div>
                         </td>
                         <td className="p-3.5">
-                          <div className="font-semibold text-cyan-400">{emp.department}</div>
-                          <div className="text-[10px] text-muted-foreground">Lead: {emp.teamLeadName}</div>
+                          <Badge variant="outline" className="text-[10px] font-semibold text-cyan-400 border-cyan-500/30 bg-cyan-500/5">
+                            {emp.department}
+                          </Badge>
                         </td>
                         <td className="p-3.5 font-medium text-foreground">{emp.designation}</td>
                         <td className="p-3.5">
-                          <Badge variant="outline" className="text-[9px] font-semibold text-muted-foreground border-border">
-                            {emp.workMode}
+                          <Badge
+                            variant={emp.workMode === "WFH" ? "purple" : "outline"}
+                            className="text-[9px] font-bold"
+                          >
+                            {emp.workMode === "WFH" ? "Remote" : "Office"}
                           </Badge>
                         </td>
                         <td className="p-3.5">
@@ -702,10 +747,10 @@ export function HRPeopleOperationsDeck({
                             variant="outline"
                             className={`text-[9px] font-bold ${
                               emp.status === "Full-Time"
-                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
                                 : emp.status === "Probation"
-                                ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
-                                : "border-red-500/40 text-red-400 bg-red-500/10"
+                                ? "border-amber-500/30 text-amber-400 bg-amber-500/10"
+                                : "border-rose-500/30 text-rose-400 bg-rose-500/10"
                             }`}
                           >
                             {emp.status}
@@ -714,9 +759,8 @@ export function HRPeopleOperationsDeck({
                         <td className="p-3.5 text-right font-mono font-bold text-foreground">
                           {emp.leaveBalance.toFixed(1)} Days
                         </td>
-                        <td className="p-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* View Profile */}
+                        <td className="p-3.5 pr-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -727,25 +771,23 @@ export function HRPeopleOperationsDeck({
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
 
-                            {/* Edit Employee */}
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => setEditingEmployee(emp)}
                               className="h-7 w-7 rounded-lg text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10"
-                              title="Edit Employee"
+                              title="Edit"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
 
-                            {/* Offboard / Delete Employee (Protected for leads) */}
                             {!emp.isLead && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setDeletingEmployee(emp)}
                                 className="h-7 w-7 rounded-lg text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10"
-                                title="Offboard / Remove"
+                                title="Remove"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -759,99 +801,37 @@ export function HRPeopleOperationsDeck({
               </table>
             </div>
 
-            {/* High-Performance Instant Pagination Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground pt-3 border-t border-border/50">
-              <div className="flex items-center gap-3">
-                <span>
-                  Showing <strong className="text-foreground font-mono">{(safeCurrentPage - 1) * pageSize + (filteredDirectory.length > 0 ? 1 : 0)}</strong> to{" "}
-                  <strong className="text-foreground font-mono">{Math.min(safeCurrentPage * pageSize, filteredDirectory.length)}</strong> of{" "}
-                  <strong className="text-foreground font-mono">{filteredDirectory.length}</strong> employees
-                </span>
+            {/* Clean Summary & Simple Pagination */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground pt-2">
+              <span>
+                Total <strong className="text-foreground font-mono font-bold">{filteredDirectory.length}</strong> staff members across {departments.length} departments
+              </span>
 
-                <div className="flex items-center gap-1.5 pl-2 border-l border-border/60">
-                  <span className="text-[11px] text-muted-foreground">Rows:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="h-7 px-2 rounded-md border border-border/80 bg-card text-[11px] font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={safeCurrentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="h-7 w-7 rounded-lg border border-border/80 bg-card hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center transition-all cursor-pointer"
                   >
-                    <option value={8}>8 / page</option>
-                    <option value={12}>12 / page</option>
-                    <option value={20}>20 / page</option>
-                    <option value={50}>50 / page</option>
-                    <option value={1000}>All ({filteredDirectory.length})</option>
-                  </select>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+
+                  <span className="text-xs font-mono font-bold text-foreground px-2">
+                    Page {safeCurrentPage} of {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={safeCurrentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="h-7 w-7 rounded-lg border border-border/80 bg-card hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center transition-all cursor-pointer"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {/* First Page */}
-                <button
-                  type="button"
-                  disabled={safeCurrentPage <= 1}
-                  onClick={() => setCurrentPage(1)}
-                  className="h-7 px-2 rounded-md border border-border/80 bg-card hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none text-[11px] font-bold transition-all text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-                  title="First Page"
-                >
-                  <span>«</span>
-                  <span className="hidden sm:inline">First</span>
-                </button>
-
-                {/* Prev Page */}
-                <button
-                  type="button"
-                  disabled={safeCurrentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="h-7 w-7 rounded-md border border-border/80 bg-card hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center transition-all text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Numeric Page Buttons */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`h-7 min-w-[28px] px-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                        safeCurrentPage === pageNum
-                          ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_10px_rgba(6,182,212,0.4)] border border-cyan-400/50"
-                          : "border border-border/80 bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Next Page */}
-                <button
-                  type="button"
-                  disabled={safeCurrentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-7 w-7 rounded-md border border-border/80 bg-card hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center transition-all text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Next Page"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Last Page */}
-                <button
-                  type="button"
-                  disabled={safeCurrentPage >= totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="h-7 px-2 rounded-md border border-border/80 bg-card hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none text-[11px] font-bold transition-all text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-                  title="Last Page"
-                >
-                  <span className="hidden sm:inline">Last</span>
-                  <span>»</span>
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -861,90 +841,33 @@ export function HRPeopleOperationsDeck({
       {/* 2. NEW JOINERS & PROBATION CHECKPOINTS                          */}
       {/* ============================================================== */}
       {subTab === "joiners_probation" && (
-        <div className="space-y-5">
-          {/* New Joiners (Last 30 Days) */}
-          <Interactive3DCard className="p-5 border border-pink-500/30 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-pink-400" />
-                New Joiners (Last 30 Days)
+        <div className="space-y-4">
+          {/* 1. Probation Decisions Due */}
+          <div className="p-5 rounded-2xl bg-card/80 border border-border/70 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between pb-1 border-b border-border/40">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Probation Reviews ({probationList.filter((p) => p.status === "PENDING_HR_DECISION").length} Due)</span>
               </h3>
-              <Badge variant="outline" className="text-[10px] font-bold text-pink-300 border-pink-500/30">
-                {INITIAL_NEW_JOINERS.length} Recent Joiners
-              </Badge>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-              {INITIAL_NEW_JOINERS.map((nj) => (
-                <div
-                  key={nj.id}
-                  className="p-3.5 rounded-xl bg-card/60 border border-border/80 space-y-2.5 hover:border-pink-500/40 transition-all shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="font-bold text-foreground block truncate">{nj.name}</span>
-                      <span className="text-[11px] text-muted-foreground block truncate">{nj.designation}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30 shrink-0">
-                      {nj.department}
-                    </Badge>
-                  </div>
-
-                  {/* Onboarding Progress Bar */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-muted-foreground">Onboarding</span>
-                      <strong className="text-emerald-400 font-mono">{nj.onboardingProgress}%</strong>
-                    </div>
-                    <div className="progress-track-line">
-                      <div
-                        className="progress-track-fill-emerald"
-                        style={{ width: `${nj.onboardingProgress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/40 font-mono">
-                    <span>Joined: {nj.joiningDate}</span>
-                    <span className={nj.checkpointStatus === "COMPLETED" ? "text-emerald-400 font-bold" : "text-amber-400"}>
-                      {nj.checkpointStatus}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Interactive3DCard>
-
-          {/* Upcoming Probation Checkpoints */}
-          <Interactive3DCard className="p-5 border border-amber-500/30 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <UserCheck className="h-4 w-4 text-amber-400" />
-                Probation Decisions Due
-              </h3>
-              <Badge variant="outline" className="text-[10px] font-bold text-amber-300 border-amber-500/30">
-                {probationList.filter((p) => p.status === "PENDING_HR_DECISION").length} Decisions Due
-              </Badge>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
+            <div className="divide-y divide-border/40 text-xs">
               {probationList.map((rec) => (
                 <div
                   key={rec.id}
-                  className="p-3.5 rounded-xl bg-card/60 border border-border/80 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm hover:border-amber-500/30 transition-all"
+                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div className="space-y-1 min-w-0">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-foreground">{rec.employeeName}</span>
-                      <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30">
-                        {rec.department}
-                      </Badge>
+                      <strong className="text-foreground font-bold">{rec.employeeName}</strong>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">{rec.department}</span>
                       <Badge
-                        variant="brand"
+                        variant="outline"
                         className={`text-[9px] font-bold ${
                           rec.stage === "90_DAYS_FINAL"
-                            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-                            : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                            ? "text-purple-300 border-purple-500/30"
+                            : "text-amber-300 border-amber-500/30"
                         }`}
                       >
                         {rec.stage === "90_DAYS_FINAL" ? "90-Day Final" : rec.stage}
@@ -960,16 +883,9 @@ export function HRPeopleOperationsDeck({
                         </Badge>
                       )}
                     </div>
-
-                    <p className="text-muted-foreground text-[11px] truncate max-w-xl">
-                      Lead ({rec.leadName}): <span className="text-foreground/90">&quot;{rec.leadNotes}&quot;</span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Due: {rec.confirmationDueDate} · OKR Score: <strong className="text-emerald-400">{rec.okrScore}%</strong>
                     </p>
-
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono">
-                      <span>Target: {rec.confirmationDueDate}</span>
-                      <span>OKRs: <strong className="text-emerald-400 font-bold">{rec.okrScore}%</strong></span>
-                      <span>Punctuality: <strong className="text-cyan-400 font-bold">{rec.shiftPunctuality}%</strong></span>
-                    </div>
                   </div>
 
                   {rec.status === "PENDING_HR_DECISION" ? (
@@ -978,31 +894,76 @@ export function HRPeopleOperationsDeck({
                         variant="brand"
                         size="sm"
                         onClick={() => handleConfirmProbation(rec.id, rec.employeeName)}
-                        className="text-xs font-bold h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shadow-sm"
+                        className="text-xs font-bold h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm"
                       >
-                        <Check className="h-3 w-3" />
-                        <span>Confirm Employment</span>
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        <span>Confirm</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleExtendProbation(rec.id, rec.employeeName)}
-                        className="text-xs font-semibold h-7 px-2.5 border-border text-muted-foreground hover:text-foreground"
+                        className="text-xs font-semibold h-7 px-2.5 border-border text-muted-foreground hover:text-foreground rounded-lg"
                       >
-                        <Clock className="h-3 w-3" />
                         <span>Extend 30d</span>
                       </Button>
                     </div>
                   ) : (
                     <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Decision Logged</span>
+                      <span>Confirmed</span>
                     </div>
                   )}
                 </div>
               ))}
             </div>
-          </Interactive3DCard>
+          </div>
+
+          {/* 2. New Joiners */}
+          <div className="p-5 rounded-2xl bg-card/80 border border-border/70 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between pb-1 border-b border-border/40">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
+                <UserPlus className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Recent Joiners ({INITIAL_NEW_JOINERS.length})</span>
+              </h3>
+            </div>
+
+            <div className="divide-y divide-border/40 text-xs">
+              {INITIAL_NEW_JOINERS.map((nj) => (
+                <div
+                  key={nj.id}
+                  className="py-2.5 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <strong className="text-foreground font-bold truncate">{nj.name}</strong>
+                      <span className="text-muted-foreground text-[11px] truncate">· {nj.designation}</span>
+                      <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30 shrink-0">
+                        {nj.department}
+                      </Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-mono">Joined {nj.joiningDate}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] font-mono font-bold text-emerald-400">
+                      {nj.onboardingProgress}%
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] font-semibold ${
+                        nj.checkpointStatus === "COMPLETED"
+                          ? "text-emerald-400 border-emerald-500/30"
+                          : "text-amber-400 border-amber-500/30"
+                      }`}
+                    >
+                      {nj.checkpointStatus}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1184,6 +1145,134 @@ export function HRPeopleOperationsDeck({
                   </div>
                 </div>
               ))}
+            </div>
+          </Interactive3DCard>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 5. EMPLOYEE PROFILE CHANGE QUERIES & HR APPROVALS               */}
+      {/* ============================================================== */}
+      {subTab === "profile_queries" && (
+        <div className="space-y-6">
+          <Interactive3DCard className="p-6 border border-emerald-500/30 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <FileQuestion className="h-4 w-4 text-emerald-400" />
+                  Employee Profile Modification Requests
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Review, approve, and synchronize employee personal contact, phone, preferred name, and hierarchy modification requests.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-bold text-emerald-300 border-emerald-500/30">
+                {profileQueries.filter((q) => q.status === "PENDING_HR_REVIEW").length} Pending Queries
+              </Badge>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              {profileQueries.length === 0 ? (
+                <div className="p-6 rounded-xl bg-card/60 border border-border/60 text-center text-xs text-muted-foreground">
+                  No employee profile change requests at this time.
+                </div>
+              ) : (
+                profileQueries.map((qry) => (
+                  <div
+                    key={qry.id}
+                    className="p-4 rounded-xl bg-card/60 border border-border/80 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+                  >
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-primary">{qry.ticketNumber}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <strong className="text-foreground">{qry.employeeName}</strong>
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+                          {qry.employeeEmail}
+                        </Badge>
+                        <Badge variant="cyan" className="text-[10px]">
+                          {qry.departmentName}
+                        </Badge>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60 space-y-1">
+                        <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                          <strong className="text-foreground">{qry.category}:</strong>
+                        </div>
+                        <p className="text-foreground font-semibold text-xs">
+                          {qry.requestedChange}
+                        </p>
+                      </div>
+
+                      {qry.reason && (
+                        <p className="text-[11px] text-muted-foreground italic">
+                          Justification: {qry.reason}
+                        </p>
+                      )}
+
+                      <span className="text-[10px] text-muted-foreground block pt-0.5">
+                        Submitted: {qry.submittedAt}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {qry.status === "PENDING_HR_REVIEW" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              hrRejectProfileQuery(qry.id);
+                              showToast(`Declined query #${qry.ticketNumber} for ${qry.employeeName}.`);
+                              try {
+                                const supabase = createClient();
+                                supabase.channel("workpulse-supabase-live-channel").send({
+                                  type: "broadcast",
+                                  event: "profile:query_rejected",
+                                  payload: { id: qry.id },
+                                });
+                              } catch {}
+                            }}
+                            className="text-xs h-8 text-rose-400 border-rose-500/30 hover:bg-rose-500/10 rounded-xl"
+                          >
+                            Decline
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="brand"
+                            onClick={() => {
+                              hrApproveProfileQuery(qry.id);
+                              fireCelebrationConfetti();
+                              showToast(`✓ Approved & synchronized profile change for ${qry.employeeName}! Record updated in roster.`);
+                              try {
+                                const supabase = createClient();
+                                supabase.channel("workpulse-supabase-live-channel").send({
+                                  type: "broadcast",
+                                  event: "profile:query_approved",
+                                  payload: { id: qry.id },
+                                });
+                              } catch {}
+                            }}
+                            className="text-xs font-bold h-8 bg-gradient-to-r from-emerald-500 to-teal-600 text-white gap-1.5 rounded-xl shadow-md"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Approve &amp; Update Record</span>
+                          </Button>
+                        </>
+                      ) : qry.status === "APPROVED" ? (
+                        <Badge variant="success" className="text-[11px] font-bold py-1 px-2.5 flex items-center gap-1">
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Approved &amp; Updated</span>
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="text-[11px] font-bold py-1 px-2.5">
+                          Declined
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </Interactive3DCard>
         </div>

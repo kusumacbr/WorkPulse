@@ -48,7 +48,7 @@ export function ThemeToggle({
     lg: "h-4.5 w-4.5",
   };
 
-  // 1. Direct 1-Click Animated Toggle (Sun <-> Moon)
+  // 1. Direct 1-Click Animated Toggle (Displays Target Theme to change to)
   if (variant === "toggle") {
     const isDark = resolvedTheme === "dark";
     return (
@@ -57,75 +57,72 @@ export function ThemeToggle({
         id="theme-toggle-btn"
         onClick={toggleTheme}
         aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-        title={`Current: ${isDark ? "Dark" : "Light"} mode. Click to switch.`}
-        className={`relative inline-flex items-center justify-center rounded-xl border border-border/80 bg-card/60 hover:bg-muted/80 backdrop-blur-md transition-all duration-300 group cursor-pointer shadow-sm hover:border-[var(--brand-primary)]/40 hover:shadow-[0_0_15px_rgba(208,172,100,0.2)] active:scale-95 ${sizeClasses[size]} ${className}`}
+        title={`Switch to ${isDark ? "Light" : "Dark"} mode`}
+        className={`relative inline-flex items-center justify-center rounded-xl border border-border/80 bg-card/60 hover:bg-muted/80 backdrop-blur-md transition-all duration-300 group cursor-pointer shadow-sm hover:border-primary/40 active:scale-95 ${sizeClasses[size]} ${className}`}
       >
         <div className="relative flex items-center justify-center">
-          {/* Animated Sun Icon */}
+          {/* When in Dark mode, display the Sun icon to switch to Light */}
           <Sun
             className={`${iconSizes[size]} text-amber-500 transition-all duration-300 transform ${
               isDark
-                ? "rotate-90 scale-0 opacity-0 absolute"
-                : "rotate-0 scale-100 opacity-100"
+                ? "rotate-0 scale-100 opacity-100"
+                : "rotate-90 scale-0 opacity-0 absolute"
             }`}
           />
-          {/* Animated Moon Icon */}
+          {/* When in Light mode, display the Moon icon to switch to Dark */}
           <Moon
             className={`${iconSizes[size]} text-cyan-400 transition-all duration-300 transform ${
               isDark
-                ? "rotate-0 scale-100 opacity-100"
-                : "-rotate-90 scale-0 opacity-0 absolute"
+                ? "-rotate-90 scale-0 opacity-0 absolute"
+                : "rotate-0 scale-100 opacity-100"
             }`}
           />
         </div>
         {showLabel && (
           <span className="ml-2 font-semibold capitalize text-foreground">
-            {isDark ? "Dark" : "Light"}
+            {isDark ? "Light Mode" : "Dark Mode"}
           </span>
         )}
       </button>
     );
   }
 
-  // 2. 3-State Segmented Pill Control (Light | Dark | System)
+  // 2. 2-State Segmented Control (Light | Dark)
   if (variant === "segmented") {
     const options: { id: Theme; label: string; icon: typeof Sun }[] = [
-      { id: "light", label: "Light", icon: Sun },
-      { id: "dark", label: "Dark", icon: Moon },
-      { id: "system", label: "System", icon: Laptop },
+      { id: "light", label: "Light Mode", icon: Sun },
+      { id: "dark", label: "Dark Mode", icon: Moon },
     ];
 
     return (
       <div
-        className={`inline-flex items-center p-1 rounded-xl bg-muted/40 border border-border/80 gap-0.5 shadow-inner ${className}`}
+        className={`inline-flex items-center p-1 rounded-xl bg-muted/40 border border-border/80 gap-1 shadow-inner w-full ${className}`}
       >
         {options.map((opt) => {
           const Icon = opt.icon;
-          const isActive = theme === opt.id;
+          const isActive = theme === opt.id || (opt.id === "dark" && resolvedTheme === "dark" && theme !== "light");
           return (
             <button
               key={opt.id}
               type="button"
               onClick={() => setTheme(opt.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? "bg-card text-foreground shadow-sm border border-border/80 font-bold scale-[1.02]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60 opacity-80 hover:opacity-100"
+                  ? "bg-card text-foreground shadow-sm border border-border/80 font-bold scale-[1.01]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
-              title={`Switch to ${opt.label} theme`}
+              title={`Switch to ${opt.label}`}
             >
               <Icon
-                className={`h-3.5 w-3.5 ${
+                className={`h-4 w-4 ${
                   opt.id === "light" && isActive
                     ? "text-amber-500"
                     : opt.id === "dark" && isActive
                     ? "text-cyan-400"
-                    : opt.id === "system" && isActive
-                    ? "text-purple-400"
                     : "text-muted-foreground"
                 }`}
               />
-              {showLabel && <span>{opt.label}</span>}
+              <span>{opt.label}</span>
             </button>
           );
         })}
@@ -133,14 +130,12 @@ export function ThemeToggle({
     );
   }
 
-  // 3. Dropdown Menu Mode (Toggle button that expands into Light, Dark, System choices)
+  // 3. Dropdown Menu Mode (Toggle button that expands into Light, Dark choices)
   const currentIcon =
-    theme === "light" ? (
+    resolvedTheme === "light" ? (
       <Sun className={`${iconSizes[size]} text-amber-500`} />
-    ) : theme === "dark" ? (
-      <Moon className={`${iconSizes[size]} text-cyan-400`} />
     ) : (
-      <Laptop className={`${iconSizes[size]} text-purple-400`} />
+      <Moon className={`${iconSizes[size]} text-cyan-400`} />
     );
 
   return (

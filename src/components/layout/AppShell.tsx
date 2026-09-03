@@ -7,6 +7,7 @@ import { AmbientBackdrop } from "../3d/AmbientBackdrop";
 import { UserProvider, UserContextValue, useCurrentUser } from "./UserContext";
 import { BroadcastNotificationPopup } from "./BroadcastNotificationPopup";
 import { PulseAgentWidget } from "../agent/PulseAgentWidget";
+import { MorningPlanLoginModal } from "@/features/workdays/components/MorningPlanLoginModal";
 import { useRealtimeSync } from "@/lib/realtime/use-realtime-sync";
 
 interface AppShellProps {
@@ -25,6 +26,9 @@ function InnerAppShell({ children, fallbackUser }: { children: React.ReactNode; 
 
       {/* Global Broadcast Notification Popup Modal */}
       <BroadcastNotificationPopup />
+
+      {/* Morning Plan Login Prompt Modal for Core Employees */}
+      <MorningPlanLoginModal />
 
       {/* Google ADK Pulse Agent Floating Widget */}
       <PulseAgentWidget />

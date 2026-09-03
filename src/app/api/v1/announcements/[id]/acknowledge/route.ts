@@ -7,15 +7,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
     const { actor } = await getSessionActor(req);
+    const resolvedParams = await params;
+    const announcementId = resolvedParams.id;
 
     const result = await AnnouncementService.acknowledgeAnnouncement({
       actor,
-      announcementId: id,
+      announcementId,
     });
 
-    return apiSuccess({ result, message: "Announcement acknowledged" }, 200);
+    return apiSuccess({
+      result,
+      message: "Announcement acknowledged successfully",
+    });
   } catch (err: any) {
     return apiError(err.message || "Failed to acknowledge announcement", 400);
   }
