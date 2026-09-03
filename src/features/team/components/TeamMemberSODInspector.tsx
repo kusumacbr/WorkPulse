@@ -51,75 +51,11 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     designation: "Senior Backend Engineer",
     avatar: "SD",
     workMode: "OFFICE",
-    sodStatus: "SUBMITTED",
-    sodTime: "10:15 AM",
-    eodStatus: "IN_PROGRESS",
-    overallProgress: 70,
-    plannedTasks: [
-      {
-        id: "task-1",
-        title: "Prepare and finalize weekly team report",
-        project: "Operations",
-        priority: "HIGH",
-        estimatedMinutes: 120,
-        completionPercentage: 75,
-        status: "IN_PROGRESS",
-        expectedOutput: "Weekly team report compiled and shared with team",
-      },
-      {
-        id: "task-2",
-        title: "Execute Stage-2 Leave & WFH Final Approvals",
-        project: "Operations",
-        priority: "HIGH",
-        estimatedMinutes: 90,
-        completionPercentage: 80,
-        status: "IN_PROGRESS",
-        expectedOutput: "Review and authorize pending Stage-2 leave requests",
-      },
-      {
-        id: "task-3",
-        title: "Review 30/90-Day Probation Feedback for New Joiners",
-        project: "Documentation",
-        priority: "MEDIUM",
-        estimatedMinutes: 60,
-        completionPercentage: 0,
-        status: "NOT_STARTED",
-        expectedOutput: "Compile onboarding probation milestones",
-      },
-      {
-        id: "task-4",
-        title: "Audit Shift Biometric Punctuality & Punch Regularizations",
-        project: "Operations",
-        priority: "HIGH",
-        estimatedMinutes: 90,
-        completionPercentage: 100,
-        status: "COMPLETED",
-        expectedOutput: "Verify shift punches and regularize anomalies",
-      },
-      {
-        id: "task-5",
-        title: "Coordinate Work Anniversary & Birthday Celebrations",
-        project: "General",
-        priority: "MEDIUM",
-        estimatedMinutes: 45,
-        completionPercentage: 60,
-        status: "IN_PROGRESS",
-        expectedOutput: "Schedule celebration events and team announcements",
-      },
-      {
-        id: "task-6",
-        title: "Review monthly goals and team milestones",
-        project: "Planning",
-        priority: "MEDIUM",
-        estimatedMinutes: 60,
-        completionPercentage: 100,
-        status: "COMPLETED",
-        expectedOutput: "Track milestone progress against quarterly OKRs",
-      },
-    ],
-    eodAchievements: "Finalized biometric attendance regularizations and reviewed monthly milestones.",
-    eodBlockers: "None",
-    eodTomorrowFocus: "Finalize probation feedback reviews and weekly report.",
+    sodStatus: "PENDING",
+    sodTime: "--",
+    eodStatus: "PENDING",
+    overallProgress: 0,
+    plannedTasks: [],
   },
   {
     id: "emp-rohit",
@@ -127,35 +63,11 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     designation: "Frontend Engineer (UI/UX)",
     avatar: "RS",
     workMode: "OFFICE",
-    sodStatus: "SUBMITTED",
-    sodTime: "10:20 AM",
-    eodStatus: "IN_PROGRESS",
-    overallProgress: 65,
-    plannedTasks: [
-      {
-        id: "rt-1",
-        title: "Design 3D interactive glassmorphism cards and smooth Framer Motion transitions",
-        project: "Frontend & UI",
-        priority: "HIGH",
-        estimatedMinutes: 240,
-        completionPercentage: 70,
-        status: "IN_PROGRESS",
-        expectedOutput: "Smooth page transition component across all 10 views",
-      },
-      {
-        id: "rt-2",
-        title: "Fix dark mode contrast tokens for secondary badges",
-        project: "Design System",
-        priority: "LOW",
-        estimatedMinutes: 60,
-        completionPercentage: 60,
-        status: "IN_PROGRESS",
-        expectedOutput: "WCAG AAA accessible contrast",
-      },
-    ],
-    eodAchievements: "Shipped PageTransition & AnimatedTabContent components.",
-    eodBlockers: "None",
-    eodTomorrowFocus: "Optimize mobile viewport responsiveness.",
+    sodStatus: "PENDING",
+    sodTime: "--",
+    eodStatus: "PENDING",
+    overallProgress: 0,
+    plannedTasks: [],
   },
   {
     id: "emp-priya",
@@ -163,36 +75,11 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     designation: "QA Lead Engineer",
     avatar: "PQ",
     workMode: "WFH",
-    sodStatus: "SUBMITTED",
-    sodTime: "10:05 AM",
-    eodStatus: "SUBMITTED",
-    eodTime: "06:55 PM",
-    overallProgress: 100,
-    plannedTasks: [
-      {
-        id: "pt-1",
-        title: "Automate Playwright end-to-end regression test suite for biometric sync",
-        project: "Quality Assurance",
-        priority: "HIGH",
-        estimatedMinutes: 180,
-        completionPercentage: 100,
-        status: "COMPLETED",
-        expectedOutput: "17 test suites passing in CI/CD pipeline",
-      },
-      {
-        id: "pt-2",
-        title: "Verify RBAC permission boundary tests for HR Stage-2 leave approvals",
-        project: "Security & Auth",
-        priority: "HIGH",
-        estimatedMinutes: 120,
-        completionPercentage: 100,
-        status: "COMPLETED",
-        expectedOutput: "Zero regression leaks on permission elevation",
-      },
-    ],
-    eodAchievements: "85/85 unit tests and Playwright regressions green across all suites.",
-    eodBlockers: "None",
-    eodTomorrowFocus: "Prepare automated performance benchmarks.",
+    sodStatus: "PENDING",
+    sodTime: "--",
+    eodStatus: "PENDING",
+    overallProgress: 0,
+    plannedTasks: [],
   },
   {
     id: "emp-karthik",
@@ -200,25 +87,11 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     designation: "DevOps & Cloud Engineer",
     avatar: "KR",
     workMode: "OFFICE",
-    sodStatus: "SUBMITTED",
-    sodTime: "10:10 AM",
-    eodStatus: "IN_PROGRESS",
-    overallProgress: 75,
-    plannedTasks: [
-      {
-        id: "kt-1",
-        title: "Configure GitHub Actions CI/CD caching for Turborepo and Next.js artifacts",
-        project: "Infrastructure",
-        priority: "HIGH",
-        estimatedMinutes: 200,
-        completionPercentage: 80,
-        status: "IN_PROGRESS",
-        expectedOutput: "CI build times reduced by 40%",
-      },
-    ],
-    eodAchievements: "Implemented npm cache layer in GitHub Actions workflow.",
-    eodBlockers: "None",
-    eodTomorrowFocus: "Production cluster failover testing.",
+    sodStatus: "PENDING",
+    sodTime: "--",
+    eodStatus: "PENDING",
+    overallProgress: 0,
+    plannedTasks: [],
   },
   {
     id: "emp-ananya",
@@ -226,25 +99,11 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     designation: "Automation QA Engineer",
     avatar: "AS",
     workMode: "OFFICE",
-    sodStatus: "SUBMITTED",
-    sodTime: "10:12 AM",
-    eodStatus: "IN_PROGRESS",
-    overallProgress: 85,
-    plannedTasks: [
-      {
-        id: "at-1",
-        title: "Write Vitest assertions for OKR 100% weight budget calculations",
-        project: "Core Platform",
-        priority: "MEDIUM",
-        estimatedMinutes: 150,
-        completionPercentage: 90,
-        status: "IN_PROGRESS",
-        expectedOutput: "Complete coverage on goal creation and budget caps",
-      },
-    ],
-    eodAchievements: "Covered 6 critical edge cases in goal budgeting logic.",
-    eodBlockers: "None",
-    eodTomorrowFocus: "Review test coverage reports with Priya QA.",
+    sodStatus: "PENDING",
+    sodTime: "--",
+    eodStatus: "PENDING",
+    overallProgress: 0,
+    plannedTasks: [],
   },
   {
     id: "emp-sneha",
@@ -252,22 +111,11 @@ const TEAM_MEMBERS: TeamMemberRecord[] = [
     designation: "Data Analytics Engineer",
     avatar: "SK",
     workMode: "OFFICE",
-    sodStatus: "SUBMITTED",
-    sodTime: "10:08 AM",
-    eodStatus: "IN_PROGRESS",
-    overallProgress: 75,
-    plannedTasks: [
-      {
-        id: "sk-1",
-        title: "Build automated telemetry ingestion pipelines for biometric attendance logs",
-        project: "Data Lake",
-        priority: "HIGH",
-        estimatedMinutes: 240,
-        completionPercentage: 75,
-        status: "IN_PROGRESS",
-        expectedOutput: "Sub-second analytical queries on 1M+ attendance events",
-      },
-    ],
+    sodStatus: "PENDING",
+    sodTime: "--",
+    eodStatus: "PENDING",
+    overallProgress: 0,
+    plannedTasks: [],
   },
 ];
 
@@ -297,23 +145,7 @@ export function TeamMemberSODInspector() {
         plannedTasks:
           emp.plannedTasks && emp.plannedTasks.length > 0
             ? emp.plannedTasks
-            : [
-                {
-                  id: `task-${emp.id}-1`,
-                  title: `Execute assigned deliverables for ${emp.designation}`,
-                  project: "Core Team Sprint",
-                  priority: "HIGH" as const,
-                  estimatedMinutes: 180,
-                  completionPercentage: emp.overallProgress || 0,
-                  status:
-                    emp.overallProgress === 100
-                      ? ("COMPLETED" as const)
-                      : emp.sodStatus === "SUBMITTED"
-                      ? ("IN_PROGRESS" as const)
-                      : ("NOT_STARTED" as const),
-                  expectedOutput: "Delivery per sprint acceptance criteria",
-                },
-              ],
+            : [],
         eodAchievements: emp.eodAchievements,
         eodBlockers: emp.eodBlockers,
         eodTomorrowFocus: emp.eodTomorrowFocus,
@@ -569,44 +401,52 @@ export function TeamMemberSODInspector() {
                 </span>
               </div>
 
-              <div className="space-y-2.5">
-                {selectedMember.plannedTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="p-3.5 rounded-xl bg-background/50 border border-border/70 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-xs font-bold text-foreground">{task.title}</span>
-                      <Badge
-                        variant="outline"
-                        className={
-                          task.priority === "HIGH"
-                            ? "text-red-400 border-red-500/30 text-[9px]"
-                            : "text-amber-400 border-amber-500/30 text-[9px]"
-                        }
-                      >
-                        {task.priority}
-                      </Badge>
-                    </div>
+              {selectedMember.plannedTasks.length === 0 ? (
+                <div className="p-6 rounded-xl bg-background/40 border border-border/70 text-center text-xs text-muted-foreground space-y-1.5">
+                  <Clock className="h-6 w-6 text-muted-foreground/60 mx-auto" />
+                  <p className="font-semibold text-foreground">Awaiting Start-of-Day (SOD) Submission</p>
+                  <p className="text-[11px] text-muted-foreground">This team member has not planned or submitted their morning deliverables yet today.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {selectedMember.plannedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="p-3.5 rounded-xl bg-background/50 border border-border/70 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-bold text-foreground">{task.title}</span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            task.priority === "HIGH"
+                              ? "text-red-400 border-red-500/30 text-[9px]"
+                              : "text-amber-400 border-amber-500/30 text-[9px]"
+                          }
+                        >
+                          {task.priority}
+                        </Badge>
+                      </div>
 
-                    <p className="text-[11px] text-muted-foreground">
-                      <strong>Expected Output:</strong> {task.expectedOutput}
-                    </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        <strong>Expected Output:</strong> {task.expectedOutput}
+                      </p>
 
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-                      <span>Project: <strong>{task.project}</strong> · Est: <strong>{task.estimatedMinutes}m</strong></span>
-                      <span className="font-mono font-bold text-cyan-400">{task.completionPercentage}%</span>
-                    </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                        <span>Project: <strong>{task.project}</strong> · Est: <strong>{task.estimatedMinutes}m</strong></span>
+                        <span className="font-mono font-bold text-cyan-400">{task.completionPercentage}%</span>
+                      </div>
 
-                    <div className="progress-track-line">
-                      <div
-                        className="progress-track-fill-cyan"
-                        style={{ width: `${task.completionPercentage}%` }}
-                      />
+                      <div className="progress-track-line">
+                        <div
+                          className="progress-track-fill-cyan"
+                          style={{ width: `${task.completionPercentage}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Evening EOD Summary */}

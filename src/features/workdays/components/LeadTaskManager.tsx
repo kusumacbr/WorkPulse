@@ -61,68 +61,9 @@ export interface AssignedTaskLogItem {
   targetEmployeeDesignation?: string;
 }
 
-const DEFAULT_ASSIGNED_TASKS_LOG: AssignedTaskLogItem[] = [
-  {
-    id: "task-assigned-sample-1",
-    title: "Verify mobile navigation and component styles",
-    category: "Frontend & UI",
-    project: "Frontend & UI",
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    progress: 50,
-    dueDate: "Today",
-    assignedBy: "Alex Lead",
-    assignedById: "lead-alex",
-    assignedAt: "Today at 09:30 AM",
-    acknowledged: true,
-    acknowledgedAt: "09:35 AM",
-    acknowledgementNote: "Understood! Running component tests and responsive audit now.",
-    targetEmployeeId: "emp-sarah",
-    targetEmployeeName: "Sarah Dev",
-    targetEmployeeEmail: "employee.test@xorstack.com",
-    targetEmployeeAvatar: "SD",
-    targetEmployeeDesignation: "Senior Backend Engineer",
-  },
-];
+const DEFAULT_ASSIGNED_TASKS_LOG: AssignedTaskLogItem[] = [];
 
-const DEFAULT_LEAD_TASKS: LeadPersonalTask[] = [
-  {
-    id: "lt-1",
-    title: "1-on-1 Performance Check-in with Sarah Dev",
-    category: "1-on-1 Sync",
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    progress: 60,
-    timeSlot: "11:00 AM - 11:30 AM",
-  },
-  {
-    id: "lt-2",
-    title: "Review this week's architecture PRs on Leave & HR Engine",
-    category: "Code Review",
-    priority: "HIGH",
-    status: "NOT_STARTED",
-    progress: 0,
-    timeSlot: "02:00 PM - 03:00 PM",
-  },
-  {
-    id: "lt-3",
-    title: "Quarterly OKR alignment with David Director",
-    category: "Leadership",
-    priority: "MEDIUM",
-    status: "COMPLETED",
-    progress: 100,
-    timeSlot: "04:30 PM - 05:00 PM",
-  },
-  {
-    id: "lt-4",
-    title: "Audit stage-2 Leave escalation queue with Rachel HR",
-    category: "Compliance",
-    priority: "MEDIUM",
-    status: "NOT_STARTED",
-    progress: 0,
-    timeSlot: "05:30 PM - 06:00 PM",
-  },
-];
+const DEFAULT_LEAD_TASKS: LeadPersonalTask[] = [];
 
 type LeadTaskTab = "TEAM_UPDATES" | "ASSIGN_WORK" | "HEATMAP" | "MY_TASKS";
 

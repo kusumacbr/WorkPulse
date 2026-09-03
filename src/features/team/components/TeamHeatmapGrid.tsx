@@ -41,7 +41,7 @@ export function TeamHeatmapGrid({
                 : emp.sodStatus === "SUBMITTED"
                 ? "SOD_SUBMITTED"
                 : "OPEN",
-            taskCount: emp.plannedTasks ? emp.plannedTasks.length : 2,
+            taskCount: emp.plannedTasks ? emp.plannedTasks.length : 0,
           },
           { date: "2026-08-21", dayName: "Fri", status: "NO_DATA", taskCount: 0 },
           { date: "2026-08-22", dayName: "Sat", status: "WEEKLY_OFF", taskCount: 0 },

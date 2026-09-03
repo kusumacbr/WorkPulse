@@ -187,8 +187,8 @@ export function TeamManagementDeck() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredMembers.map((emp) => {
           const workMode = emp.workMode || "OFFICE";
-          const progress = emp.overallProgress ?? 75;
-          const sodStatus = emp.sodStatus || "SUBMITTED";
+          const progress = emp.overallProgress ?? 0;
+          const sodStatus = emp.sodStatus || "PENDING";
 
           return (
             <Interactive3DCard

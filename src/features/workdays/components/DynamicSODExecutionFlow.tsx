@@ -49,57 +49,9 @@ interface RolledOverTask {
   status: "ROLLED_OVER" | "COMPLETED_YESTERDAY" | "DEFERRED";
 }
 
-const INITIAL_ROLLOVER_TASKS: RolledOverTask[] = [
-  {
-    id: "ro-1",
-    title: "Optimize PostgreSQL connection resilience & fallback handling in dev auth",
-    project: "Core Platform",
-    priority: "HIGH",
-    previousProgress: 45,
-    yesterdayDate: "Yesterday (Aug 19)",
-    reasonIncomplete: "Ran out of shift time during database migration verification.",
-    isAddedToToday: false,
-    status: "ROLLED_OVER",
-  },
-  {
-    id: "ro-2",
-    title: "Build automated Playwright end-to-end regression test scripts",
-    project: "Quality Assurance",
-    priority: "MEDIUM",
-    previousProgress: 20,
-    yesterdayDate: "Yesterday (Aug 19)",
-    reasonIncomplete: "Blocked temporarily waiting on staging environment deployment.",
-    isAddedToToday: false,
-    status: "ROLLED_OVER",
-  },
-];
+const INITIAL_ROLLOVER_TASKS: RolledOverTask[] = [];
 
-const INITIAL_TODAY_TASKS: ExecutionTask[] = [
-  {
-    id: "task-1",
-    title: "Implement dedicated SOD Carryover section with rolled-over task pile-up",
-    project: "Frontend & UI",
-    priority: "HIGH",
-    estimatedMinutes: 180,
-    expectedOutput: "Complete SOD section with carryover deck and morning lock action",
-    completionPercentage: 80,
-    status: "IN_PROGRESS",
-    actualMinutes: 140,
-    isCarriedOver: false,
-  },
-  {
-    id: "task-2",
-    title: "Conduct technical code review on Stage-2 Leave & HR approval PRs",
-    project: "Core Platform",
-    priority: "MEDIUM",
-    estimatedMinutes: 90,
-    expectedOutput: "Provide sign-off and merge authorization layer changes",
-    completionPercentage: 100,
-    status: "COMPLETED",
-    actualMinutes: 75,
-    isCarriedOver: false,
-  },
-];
+const INITIAL_TODAY_TASKS: ExecutionTask[] = [];
 
 const QUICK_TEMPLATES = [
   { label: "🚀 Feature Implementation", project: "Core Platform", priority: "HIGH" as const, minutes: 180 },

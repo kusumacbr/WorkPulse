@@ -59,62 +59,7 @@ export const normalizeCategory = (cat: string) => {
   return "General";
 };
 
-export const DEFAULT_FRIENDLY_TASKS: SimpleTaskItem[] = [
-  {
-    id: "task-1",
-    title: "Prepare and finalize weekly team report",
-    category: "Operations",
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    progress: 75,
-    dueDate: "Today",
-  },
-  {
-    id: "task-2",
-    title: "Execute Stage-2 Leave & WFH Final Approvals",
-    category: "Operations",
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    progress: 80,
-    dueDate: "Today",
-  },
-  {
-    id: "task-3",
-    title: "Review 30/90-Day Probation Feedback for New Joiners",
-    category: "Documentation",
-    priority: "MEDIUM",
-    status: "NOT_STARTED",
-    progress: 0,
-    dueDate: "Tomorrow",
-  },
-  {
-    id: "task-4",
-    title: "Audit Shift Biometric Punctuality & Punch Regularizations",
-    category: "Operations",
-    priority: "HIGH",
-    status: "COMPLETED",
-    progress: 100,
-    dueDate: "Today",
-  },
-  {
-    id: "task-5",
-    title: "Coordinate Work Anniversary & Birthday Celebrations",
-    category: "General",
-    priority: "MEDIUM",
-    status: "IN_PROGRESS",
-    progress: 60,
-    dueDate: "This Week",
-  },
-  {
-    id: "task-6",
-    title: "Review monthly goals and team milestones",
-    category: "Planning",
-    priority: "MEDIUM",
-    status: "COMPLETED",
-    progress: 100,
-    dueDate: "Today",
-  },
-];
+export const DEFAULT_FRIENDLY_TASKS: SimpleTaskItem[] = [];
 
 type SegregationTab = "ALL" | "TODO" | "IN_PROGRESS" | "COMPLETED" | "WEEK";
 
@@ -142,7 +87,7 @@ export function SimpleTaskManager() {
     );
   }, [allEmployees, currentUser]);
 
-  const [tasks, setTasks] = useState<SimpleTaskItem[]>(DEFAULT_FRIENDLY_TASKS);
+  const [tasks, setTasks] = useState<SimpleTaskItem[]>([]);
   const [mounted, setMounted] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [helpTopic, setHelpTopic] = useState("Blocker / Technical Issue");
@@ -184,7 +129,23 @@ export function SimpleTaskManager() {
                   category: normalizeCategory(t.category || "General"),
                 }))
               );
+              return;
             }
+          }
+          if (currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0) {
+            setTasks(
+              currentEmp.plannedTasks.map((t: any) => ({
+                id: t.id,
+                title: t.title,
+                category: normalizeCategory(t.project || t.category || "General"),
+                priority: t.priority || "MEDIUM",
+                status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+                progress: t.completionPercentage || t.progress || 0,
+                dueDate: "Today",
+              }))
+            );
+          } else {
+            setTasks([]);
           }
         } catch {}
       }
@@ -1107,6 +1068,8 @@ export function SimpleTaskManager() {
                     ? `Verified by ${sodVerifiedBy} (${sodVerifiedAt})`
                     : isSodSubmitted
                     ? `Submitted to ${assignedLeadName} at ${currentEmp?.sodTime || 'Just now'}`
+                    : tasks.length === 0
+                    ? "No tasks added yet. Click 'Add Task' to plan your daily deliverables."
                     : `${tasks.length} task(s) ready to submit directly to your Lead`}
                 </p>
               </div>

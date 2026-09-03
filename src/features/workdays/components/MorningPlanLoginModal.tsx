@@ -16,7 +16,6 @@ import {
   ListTodo,
   X,
 } from "lucide-react";
-import { DEFAULT_FRIENDLY_TASKS } from "./SimpleTaskManager";
 
 export const openMorningPlanModal = () => {
   if (typeof window !== "undefined") {
@@ -85,16 +84,6 @@ export function MorningPlanLoginModal() {
       } catch {}
     }
 
-    if (initialTasks.length === 0) {
-      initialTasks = DEFAULT_FRIENDLY_TASKS.map((t) => ({
-        id: t.id,
-        title: t.title,
-        project: t.category,
-        priority: t.priority,
-        estimatedMinutes: 60,
-      }));
-    }
-
     setTasks(
       initialTasks.map((t, idx) => ({
         id: t.id || `task-modal-${idx}`,
@@ -117,15 +106,6 @@ export function MorningPlanLoginModal() {
           const saved = localStorage.getItem("workpulse_simple_tasks");
           if (saved) latestTasks = JSON.parse(saved);
         } catch {}
-      }
-      if (latestTasks.length === 0) {
-        latestTasks = DEFAULT_FRIENDLY_TASKS.map((t) => ({
-          id: t.id,
-          title: t.title,
-          project: t.category,
-          priority: t.priority,
-          estimatedMinutes: 60,
-        }));
       }
       setTasks(
         latestTasks.map((t, idx) => ({
