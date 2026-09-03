@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+const FALLBACK_GEMINI_KEY = "AQ.Ab8RN6Lyd7A0EhW7_UmgbGD2v2pAxkq21Jq_vR6A2oawFHR9qw";
+
 export async function GET() {
   const adkUrl = process.env.ADK_AGENT_URL || "http://127.0.0.1:8000";
   const appName = process.env.ADK_APP_NAME || "sample_agent";
-  const apiKeyConfigured = Boolean(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
+  const apiKeyConfigured = Boolean(
+    process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || FALLBACK_GEMINI_KEY
+  );
   const configuredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const isProduction = process.env.NODE_ENV === "production";
 

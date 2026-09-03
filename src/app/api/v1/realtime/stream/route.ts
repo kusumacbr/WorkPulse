@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { realtimeEventBus, RealtimeEvent } from "@/server/realtime/event-bus";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();

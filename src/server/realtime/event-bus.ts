@@ -94,6 +94,7 @@ const globalForEvents = globalThis as unknown as {
 export const realtimeEventBus =
   globalForEvents.realtimeEventBus ?? new RealtimeEventBus();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForEvents.realtimeEventBus = realtimeEventBus;
-}
+globalForEvents.realtimeEventBus = realtimeEventBus;
+
+
+
