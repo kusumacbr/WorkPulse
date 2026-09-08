@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Badge } from "@/components/ui/badge";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { SimpleTaskManager } from "@/features/workdays/components/SimpleTaskManager";
@@ -40,39 +39,45 @@ export default function MyWorkPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Simple & Clean Header */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+        <Interactive3DCard className="p-6 border border-slate-200/90 dark:border-border/80 bg-gradient-to-r from-white via-slate-50/50 to-white dark:from-card/90 dark:via-card/70 dark:to-card/50 shadow-sm rounded-3xl">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <Badge variant="brand" className={`font-bold text-[10px] uppercase ${isHR ? "bg-pink-500/15 text-pink-300 border-pink-500/30" : ""}`}>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase border shadow-xs ${
+                isHR
+                  ? "bg-pink-100/90 dark:bg-pink-500/15 text-pink-800 dark:text-pink-300 border-pink-200 dark:border-pink-500/30"
+                  : isLead
+                  ? "bg-indigo-100/90 dark:bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30"
+                  : "bg-cyan-100/90 dark:bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30"
+              }`}>
                 {isHR ? (
                   <>
-                    <ShieldCheck className="h-3 w-3 mr-1 text-pink-400" />
+                    <ShieldCheck className="h-3 w-3 mr-1 text-pink-600 dark:text-pink-400" />
                     <span>People &amp; Staff Operations</span>
                   </>
                 ) : isLead ? (
                   <>
-                    <Users className="h-3 w-3 mr-1 text-indigo-400" />
+                    <Users className="h-3 w-3 mr-1 text-indigo-600 dark:text-indigo-400" />
                     <span>Team Work &amp; Daily Updates</span>
                   </>
                 ) : (
                   <>
-                    <CheckSquare className="h-3 w-3 mr-1 text-cyan-400" />
+                    <CheckSquare className="h-3 w-3 mr-1 text-cyan-600 dark:text-cyan-400" />
                     <span>Workplace Tasks</span>
                   </>
                 )}
-              </Badge>
+              </span>
               {isHR ? (
-                <span className="text-[11px] text-muted-foreground font-medium">
+                <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
                   {allEmployees.length || 19} Total Staff
                 </span>
               ) : isLead ? (
-                <span className="text-[11px] text-muted-foreground font-medium">
+                <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
                   Development Team · {teamMemberCount} Direct Reports
                 </span>
               ) : null}
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-foreground">
               {isHR
                 ? "Staff Directory & Team Operations"
                 : isLead
@@ -80,7 +85,7 @@ export default function MyWorkPage() {
                 : "My Tasks"}
             </h2>
 
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-muted-foreground leading-relaxed">
               {isHR
                 ? "Search employee profiles, onboard new staff, track probation periods, and view department teams."
                 : isLead

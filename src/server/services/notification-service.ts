@@ -28,20 +28,22 @@ export interface InAppNotification {
 const inMemoryNotifications: InAppNotification[] = [
   {
     id: "notif-init-1",
-    userId: "user-sarah",
+    userId: "all",
+    actorId: "system",
     type: "SOD_REMINDER",
     title: "Start-of-Day Plan Pending",
     message: "Don't forget to submit your daily task plan and sprint goals for today.",
     linkUrl: "/my-work",
     read: false,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1800000).toISOString(),
   },
   {
     id: "notif-init-2",
-    userId: "user-sarah",
+    userId: "all",
+    actorId: "hr-rachel",
     type: "GENERAL",
-    title: "Welcome to WorkPulse Phase 1",
-    message: "Core employee workflows: SOD, EOD, and weekly goals are now active.",
+    title: "Welcome to WorkPulse Enterprise",
+    message: "Core employee workflows: SOD, EOD, biometric punches, and weekly goals are active.",
     linkUrl: "/dashboard",
     read: true,
     createdAt: new Date(Date.now() - 3600000).toISOString(),
@@ -49,11 +51,27 @@ const inMemoryNotifications: InAppNotification[] = [
 ];
 
 const readNotificationIds = new Set<string>();
+const deletedNotificationIds = new Set<string>();
 const userAllReadTimestamps = new Map<string, number>();
+
+/**
+ * Normalizes and checks if a notification's target userId matches the given user.
+ * e.g. "all" matches everyone; "emp-sarah" matches "user-sarah", "lead-alex" matches "user-alex"
+ */
+function matchesUserId(notifUserId: string, targetUserId: string): boolean {
+  if (!notifUserId || notifUserId === "all") return true;
+  if (!targetUserId) return false;
+  const n = notifUserId.toLowerCase().trim();
+  const t = targetUserId.toLowerCase().trim();
+  if (n === t) return true;
+  const nCore = n.replace(/^(user|emp|lead|hr)-/, "");
+  const tCore = t.replace(/^(user|emp|lead|hr)-/, "");
+  return nCore === tCore;
+}
 
 export class NotificationService {
   /**
-   * Dispatch an in-app notification
+   * Dispatch an in-app notification and persist directly to Supabase notifications table
    */
   static async send(params: {
     userId: string;
@@ -78,100 +96,500 @@ export class NotificationService {
     };
 
     inMemoryNotifications.unshift(notif);
+
+    // Persist to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        // 1. Primary: Save into dedicated public.notifications table
+        try {
+          const { error: notifErr } = await supabase.from("notifications").insert({
+            id: notif.id,
+            user_id: notif.userId,
+            actor_id: notif.actorId,
+            announcement_id: notif.announcementId,
+            type: notif.type,
+            title: notif.title,
+            message: notif.message,
+            link_url: notif.linkUrl,
+            read: notif.read,
+            created_at: notif.createdAt,
+            updated_at: notif.createdAt,
+          });
+          if (notifErr) {
+            console.warn("[NotificationService] notifications table insert warning:", notifErr.message);
+          }
+        } catch (e: any) {
+          console.warn("[NotificationService] Error inserting to notifications table:", e?.message);
+        }
+
+        // 2. Fallback: Save to feedbacks table under lead_id = 'NOTIFICATION'
+        await supabase.from("feedbacks").upsert({
+          id: notif.id,
+          employee_id: notif.userId,
+          employee_name: notif.title,
+          lead_id: "NOTIFICATION",
+          lead_name: notif.actorId || "HR - People Operations",
+          date: notif.createdAt.split("T")[0] || new Date().toISOString().split("T")[0],
+          rating: notif.read ? 1.0 : 0.0,
+          sentiment: notif.type,
+          notes: notif.message,
+          action_item: JSON.stringify({
+            announcementId: notif.announcementId,
+            linkUrl: notif.linkUrl,
+            read: notif.read,
+            createdAt: notif.createdAt,
+            type: notif.type,
+            userId: notif.userId,
+            title: notif.title,
+            message: notif.message,
+          }),
+        });
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase persist error:", err);
+    }
+
     realtimeEventBus.emit("notification:new", notif);
     return notif;
+  }
+
+  /**
+   * Check if a notification is permanently deleted
+   */
+  static isNotificationDeleted(notificationId: string, userId?: string): boolean {
+    if (deletedNotificationIds.has(notificationId)) return true;
+    if (userId) {
+      if (deletedNotificationIds.has(`${userId}:${notificationId}`)) return true;
+      const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
+      if (deletedNotificationIds.has(`${uCore}:${notificationId}`)) return true;
+    }
+    return false;
   }
 
   /**
    * Check if a notification is marked read for a specific user
    */
   static isNotificationRead(notificationId: string, userId?: string, createdAt?: string): boolean {
-    if (readNotificationIds.has(notificationId)) return true;
-    if (userId) {
-      if (readNotificationIds.has(`${userId}:${notificationId}`)) return true;
-      const allReadTs = userAllReadTimestamps.get(userId);
-      if (allReadTs) {
-        if (!createdAt) return true;
-        const parsed = new Date(createdAt).getTime();
-        // If it was created in the past or is a relative string like "Yesterday", it is covered by mark-all-read
-        if (isNaN(parsed) || parsed <= allReadTs) return true;
-      }
+    if (!userId) {
+      return readNotificationIds.has(notificationId);
+    }
+    const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
+    if (
+      readNotificationIds.has(`${userId}:${notificationId}`) ||
+      readNotificationIds.has(`${uCore}:${notificationId}`)
+    ) {
+      return true;
+    }
+
+    const allReadTs = userAllReadTimestamps.get(userId) || userAllReadTimestamps.get(uCore);
+    if (allReadTs) {
+      if (!createdAt) return true;
+      const parsed = new Date(createdAt).getTime();
+      if (isNaN(parsed) || parsed <= allReadTs) return true;
     }
     return false;
   }
 
   /**
-   * Retrieve notifications for user
+   * Retrieve notifications for user from dedicated Supabase tables and in-memory
    */
   static async getUserNotifications(params: {
     userId: string;
     unreadOnly?: boolean;
   }): Promise<{ notifications: InAppNotification[]; unreadCount: number }> {
-    const rawNotifs = inMemoryNotifications
-      .filter((n) => n.userId === params.userId || n.userId === "all")
+    const supabaseNotifs: InAppNotification[] = [];
+    const dbReadIds = new Set<string>();
+    const dbDeletedIds = new Set<string>();
+
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        // 1. Fetch from dedicated public.notifications table
+        try {
+          const { data: notifData, error: nErr } = await supabase
+            .from("notifications")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+          if (!nErr && Array.isArray(notifData) && notifData.length > 0) {
+            notifData.forEach((row: any) => {
+              if (!matchesUserId(row.user_id, params.userId)) return;
+              supabaseNotifs.push({
+                id: row.id,
+                announcementId: row.announcement_id || null,
+                userId: row.user_id,
+                actorId: row.actor_id || null,
+                type: row.type || "GENERAL",
+                title: row.title,
+                message: row.message,
+                linkUrl: row.link_url || null,
+                read: Boolean(row.read),
+                createdAt: row.created_at,
+              });
+            });
+          }
+        } catch (e: any) {
+          console.warn("[NotificationService] notifications table read error:", e?.message);
+        }
+
+        // 2. Fetch per-user read receipts from public.notification_reads
+        try {
+          const { data: readRows } = await supabase
+            .from("notification_reads")
+            .select("notification_id")
+            .eq("user_id", params.userId);
+
+          if (Array.isArray(readRows)) {
+            readRows.forEach((r: any) => {
+              if (r.notification_id) {
+                dbReadIds.add(r.notification_id);
+                readNotificationIds.add(r.notification_id);
+                readNotificationIds.add(`${params.userId}:${r.notification_id}`);
+              }
+            });
+          }
+        } catch {}
+
+        // 3. Fetch per-user deleted notifications from public.notification_deletes
+        try {
+          const { data: delRows } = await supabase
+            .from("notification_deletes")
+            .select("notification_id")
+            .eq("user_id", params.userId);
+
+          if (Array.isArray(delRows)) {
+            delRows.forEach((d: any) => {
+              if (d.notification_id) {
+                dbDeletedIds.add(d.notification_id);
+                deletedNotificationIds.add(d.notification_id);
+                deletedNotificationIds.add(`${params.userId}:${d.notification_id}`);
+              }
+            });
+          }
+        } catch {}
+
+        // 4. Fallback: Query feedbacks table where lead_id = 'NOTIFICATION' if notifications table empty
+        if (supabaseNotifs.length === 0) {
+          try {
+            const { data: fbNotifs } = await supabase
+              .from("feedbacks")
+              .select("*")
+              .eq("lead_id", "NOTIFICATION")
+              .order("created_at", { ascending: false })
+              .limit(50);
+
+            if (Array.isArray(fbNotifs) && fbNotifs.length > 0) {
+              fbNotifs.forEach((row: any) => {
+                if (!matchesUserId(row.employee_id, params.userId)) return;
+                let meta: any = {};
+                try {
+                  meta = JSON.parse(row.action_item || "{}");
+                } catch {}
+                supabaseNotifs.push({
+                  id: row.id,
+                  announcementId: meta.announcementId || null,
+                  userId: row.employee_id,
+                  actorId: row.lead_name || null,
+                  type: (meta.type || row.sentiment || "GENERAL") as any,
+                  title: row.employee_name,
+                  message: row.notes,
+                  linkUrl: meta.linkUrl || null,
+                  read: Boolean(row.rating > 0 || meta.read),
+                  createdAt: meta.createdAt || row.created_at || `${row.date}T00:00:00Z`,
+                });
+              });
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase read error:", err);
+    }
+
+    // Merge in-memory and Supabase notifications
+    const allCombined = [...inMemoryNotifications, ...supabaseNotifs];
+
+    const rawNotifs = allCombined
+      .filter((n) => !dbDeletedIds.has(n.id) && !this.isNotificationDeleted(n.id, params.userId))
+      .filter((n) => matchesUserId(n.userId, params.userId))
       .map((n) => {
-        const isRead = n.read || this.isNotificationRead(n.id, params.userId, n.createdAt);
+        const isBroadcast = !n.userId || n.userId === "all";
+        const isRead = isBroadcast
+          ? (dbReadIds.has(n.id) || this.isNotificationRead(n.id, params.userId, n.createdAt))
+          : (Boolean(n.read) || dbReadIds.has(n.id) || this.isNotificationRead(n.id, params.userId, n.createdAt));
         return { ...n, read: isRead };
       });
 
-    // Deduplicate by title
+    // Deduplicate by title & message (or id)
     const uniqueMap = new Map<string, InAppNotification>();
     rawNotifs.forEach((n) => {
-      const key = `${(n.title || "").toLowerCase().trim()}::${(n.message || "").toLowerCase().trim().slice(0, 30)}`;
+      const key = `${(n.title || "").toLowerCase().trim()}::${(n.message || "").toLowerCase().trim().slice(0, 35)}`;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, n);
       } else {
         const existing = uniqueMap.get(key)!;
-        if (!n.read && existing.read) {
-          uniqueMap.set(key, n);
-        }
+        // If either item is marked as read, KEEP IT READ!
+        const isRead = existing.read || n.read;
+        uniqueMap.set(key, { ...existing, read: isRead });
       }
     });
 
-    const userNotifs = Array.from(uniqueMap.values());
+    const userNotifs = Array.from(uniqueMap.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const unreadCount = userNotifs.filter((n) => !n.read).length;
     const filtered = params.unreadOnly ? userNotifs.filter((n) => !n.read) : userNotifs;
     return { notifications: filtered, unreadCount };
   }
 
   /**
-   * Mark notification as read
+   * Modify/update an existing notification in memory and in Supabase
+   */
+  static async updateNotification(
+    notificationId: string,
+    updates: Partial<InAppNotification>
+  ): Promise<InAppNotification | null> {
+    // 1. Update in-memory
+    const notif = inMemoryNotifications.find((n) => n.id === notificationId);
+    if (notif) {
+      if (updates.title !== undefined) notif.title = updates.title;
+      if (updates.message !== undefined) notif.message = updates.message;
+      if (updates.read !== undefined) notif.read = updates.read;
+      if (updates.type !== undefined) notif.type = updates.type;
+      if (updates.linkUrl !== undefined) notif.linkUrl = updates.linkUrl;
+    }
+
+    // 2. Update Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        const notifUpdates: any = { updated_at: new Date().toISOString() };
+        if (updates.title !== undefined) notifUpdates.title = updates.title;
+        if (updates.message !== undefined) notifUpdates.message = updates.message;
+        if (updates.read !== undefined) notifUpdates.read = updates.read;
+        if (updates.type !== undefined) notifUpdates.type = updates.type;
+        if (updates.linkUrl !== undefined) notifUpdates.link_url = updates.linkUrl;
+
+        const fbUpdates: any = {};
+        if (updates.title !== undefined) fbUpdates.employee_name = updates.title;
+        if (updates.message !== undefined) fbUpdates.notes = updates.message;
+        if (updates.read !== undefined) fbUpdates.rating = updates.read ? 1.0 : 0.0;
+        if (updates.type !== undefined) fbUpdates.sentiment = updates.type;
+
+        await Promise.allSettled([
+          supabase.from("notifications").update(notifUpdates).eq("id", notificationId),
+          supabase.from("feedbacks").update(fbUpdates).eq("id", notificationId),
+        ]);
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase update error:", err);
+    }
+
+    realtimeEventBus.emit("notification:updated", { id: notificationId, updates });
+    return notif || null;
+  }
+
+  /**
+   * Mark notification as read in memory and permanently in Supabase (per user)
    */
   static async markAsRead(notificationId: string, userId?: string): Promise<void> {
-    readNotificationIds.add(notificationId);
     if (userId) {
       readNotificationIds.add(`${userId}:${notificationId}`);
+      const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
+      readNotificationIds.add(`${uCore}:${notificationId}`);
+    } else {
+      readNotificationIds.add(notificationId);
     }
 
     const notif = inMemoryNotifications.find((n) => n.id === notificationId);
-    if (notif) {
+    if (notif && notif.userId !== "all") {
       notif.read = true;
     }
+
+    // Update permanently in Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        // 1. Record in dedicated notification_reads table for this user
+        if (userId) {
+          await supabase.from("notification_reads").upsert(
+            {
+              id: `nr-${notificationId}-${userId}`,
+              notification_id: notificationId,
+              user_id: userId,
+              read_at: new Date().toISOString(),
+            },
+            { onConflict: "notification_id,user_id" }
+          );
+        }
+
+        // 2. Only update direct notification row if not broadcast to all
+        if (!notif || notif.userId !== "all") {
+          await supabase.from("notifications").update({ read: true, updated_at: new Date().toISOString() }).eq("id", notificationId);
+        }
+
+        // 3. Fallback: update feedbacks table rating
+        await supabase.from("feedbacks").update({ rating: 1.0 }).eq("id", notificationId);
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase markAsRead error:", err);
+    }
+
     realtimeEventBus.emit("notification:read", { id: notificationId, userId });
   }
 
   /**
-   * Mark all as read
+   * Mark all as read in memory and permanently in Supabase for user
    */
   static async markAllAsRead(userId: string): Promise<void> {
     userAllReadTimestamps.set(userId, Date.now());
+    const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
+    userAllReadTimestamps.set(uCore, Date.now());
+
     inMemoryNotifications.forEach((n) => {
-      if (n.userId === userId || n.userId === "all") {
-        n.read = true;
-        readNotificationIds.add(n.id);
+      if (matchesUserId(n.userId, userId)) {
+        if (n.userId !== "all") {
+          n.read = true;
+        }
         readNotificationIds.add(`${userId}:${n.id}`);
+        readNotificationIds.add(`${uCore}:${n.id}`);
       }
     });
+
+    // Update in Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        // Fetch all current notifications to populate notification_reads
+        const { data: allNotifs } = await supabase
+          .from("notifications")
+          .select("id, user_id")
+          .limit(100);
+
+        if (Array.isArray(allNotifs) && allNotifs.length > 0) {
+          const readsToInsert = allNotifs
+            .filter((n) => matchesUserId(n.user_id, userId))
+            .map((n) => ({
+              id: `nr-${n.id}-${userId}`,
+              notification_id: n.id,
+              user_id: userId,
+              read_at: new Date().toISOString(),
+            }));
+
+          if (readsToInsert.length > 0) {
+            await supabase
+              .from("notification_reads")
+              .upsert(readsToInsert, { onConflict: "notification_id,user_id" });
+          }
+        }
+
+        // Also update direct notifications for this user
+        await Promise.allSettled([
+          supabase
+            .from("notifications")
+            .update({ read: true, updated_at: new Date().toISOString() })
+            .or(`user_id.eq.${userId},user_id.eq.${uCore}`),
+          supabase
+            .from("feedbacks")
+            .update({ rating: 1.0 })
+            .eq("lead_id", "NOTIFICATION")
+            .or(`employee_id.eq.${userId},employee_id.eq.${uCore},employee_id.eq.all`),
+        ]);
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase markAllAsRead error:", err);
+    }
+
     realtimeEventBus.emit("notification:read_all", { userId });
   }
 
-  /** Remove the notification generated for a deleted HR announcement for every audience member. */
+  /**
+   * Permanently delete a single notification from memory and from Supabase
+   */
+  static async deleteNotification(notificationId: string, userId?: string, _isHr?: boolean): Promise<void> {
+    deletedNotificationIds.add(notificationId);
+    if (userId) {
+      deletedNotificationIds.add(`${userId}:${notificationId}`);
+      const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
+      deletedNotificationIds.add(`${uCore}:${notificationId}`);
+    }
+
+    // Remove from in-memory array
+    const idx = inMemoryNotifications.findIndex((n) => n.id === notificationId);
+    if (idx !== -1) {
+      inMemoryNotifications.splice(idx, 1);
+    }
+
+    readNotificationIds.delete(notificationId);
+    if (userId) {
+      readNotificationIds.delete(`${userId}:${notificationId}`);
+    }
+
+    // Delete from Supabase permanently
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await Promise.allSettled([
+          supabase.from("notifications").delete().eq("id", notificationId),
+          supabase.from("notification_reads").delete().eq("notification_id", notificationId),
+          supabase.from("notification_deletes").delete().eq("notification_id", notificationId),
+          supabase.from("feedbacks").delete().eq("id", notificationId),
+        ]);
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase delete notification error:", err);
+    }
+
+    realtimeEventBus.emit("notification:deleted", { notificationIds: [notificationId], userId });
+  }
+
+  /**
+   * Permanently delete all notifications for a user from memory and from Supabase
+   */
+  static async deleteAllNotifications(userId: string, _isHr?: boolean): Promise<void> {
+    const deletedIds: string[] = [];
+    for (let i = inMemoryNotifications.length - 1; i >= 0; i--) {
+      const n = inMemoryNotifications[i];
+      if (n && matchesUserId(n.userId, userId)) {
+        deletedIds.push(n.id);
+        deletedNotificationIds.add(n.id);
+        deletedNotificationIds.add(`${userId}:${n.id}`);
+        inMemoryNotifications.splice(i, 1);
+      }
+    }
+
+    // Delete permanently from Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await Promise.allSettled([
+          supabase.from("notifications").delete().or(`user_id.eq.${userId},user_id.eq.all`),
+          supabase.from("feedbacks").delete().eq("lead_id", "NOTIFICATION").or(`employee_id.eq.${userId},employee_id.eq.all`),
+          supabase.from("notification_reads").delete().eq("user_id", userId),
+        ]);
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Supabase delete all notifications error:", err);
+    }
+
+    realtimeEventBus.emit("notification:deleted", { notificationIds: deletedIds, userId });
+  }
+
+  /**
+   * Remove notifications generated for a deleted HR announcement for every audience member
+   */
   static async deleteAnnouncementNotifications(announcementId: string): Promise<void> {
     const deletedIds = inMemoryNotifications
       .filter((notification) => notification.announcementId === announcementId)
       .map((notification) => notification.id);
-
-    if (deletedIds.length === 0) return;
 
     for (let index = inMemoryNotifications.length - 1; index >= 0; index -= 1) {
       const notification = inMemoryNotifications[index];
@@ -181,11 +599,52 @@ export class NotificationService {
     }
 
     deletedIds.forEach((id) => {
+      deletedNotificationIds.add(id);
       readNotificationIds.delete(id);
       Array.from(readNotificationIds)
         .filter((key) => key.endsWith(`:${id}`))
         .forEach((key) => readNotificationIds.delete(key));
     });
+
+    // Cascade delete in Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        // Delete by announcement_id in notifications table
+        await supabase.from("notifications").delete().eq("announcement_id", announcementId);
+        // Also delete from notification_reads for those IDs
+        if (deletedIds.length > 0) {
+          await supabase.from("notification_reads").delete().in("notification_id", deletedIds);
+          await supabase.from("notification_deletes").delete().in("notification_id", deletedIds);
+        }
+
+        // In feedbacks table, delete all rows where action_item contains announcementId
+        const { data: rows } = await supabase
+          .from("feedbacks")
+          .select("id, action_item")
+          .eq("lead_id", "NOTIFICATION");
+
+        if (Array.isArray(rows) && rows.length > 0) {
+          const matchIds = rows
+            .filter((r) => {
+              try {
+                const meta = JSON.parse(r.action_item || "{}");
+                return meta.announcementId === announcementId;
+              } catch {
+                return false;
+              }
+            })
+            .map((r) => r.id);
+
+          if (matchIds.length > 0) {
+            await supabase.from("feedbacks").delete().in("id", matchIds);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[NotificationService] Cascade delete announcement notifications error:", err);
+    }
 
     realtimeEventBus.emit("notification:deleted", { announcementId, notificationIds: deletedIds });
   }
@@ -196,6 +655,7 @@ export class NotificationService {
   static clearStore(): void {
     inMemoryNotifications.length = 0;
     readNotificationIds.clear();
+    deletedNotificationIds.clear();
     userAllReadTimestamps.clear();
   }
 }

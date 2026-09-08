@@ -15,24 +15,41 @@ function setupGlobalWindowListeners() {
 
   const events = [
     "storage",
+    "workpulse_sync",
     "workpulse:lead_feedback_updated",
+    "workpulse:task_assigned",
+    "workpulse:task_acknowledged",
+    "workpulse:tasks_changed",
+    "workpulse:simple_tasks_updated",
+    "workpulse:goals_changed",
+    "workpulse:simple_goals_updated",
     "workday:sod_submitted",
     "workday:sod_verified",
     "workday:sod_changes_requested",
     "workday:eod_submitted",
     "workday:eod_verified",
-    "workday:task_assigned",
     "workday:help_requested",
     "workday:help_acknowledged",
     "workday:help_resolved",
     "attendance:punched",
     "attendance:presence_verified",
     "attendance:all_presence_verified",
-    "workpulse_sync",
     "leave:status_updated",
+    "leave:created",
     "leave:deleted",
+    "leave:approved",
+    "leave:rejected",
     "wfh:status_updated",
+    "wfh:created",
     "wfh:deleted",
+    "wfh:approved",
+    "wfh:rejected",
+    "employee:created",
+    "employee:updated",
+    "employee:deleted",
+    "profile:query_submitted",
+    "profile:query_approved",
+    "profile:query_rejected",
   ];
 
   events.forEach((evt) => {
@@ -47,6 +64,7 @@ export function useWorkpulseSharedStore() {
 
   useEffect(() => {
     setupGlobalWindowListeners();
+    WorkpulseSharedStore.hydrateFromStorage();
     const unsubscribe = subscribeToSharedStore(() => setTick((t) => t + 1));
     return () => {
       unsubscribe();
@@ -90,6 +108,9 @@ export function useWorkpulseSharedStore() {
     verifyMemberPresence: WorkpulseSharedStore.verifyMemberPresence,
     verifyAllMemberPresence: WorkpulseSharedStore.verifyAllMemberPresence,
     unverifyMemberPresence: WorkpulseSharedStore.unverifyMemberPresence,
+    deleteSOD: WorkpulseSharedStore.deleteSOD,
+    deleteEOD: WorkpulseSharedStore.deleteEOD,
+    startNewWorkday: WorkpulseSharedStore.startNewWorkday,
     resetToDefaults: WorkpulseSharedStore.resetToDefaults,
     syncWithSupabase: WorkpulseSharedStore.syncWithSupabase,
   };

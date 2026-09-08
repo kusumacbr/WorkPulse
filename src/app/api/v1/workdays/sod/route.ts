@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     const workDate = body.workDate || new Date().toISOString().split("T")[0]!;
 
     const tasks = (body.tasks || []).map((t: any) => ({
+      id: t.id,
       title: t.title,
       description: t.description,
       project: t.project || "General",
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest) {
       expectedOutput: t.expectedOutput,
       estimatedMinutes: Number(t.estimatedMinutes) || 60,
       isConfidential: Boolean(t.isConfidential),
+      status: t.status || "NOT_STARTED",
+      completionPercentage: t.completionPercentage || t.progress || 0,
     }));
 
     const workday = await WorkdayService.submitSOD({
@@ -37,3 +40,23 @@ export async function POST(req: NextRequest) {
     return apiError(err.message || "Failed to submit Start-of-Day plan", 400);
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { user, actor } = await getSessionActor(req);
+    const body = await req.json().catch(() => ({}));
+    const employeeId = body.employeeId || actor.employeeId || user.id;
+    const workDate = body.workDate || new Date().toISOString().split("T")[0]!;
+
+    const result = await WorkdayService.deleteSOD({
+      actor,
+      employeeId,
+      workDate,
+    });
+
+    return apiSuccess(result, 200);
+  } catch (err: any) {
+    return apiError(err.message || "Failed to delete Start-of-Day plan", 400);
+  }
+}
+

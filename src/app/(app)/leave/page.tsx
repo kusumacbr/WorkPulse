@@ -53,13 +53,67 @@ export default function LeavePage() {
   const { allEmployees, leaveRequests, wfhRequests, deleteLeaveRequest, deleteWfhRequest } = useWorkpulseSharedStore();
 
   const handleDeleteLeave = (id: string) => {
+    const targetReq = leaveRequests.find((r) => r.id === id);
+    if (targetReq) {
+      // Cascade delete all duplicate copies with same dates, reason, employeeId
+      const duplicates = leaveRequests.filter(
+        (r) =>
+          r.employeeId === targetReq.employeeId &&
+          r.startDate === targetReq.startDate &&
+          (r.reason || "") === (targetReq.reason || "")
+      );
+      duplicates.forEach((dup) => deleteLeaveRequest(dup.id));
+      showToast(`✓ Removed ${duplicates.length > 1 ? `${duplicates.length} duplicate ` : ""}leave request${duplicates.length > 1 ? "s" : ""}.`);
+      return;
+    }
     deleteLeaveRequest(id);
-    showToast("✓ Leave request removed.");
+    showToast("✓ Leave request permanently removed.");
   };
 
   const handleDeleteWfh = (id: string) => {
+    const targetWfh = wfhRequests.find((r) => r.id === id);
+    if (targetWfh) {
+      // Cascade delete all duplicate copies with same dates, reason, employeeId
+      const duplicates = wfhRequests.filter(
+        (r) =>
+          r.employeeId === targetWfh.employeeId &&
+          r.startDate === targetWfh.startDate &&
+          (r.reason || "") === (targetWfh.reason || "")
+      );
+      duplicates.forEach((dup) => deleteWfhRequest(dup.id));
+      showToast(`✓ Removed ${duplicates.length > 1 ? `${duplicates.length} duplicate ` : ""}WFH request${duplicates.length > 1 ? "s" : ""}.`);
+      return;
+    }
     deleteWfhRequest(id);
-    showToast("✓ WFH request removed.");
+    showToast("✓ WFH request permanently removed.");
+  };
+
+  const handleClearAllLeaves = () => {
+    myLeaveRequests.forEach((r) => {
+      const duplicates = leaveRequests.filter(
+        (lr) =>
+          lr.employeeId === r.employeeId &&
+          lr.startDate === r.startDate &&
+          (lr.reason || "") === (r.reason || "")
+      );
+      duplicates.forEach((dup) => deleteLeaveRequest(dup.id));
+      deleteLeaveRequest(r.id);
+    });
+    showToast(`✓ Cleared all leave applications.`);
+  };
+
+  const handleClearAllWfh = () => {
+    myWfhRequests.forEach((r) => {
+      const duplicates = wfhRequests.filter(
+        (wr) =>
+          wr.employeeId === r.employeeId &&
+          wr.startDate === r.startDate &&
+          (wr.reason || "") === (r.reason || "")
+      );
+      duplicates.forEach((dup) => deleteWfhRequest(dup.id));
+      deleteWfhRequest(r.id);
+    });
+    showToast(`✓ Cleared all WFH applications.`);
   };
 
   React.useEffect(() => {
@@ -86,23 +140,43 @@ export default function LeavePage() {
   }, [allEmployees, user]);
 
   const myLeaveRequests = useMemo(() => {
-    return leaveRequests.filter(
+    const raw = leaveRequests.filter(
       (r: SharedLeaveRequest) =>
         (matchedEmp && (r.employeeId === matchedEmp.id || r.employeeId === matchedEmp.email)) ||
         r.employeeName?.toLowerCase() === user.userName?.toLowerCase() ||
         (user.userEmail?.toLowerCase().includes("employee.test") &&
           (r.employeeId === "emp-sarah" || r.employeeName === "Sarah Dev"))
     );
+    const seen = new Set<string>();
+    const unique: SharedLeaveRequest[] = [];
+    for (const item of raw) {
+      const sig = `${item.startDate}_${item.endDate}_${(item.reason || "").trim().toLowerCase()}_${item.status}_${item.leaveType || ""}`;
+      if (!seen.has(sig)) {
+        seen.add(sig);
+        unique.push(item);
+      }
+    }
+    return unique;
   }, [leaveRequests, matchedEmp, user]);
 
   const myWfhRequests = useMemo(() => {
-    return wfhRequests.filter(
+    const raw = wfhRequests.filter(
       (r: SharedWfhRequest) =>
         (matchedEmp && (r.employeeId === matchedEmp.id || r.employeeId === matchedEmp.email)) ||
         r.employeeName?.toLowerCase() === user.userName?.toLowerCase() ||
         (user.userEmail?.toLowerCase().includes("employee.test") &&
           (r.employeeId === "emp-sarah" || r.employeeName === "Sarah Dev"))
     );
+    const seen = new Set<string>();
+    const unique: SharedWfhRequest[] = [];
+    for (const item of raw) {
+      const sig = `${item.startDate}_${item.endDate}_${(item.reason || "").trim().toLowerCase()}_${item.status}`;
+      if (!seen.has(sig)) {
+        seen.add(sig);
+        unique.push(item);
+      }
+    }
+    return unique;
   }, [wfhRequests, matchedEmp, user]);
 
   // Real-time Casual Leave Balance (12 days annual allotment)
@@ -313,6 +387,19 @@ export default function LeavePage() {
             {/* Action Buttons: Visible ONLY for Core Employees */}
             {!isHR && !isLead && (
               <div className="flex items-center gap-2 shrink-0">
+                {activeTab === "LEAVES" && myLeaveRequests.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleClearAllLeaves}
+                    className="text-xs font-semibold gap-1.5 h-8 sm:h-9 rounded-xl border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-all"
+                    title="Clear all leave applications"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Clear All</span>
+                  </Button>
+                )}
+
                 {activeTab === "LEAVES" && (
                   <Button
                     size="sm"
@@ -322,6 +409,19 @@ export default function LeavePage() {
                   >
                     <Plus className="h-4 w-4" />
                     <span>Request Leave</span>
+                  </Button>
+                )}
+
+                {activeTab === "WFH" && myWfhRequests.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleClearAllWfh}
+                    className="text-xs font-semibold gap-1.5 h-8 sm:h-9 rounded-xl border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-all"
+                    title="Clear all WFH applications"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Clear All</span>
                   </Button>
                 )}
 

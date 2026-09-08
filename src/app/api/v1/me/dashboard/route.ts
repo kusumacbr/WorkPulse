@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const isHR = actor.roles.includes("HR");
     const isLead = !isHR && actor.roles.includes("MANAGER");
 
-    let allEmployees = WorkpulseSharedStore.getAllEmployees();
+    const allEmployees = WorkpulseSharedStore.getAllEmployees();
     let leaveRequests = WorkpulseSharedStore.getLeaveRequests();
     let wfhRequests = WorkpulseSharedStore.getWfhRequests();
     let workdaysToday: any[] = [];

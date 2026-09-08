@@ -77,7 +77,7 @@ export function CrossDepartmentOrgMatrix() {
             </div>
             <div className="p-3 rounded-xl bg-background/60 border border-border text-right">
               <span className="text-[10px] text-muted-foreground uppercase font-bold block">Total Employees</span>
-              <strong className="text-xl font-extrabold text-cyan-400">{allEmployees.length + departments.length} Total</strong>
+              <strong className="text-xl font-extrabold text-cyan-400">{allEmployees.length} Total</strong>
             </div>
           </div>
         </div>

@@ -16,6 +16,18 @@ export async function POST(
 
   reqItem.status = "CANCELLED" as any;
 
+  // Persist to Supabase
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabaseAdmin = createAdminClient();
+    if (supabaseAdmin) {
+      await supabaseAdmin.from("leave_requests").update({
+        status: "CANCELLED",
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
+    }
+  } catch {}
+
   await AuditService.record({
     actorId: actor.userId,
     action: "leave_cancelled",

@@ -96,11 +96,11 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
   });
 
   return (
-    <aside className="w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col justify-between hidden md:flex shrink-0 z-20 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_30px_rgba(0,0,0,0.4)]">
+    <aside className="w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col justify-between hidden md:flex shrink-0 z-20 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_35px_rgba(0,0,0,0.6)]">
       {/* Brand Header */}
       <div>
         <div className="h-16 border-b border-sidebar-border px-5 flex items-center justify-between">
-          <BrandLogo size="md" />
+          <BrandLogo size="md" lightText={true} />
         </div>
 
         {/* Navigation Items */}
@@ -120,19 +120,19 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 group relative border ${
                     isActive
                       ? `${item.activeBgClass}`
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-card/60 dark:hover:bg-card/40 hover:border-sidebar-border"
+                      : "border-transparent text-sidebar-muted hover:text-sidebar-foreground hover:bg-white/5 hover:border-sidebar-border/60"
                   }`}
                 >
                   <div
                     className={`h-7 w-7 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
                       isActive
-                        ? "bg-background/80 shadow-sm"
-                        : "bg-muted/40 group-hover:bg-card/80"
+                        ? "bg-white/10 shadow-sm"
+                        : "bg-white/5 group-hover:bg-white/10"
                     }`}
                   >
                     <Icon
                       className={`h-4 w-4 transition-colors ${
-                        isActive ? item.colorClass : "text-muted-foreground group-hover:text-foreground"
+                        isActive ? item.colorClass : "text-sidebar-muted group-hover:text-sidebar-foreground"
                       }`}
                     />
                   </div>
@@ -149,7 +149,7 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
 
       {/* Sidebar Footer: Official Company Identity Badge */}
       <div className="p-3.5 border-t border-sidebar-border space-y-2">
-        <div className="p-3 rounded-2xl bg-card/90 dark:bg-card/60 border border-sidebar-border flex items-center justify-between gap-2 shadow-sm">
+        <div className="p-3 rounded-2xl bg-white/5 border border-sidebar-border flex items-center justify-between gap-2 shadow-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <Image
               src="/logo.png"
@@ -160,10 +160,10 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
               className="h-7 w-auto object-contain shrink-0 drop-shadow-sm"
             />
             <div className="min-w-0">
-              <span className="text-xs font-black text-foreground block truncate leading-tight">
+              <span className="text-xs font-black text-sidebar-foreground block truncate leading-tight">
                 Xorstack
               </span>
-              <span className="text-[10px] text-muted-foreground block truncate leading-tight font-medium">
+              <span className="text-[10px] text-sidebar-muted block truncate leading-tight font-medium">
                 Enterprise Core
               </span>
             </div>

@@ -18,6 +18,7 @@ import {
   Check,
   Layers,
 } from "lucide-react";
+import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export interface RolledOverTask {
   id: string;
@@ -73,7 +74,7 @@ export function DedicatedSODSection() {
   const [todayTasks, setTodayTasks] = useState<TodayPlannedTask[]>(INITIAL_TODAY_TASKS);
 
   const [workMode, setWorkMode] = useState<"OFFICE" | "WFH" | "HYBRID">("OFFICE");
-  const [shiftHours, setShiftHours] = useState("09:00 - 18:00");
+  const [shiftHours, setShiftHours] = useState("10:00 - 19:00");
   const [plannedHours, setPlannedHours] = useState(8.0);
 
   // Form inputs for adding new task today
@@ -166,6 +167,8 @@ export function DedicatedSODSection() {
   // Remove task from today
   const handleRemoveTodayTask = (id: string) => {
     setTodayTasks((prev) => prev.filter((t) => t.id !== id));
+    WorkpulseSharedStore.deleteAssignedTask(id);
+    showToast("Task permanently removed.");
   };
 
   // Submit and lock SOD
@@ -406,7 +409,7 @@ export function DedicatedSODSection() {
             onChange={(e) => setShiftHours(e.target.value)}
             disabled={isLockedSubmitted}
             className="h-9 text-xs font-mono"
-            placeholder="09:00 - 18:00"
+            placeholder="10:00 - 19:00"
           />
         </Interactive3DCard>
 

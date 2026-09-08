@@ -13,6 +13,19 @@ export async function POST(
     return apiError("Forbidden: Only Team Leads and HR can approve attendance regularisation.", 403, "FORBIDDEN");
   }
 
+  // Persist to Supabase
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabaseAdmin = createAdminClient();
+    if (supabaseAdmin) {
+      await supabaseAdmin.from("regularization_requests").update({
+        status: "APPROVED",
+        action_by: (actor as any).name || actor.userId,
+        action_at: new Date().toISOString(),
+      }).eq("id", id);
+    }
+  } catch {}
+
   await AuditService.record({
     actorId: actor.userId,
     action: "attendance_regularisation_approved",

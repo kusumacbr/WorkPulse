@@ -342,25 +342,25 @@ describe("Section 8: 91 Acceptance Criteria Comprehensive Verification", () => {
   });
 
   describe("8.4 Attendance Punctuality, Grace & Regularisation (AC 46-58)", () => {
-    it("AC 46-50: 15-minute grace period evaluation (09:00 AM - 09:15 AM)", () => {
+    it("AC 46-50: 15-minute grace period evaluation (10:00 AM - 10:15 AM)", () => {
       const onTimePunch = AttendanceService.calculateDayAttendance({
         employeeId: "emp-sarah",
         workDate: "2026-08-22",
         biometricPunches: [
-          { time: "09:08", type: "IN" },
-          { time: "18:14", type: "OUT" },
+          { time: "10:08", type: "IN" },
+          { time: "19:14", type: "OUT" },
         ],
       });
 
       expect(onTimePunch.anomalies.length).toBe(0);
-      expect(onTimePunch.firstCheckIn).toBe("09:08");
+      expect(onTimePunch.firstCheckIn).toBe("10:08");
 
       const latePunch = AttendanceService.calculateDayAttendance({
         employeeId: "emp-sarah",
         workDate: "2026-08-22",
         biometricPunches: [
-          { time: "09:22", type: "IN" }, // Past 09:15 AM
-          { time: "18:14", type: "OUT" },
+          { time: "10:22", type: "IN" }, // Past 10:15 AM
+          { time: "19:14", type: "OUT" },
         ],
       });
 
@@ -373,8 +373,8 @@ describe("Section 8: 91 Acceptance Criteria Comprehensive Verification", () => {
         workDate: "2026-08-22",
         hasApprovedFullDayLeave: true,
         biometricPunches: [
-          { time: "09:00", type: "IN" },
-          { time: "18:30", type: "OUT" },
+          { time: "10:00", type: "IN" },
+          { time: "19:30", type: "OUT" },
         ],
       });
       expect(fullDayLeave.effectiveWorkMode).toBe("FULL_DAY_LEAVE");
@@ -386,8 +386,8 @@ describe("Section 8: 91 Acceptance Criteria Comprehensive Verification", () => {
         employeeId: "emp-sarah",
         workDate: "2026-08-22",
         biometricPunches: [
-          { time: "09:00", type: "IN" },
-          { time: "18:00", type: "OUT" },
+          { time: "10:00", type: "IN" },
+          { time: "19:00", type: "OUT" },
         ],
       });
 

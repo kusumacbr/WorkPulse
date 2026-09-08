@@ -32,6 +32,27 @@ export async function POST(req: NextRequest) {
 
     inMemoryRegularisations.unshift(reg);
 
+    // Persist to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("regularization_requests").upsert({
+          id: reg.id,
+          employee_id: reg.employeeId,
+          employee_name: reg.employeeName,
+          department_name: user.department || "Development",
+          designation: user.designation || "Engineer",
+          date: reg.workDate,
+          punch_type: "MISSED_PUNCH",
+          actual_time: `${reg.proposedCheckIn} - ${reg.proposedCheckOut}`,
+          reason: reg.reason,
+          status: "PENDING",
+          created_at: reg.createdAt,
+        });
+      }
+    } catch {}
+
     await AuditService.record({
       actorId: actor.userId,
       action: "attendance_regularisation_requested",

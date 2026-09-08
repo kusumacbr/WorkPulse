@@ -32,6 +32,26 @@ export async function POST(req: NextRequest) {
 
     state.weeklyGoals.push(newGoal as any);
 
+    // Persist to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("feedbacks").upsert({
+          id: `fb-${newGoal.id}`,
+          employee_id: body.employeeId || "emp-sarah",
+          employee_name: body.employeeName || "Sarah Dev",
+          lead_id: "lead-alex",
+          lead_name: "Alex Lead",
+          date: new Date().toISOString().split("T")[0]!,
+          rating: 4,
+          sentiment: "GOOD",
+          notes: `[GOAL - ${newGoal.category}] ${newGoal.title}: ${newGoal.description}`,
+          action_item: `Target: ${newGoal.measurableOutcome}`,
+        });
+      }
+    } catch {}
+
     return apiSuccess({ goal: newGoal, message: "Weekly goal created." }, 201);
   } catch {
     return apiError("Invalid request payload", 400, "BAD_REQUEST");

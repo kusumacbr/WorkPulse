@@ -181,16 +181,19 @@ export class WorkdayService {
       const supabase = createAdminClient();
       if (supabase) {
         let empName = params.actor.userId;
+        let deptName = "Development";
         try {
           const { WorkpulseSharedStore } = await import("@/lib/stores/workpulse-shared-store");
           const emp = WorkpulseSharedStore.getEmployeeById(targetEmployeeId);
           if (emp?.name) empName = emp.name;
+          if (emp?.departmentName) deptName = emp.departmentName;
         } catch {}
 
         await supabase.from("workdays").upsert({
           id: workday.id,
           employee_id: targetEmployeeId,
           employee_name: empName,
+          department_name: deptName,
           date: params.input.workDate,
           work_mode: workday.workMode,
           sod_status: "SUBMITTED",
@@ -198,6 +201,29 @@ export class WorkdayService {
           planned_tasks: tasks,
           overall_progress: 0,
         });
+
+        // Insert to new dedicated tables
+        const sodId = `sod-${crypto.randomUUID()}`;
+        await supabase.from("sod_submissions").upsert({
+          id: sodId,
+          employee_id: targetEmployeeId,
+          employee_name: empName,
+          date: params.input.workDate,
+          sod_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          status: "SUBMITTED",
+        });
+
+        const dbTasks = tasks.map(t => ({
+          id: t.id,
+          employee_id: targetEmployeeId,
+          date: params.input.workDate,
+          title: t.title,
+          category: t.project,
+          priority: t.priority,
+          status: t.status,
+          progress: t.completionPercentage,
+        }));
+        await supabase.from("daily_tasks").upsert(dbTasks);
       }
       const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
       await broadcastServerEvent("workday:sod_submitted", workday);
@@ -408,9 +434,20 @@ export class WorkdayService {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabase = createAdminClient();
       if (supabase) {
+        let empName = params.actor.userId;
+        let deptName = "Development";
+        try {
+          const { WorkpulseSharedStore } = await import("@/lib/stores/workpulse-shared-store");
+          const emp = WorkpulseSharedStore.getEmployeeById(updatedWorkday.employeeId);
+          if (emp?.name) empName = emp.name;
+          if (emp?.departmentName) deptName = emp.departmentName;
+        } catch {}
+
         await supabase.from("workdays").upsert({
           id: updatedWorkday.id,
           employee_id: updatedWorkday.employeeId,
+          employee_name: empName,
+          department_name: deptName,
           date: updatedWorkday.workDate,
           work_mode: updatedWorkday.workMode,
           eod_status: "SUBMITTED",
@@ -422,6 +459,32 @@ export class WorkdayService {
           planned_tasks: updatedTasks,
           overall_progress: 100,
         });
+
+        // Insert to new dedicated tables
+        const eodId = `eod-${crypto.randomUUID()}`;
+        await supabase.from("eod_submissions").upsert({
+          id: eodId,
+          employee_id: updatedWorkday.employeeId,
+          employee_name: empName,
+          date: updatedWorkday.workDate,
+          eod_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          status: "SUBMITTED",
+          achievements: params.input.dailySummary.achievements,
+          blockers: params.input.dailySummary.issues || null,
+          tomorrow_focus: params.input.dailySummary.nextDayFocus || null,
+        });
+
+        const dbTasks = updatedTasks.map(t => ({
+          id: t.id,
+          employee_id: updatedWorkday.employeeId,
+          date: updatedWorkday.workDate,
+          title: t.title,
+          category: t.project,
+          priority: t.priority,
+          status: t.status,
+          progress: t.completionPercentage,
+        }));
+        await supabase.from("daily_tasks").upsert(dbTasks);
       }
       const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
       await broadcastServerEvent("workday:eod_submitted", updatedWorkday);
@@ -725,6 +788,105 @@ export class WorkdayService {
     }
 
     return result;
+  }
+
+  /**
+   * Permanently delete / reset Start-of-Day (SOD) plan for a given workDate
+   */
+  static async deleteSOD(params: {
+    actor: AuthActor;
+    employeeId?: string;
+    workDate?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const targetEmployeeId = params.employeeId || params.actor.employeeId || params.actor.userId;
+    const workDate = params.workDate || new Date().toISOString().split("T")[0]!;
+    const key = `${targetEmployeeId}_${workDate}`;
+
+    // 1. Remove from inMemoryWorkdays
+    const existing = inMemoryWorkdays.get(key);
+    inMemoryWorkdays.delete(key);
+
+    // 2. Remove / update Supabase workdays table
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("workdays").delete().match({ employee_id: targetEmployeeId, date: workDate });
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("workday:sod_deleted", { employeeId: targetEmployeeId, workDate });
+    } catch {}
+
+    // 3. Sync with WorkpulseSharedStore
+    try {
+      const { WorkpulseSharedStore } = await import("@/lib/stores/workpulse-shared-store");
+      WorkpulseSharedStore.deleteSOD(targetEmployeeId, workDate);
+    } catch {}
+
+    // 4. Audit
+    await AuditService.record({
+      actorId: params.actor.userId,
+      action: "sod_deleted",
+      entity: "Workday",
+      entityId: existing?.id || key,
+      reason: `Permanently deleted Start-of-Day for ${workDate}`,
+    });
+
+    return { success: true, message: `Start-of-Day plan for ${workDate} permanently deleted.` };
+  }
+
+  /**
+   * Permanently delete / reset End-of-Day (EOD) wrap-up
+   */
+  static async deleteEOD(params: {
+    actor: AuthActor;
+    employeeId?: string;
+    workDate?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const targetEmployeeId = params.employeeId || params.actor.employeeId || params.actor.userId;
+    const workDate = params.workDate || new Date().toISOString().split("T")[0]!;
+    const key = `${targetEmployeeId}_${workDate}`;
+
+    const workday = inMemoryWorkdays.get(key);
+    if (workday) {
+      workday.eodSubmittedAt = null;
+      workday.achievements = null;
+      workday.issues = null;
+      workday.supportNeeded = null;
+      workday.nextDayFocus = null;
+      workday.managerComment = null;
+      workday.status = "SOD_SUBMITTED";
+    }
+
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from("workdays").update({
+          eod_status: "NOT_SUBMITTED",
+          achievements: null,
+          blockers: null,
+          tomorrow_focus: null,
+        }).match({ employee_id: targetEmployeeId, date: workDate });
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("workday:eod_deleted", { employeeId: targetEmployeeId, workDate });
+    } catch {}
+
+    try {
+      const { WorkpulseSharedStore } = await import("@/lib/stores/workpulse-shared-store");
+      WorkpulseSharedStore.deleteEOD(targetEmployeeId, workDate);
+    } catch {}
+
+    await AuditService.record({
+      actorId: params.actor.userId,
+      action: "eod_deleted",
+      entity: "Workday",
+      entityId: workday?.id || key,
+      reason: `Permanently deleted End-of-Day for ${workDate}`,
+    });
+
+    return { success: true, message: `End-of-Day wrap-up for ${workDate} permanently deleted.` };
   }
 
   /**

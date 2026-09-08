@@ -213,19 +213,6 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
                     <span>Settings</span>
                   </Link>
                 </div>
-
-                <div className="pt-1.5 border-t border-border/60">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLogout}
-                    className="w-full text-xs font-bold text-destructive hover:bg-destructive/10 border-destructive/30 h-8 gap-1.5 rounded-xl cursor-pointer"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign Out</span>
-                  </Button>
-                </div>
               </div>
             </>
           )}
@@ -247,9 +234,9 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
 
       {/* Mobile Navigation Drawer Modal */}
       {showMobileMenu && (
-        <div className="fixed inset-0 top-16 bg-background/95 backdrop-blur-2xl z-50 p-6 md:hidden overflow-y-auto space-y-6 animate-in slide-in-from-top-4 duration-200">
+        <div className="fixed inset-0 top-16 bg-sidebar/95 text-sidebar-foreground backdrop-blur-2xl z-50 p-6 md:hidden overflow-y-auto space-y-6 animate-in slide-in-from-top-4 duration-200">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+            <span className="text-xs font-bold text-sidebar-muted uppercase tracking-wider block">
               WorkPulse Navigation
             </span>
             <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
@@ -257,45 +244,45 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
                 href="/dashboard"
                 prefetch={true}
                 onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-2 p-3.5 rounded-2xl bg-card border border-border/80 font-bold shadow-sm"
+                className="flex items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-sidebar-border font-bold shadow-sm hover:bg-white/10 transition-colors text-sidebar-foreground"
               >
-                <LayoutDashboard className="h-4 w-4 text-amber-500" />
+                <LayoutDashboard className="h-4 w-4 text-amber-400" />
                 <span>Dashboard</span>
               </Link>
               <Link
                 href="/my-work"
                 prefetch={true}
                 onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-2 p-3.5 rounded-2xl bg-card border border-border/80 font-bold shadow-sm"
+                className="flex items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-sidebar-border font-bold shadow-sm hover:bg-white/10 transition-colors text-sidebar-foreground"
               >
-                <CheckSquare className="h-4 w-4 text-cyan-500" />
+                <CheckSquare className="h-4 w-4 text-cyan-400" />
                 <span>My Tasks</span>
               </Link>
               <Link
                 href="/attendance"
                 prefetch={true}
                 onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-2 p-3.5 rounded-2xl bg-card border border-border/80 font-bold shadow-sm"
+                className="flex items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-sidebar-border font-bold shadow-sm hover:bg-white/10 transition-colors text-sidebar-foreground"
               >
-                <Clock className="h-4 w-4 text-sky-500" />
+                <Clock className="h-4 w-4 text-sky-400" />
                 <span>Attendance</span>
               </Link>
               <Link
                 href="/leave"
                 prefetch={true}
                 onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-2 p-3.5 rounded-2xl bg-card border border-border/80 font-bold shadow-sm"
+                className="flex items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-sidebar-border font-bold shadow-sm hover:bg-white/10 transition-colors text-sidebar-foreground"
               >
-                <Calendar className="h-4 w-4 text-teal-500" />
+                <Calendar className="h-4 w-4 text-teal-400" />
                 <span>Leave & WFH</span>
               </Link>
               <Link
                 href="/goals"
                 prefetch={true}
                 onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-2 p-3.5 rounded-2xl bg-card border border-border/80 font-bold shadow-sm"
+                className="flex items-center gap-2 p-3.5 rounded-2xl bg-white/5 border border-sidebar-border font-bold shadow-sm hover:bg-white/10 transition-colors text-sidebar-foreground"
               >
-                <Target className="h-4 w-4 text-emerald-500" />
+                <Target className="h-4 w-4 text-emerald-400" />
                 <span>Goals &amp; OKRs</span>
               </Link>
             </div>

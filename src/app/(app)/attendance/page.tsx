@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
@@ -11,7 +11,6 @@ import { HolidayCalendarGrid } from "@/features/holidays/components/HolidayCalen
 import { HREnterpriseAttendanceOversight } from "@/features/attendance/components/HREnterpriseAttendanceOversight";
 import { LeadAttendanceManager } from "@/features/attendance/components/LeadAttendanceManager";
 import { useCurrentUser } from "@/components/layout/UserContext";
-import { WorkpulseApi } from "@/lib/api/api-client";
 import {
   Clock,
   Calendar,
@@ -36,10 +35,78 @@ export default function AttendancePage() {
   const [activeTab, setActiveTab] = useState<"hr_oversight" | "directory" | "punches" | "holidays">(
     isHR ? "hr_oversight" : "punches"
   );
-  const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("IN");
-  const [punchTime, setPunchTime] = useState<string>("10:08 AM");
+  const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("OUT");
+  const [punchTime, setPunchTime] = useState<string>("--");
   const [isPunching, setIsPunching] = useState(false);
   const [punchToast, setPunchToast] = useState<string | null>(null);
+  const [attendanceLog, setAttendanceLog] = useState<any[]>([]);
+
+  // Load punches from Supabase on mount
+  useEffect(() => {
+    const loadPunches = async () => {
+      try {
+        const res = await fetch("/api/v1/attendance/punches");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.punches?.length > 0) {
+            // Group punches by date
+            const punchesByDate: Record<string, any[]> = {};
+            data.data.punches.forEach((p: any) => {
+              const punchDate = p.date || new Date(p.punch_time || p.time).toISOString().split("T")[0];
+              if (!punchesByDate[punchDate]) punchesByDate[punchDate] = [];
+              punchesByDate[punchDate].push(p);
+            });
+
+            const logs = Object.entries(punchesByDate)
+              .sort(([a], [b]) => b.localeCompare(a))
+              .map(([date, punches]) => {
+                const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                const d = new Date(date + "T00:00:00");
+                const dayName = dayNames[d.getDay()] || "";
+                const punchIn = punches.find((p: any) => p.direction === "IN" || p.punch_type === "IN");
+                const punchOut = punches.find((p: any) => p.direction === "OUT" || p.punch_type === "OUT");
+                const firstIn = punchIn?.time || (punchIn?.punch_time ? new Date(punchIn.punch_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--");
+                const lastOut = punchOut?.time || (punchOut?.punch_time ? new Date(punchOut.punch_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "In Progress");
+
+                let workedHours = 0;
+                if (punchIn && punchOut) {
+                  const inTime = new Date(punchIn.punch_time || punchIn.time).getTime();
+                  const outTime = new Date(punchOut.punch_time || punchOut.time).getTime();
+                  workedHours = Math.round(((outTime - inTime) / (1000 * 60 * 60)) * 100) / 100;
+                } else if (punchIn) {
+                  const inTime = new Date(punchIn.punch_time || punchIn.time).getTime();
+                  workedHours = Math.round(((Date.now() - inTime) / (1000 * 60 * 60)) * 100) / 100;
+                }
+
+                return {
+                  date,
+                  dayName,
+                  workMode: punchIn?.work_mode || "OFFICE",
+                  firstIn,
+                  lastOut,
+                  workedHours: Math.min(workedHours, 12),
+                  anomalies: [],
+                  status: lastOut === "In Progress" ? "IN_PROGRESS" : "ON_TIME",
+                };
+              });
+
+            setAttendanceLog(logs);
+
+            // Set current punch status based on latest punch
+            const latestPunch = data.data.punches[0];
+            if (latestPunch) {
+              const latestType = latestPunch.direction || latestPunch.punch_type;
+              setPunchStatus(latestType === "IN" ? "IN" : "OUT");
+              setPunchTime(latestPunch.time || new Date(latestPunch.punch_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load punches:", err);
+      }
+    };
+    loadPunches();
+  }, []);
 
   const handleBiometricPunch = async () => {
     setIsPunching(true);
@@ -48,11 +115,15 @@ export default function AttendancePage() {
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     try {
-      await WorkpulseApi.attendance.punch({
-        employeeId: user.userEmail || "emp-sarah",
-        type: nextType,
-        terminalId: "TERM-BLR-01",
-        timestamp: now.toISOString(),
+      await fetch("/api/v1/attendance/punch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: user.userEmail || "emp-sarah",
+          type: nextType,
+          terminalId: "TERM-BLR-01",
+          timestamp: now.toISOString(),
+        }),
       });
     } catch (err) {
       console.warn("Punch logged locally:", err);
@@ -63,50 +134,58 @@ export default function AttendancePage() {
     setIsPunching(false);
     setPunchToast(`Biometric Punch-${nextType} registered at ${timeStr} via Bangalore HQ Terminal #1! ✓`);
     setTimeout(() => setPunchToast(null), 4000);
-  };
 
-  const attendanceLog = [
-    {
-      date: "2026-08-20",
-      dayName: "Thu",
-      workMode: "OFFICE",
-      firstIn: "10:08 AM",
-      lastOut: "In Progress",
-      workedHours: 4.5,
-      anomalies: [],
-      status: "ON_TIME",
-    },
-    {
-      date: "2026-08-19",
-      dayName: "Wed",
-      workMode: "WFH",
-      firstIn: "10:00 AM",
-      lastOut: "07:05 PM",
-      workedHours: 8.25,
-      anomalies: [],
-      status: "APPROVED_WFH",
-    },
-    {
-      date: "2026-08-18",
-      dayName: "Tue",
-      workMode: "OFFICE",
-      firstIn: "10:04 AM",
-      lastOut: "07:10 PM",
-      workedHours: 8.0,
-      anomalies: [],
-      status: "ON_TIME",
-    },
-    {
-      date: "2026-08-17",
-      dayName: "Mon",
-      workMode: "OFFICE",
-      firstIn: "10:22 AM",
-      lastOut: "07:30 PM",
-      workedHours: 8.5,
-      anomalies: ["Late arrival by 7 minutes (Grace Window: 10:15 AM)"],
-      status: "LATE_ARRIVAL",
-    },
-  ];
+    // Reload punches from Supabase
+    try {
+      const res = await fetch("/api/v1/attendance/punches");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data?.punches?.length > 0) {
+          const punchesByDate: Record<string, any[]> = {};
+          data.data.punches.forEach((p: any) => {
+            const punchDate = p.date || new Date(p.punch_time || p.time).toISOString().split("T")[0];
+            if (!punchesByDate[punchDate]) punchesByDate[punchDate] = [];
+            punchesByDate[punchDate].push(p);
+          });
+
+          const logs = Object.entries(punchesByDate)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([date, punches]) => {
+              const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+              const d = new Date(date + "T00:00:00");
+              const dayName = dayNames[d.getDay()] || "";
+              const punchIn = punches.find((p: any) => p.direction === "IN" || p.punch_type === "IN");
+              const punchOut = punches.find((p: any) => p.direction === "OUT" || p.punch_type === "OUT");
+              const firstIn = punchIn?.time || "--";
+              const lastOut = punchOut?.time || "In Progress";
+
+              let workedHours = 0;
+              if (punchIn && punchOut) {
+                const inTime = new Date(punchIn.punch_time || punchIn.time).getTime();
+                const outTime = new Date(punchOut.punch_time || punchOut.time).getTime();
+                workedHours = Math.round(((outTime - inTime) / (1000 * 60 * 60)) * 100) / 100;
+              } else if (punchIn) {
+                const inTime = new Date(punchIn.punch_time || punchIn.time).getTime();
+                workedHours = Math.round(((Date.now() - inTime) / (1000 * 60 * 60)) * 100) / 100;
+              }
+
+              return {
+                date,
+                dayName,
+                workMode: "OFFICE",
+                firstIn,
+                lastOut,
+                workedHours: Math.min(workedHours, 12),
+                anomalies: [],
+                status: lastOut === "In Progress" ? "IN_PROGRESS" : "ON_TIME",
+              };
+            });
+
+          setAttendanceLog(logs);
+        }
+      }
+    } catch {}
+  };
 
   if (isLead) {
     return (

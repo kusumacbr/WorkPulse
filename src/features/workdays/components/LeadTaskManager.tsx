@@ -84,19 +84,34 @@ export function LeadTaskManager() {
   // Live Assigned Deliverables Log
   const [assignedTasksLog, setAssignedTasksLog] = useState<AssignedTaskLogItem[]>(DEFAULT_ASSIGNED_TASKS_LOG);
 
-  const loadAssignedTasksLog = () => {
+  const loadAssignedTasksLog = async () => {
+    try {
+      const res = await fetch(`/api/v1/tasks/assigned?leadId=${leadId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.data?.tasks)) {
+          setAssignedTasksLog(data.data.tasks);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(data.data.tasks));
+          }
+          return;
+        }
+      }
+    } catch {}
+    // Fallback to localStorage
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem("workpulse_assigned_tasks_log");
-        if (raw) {
+        if (raw !== null) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setAssignedTasksLog(parsed);
             return;
           }
         }
       } catch {}
     }
+    setAssignedTasksLog([]);
   };
 
   React.useEffect(() => {
@@ -141,6 +156,8 @@ export function LeadTaskManager() {
     };
   }, []);
 
+
+
   // Live clock tick so the Lead view re-evaluates in real-time every second
   const [nowTick, setNowTick] = React.useState(Date.now());
   React.useEffect(() => {
@@ -175,7 +192,7 @@ export function LeadTaskManager() {
       (memberEmail ? localStorage.getItem(`workpulse_eod_timestamp_${memberEmail.toLowerCase()}`) : null);
     const eodTimestamp = rawTs ? Number(rawTs) : null;
     const elapsed = eodTimestamp ? nowTick - eodTimestamp : Infinity;
-    let newDayStarted = elapsed >= EOD_WINDOW_MS;
+    const newDayStarted = elapsed >= EOD_WINDOW_MS;
 
     // If the employee already submitted a fresh SOD for the new day,
     // treat this as a completely clean slate — no previous day's EOD data shown
@@ -197,7 +214,6 @@ export function LeadTaskManager() {
     }
 
     return { eodSubmitted, newDayStarted, eodTimestamp };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, nowTick, feedbackVersion]);
 
   const leadFeedbackMap = useMemo(() => {
@@ -223,7 +239,7 @@ export function LeadTaskManager() {
   const leadName = currentLeadEmp?.name || currentUser.userName || "Alex Lead";
   const leadId = currentLeadEmp?.id || "lead-alex";
 
-  // Dynamic direct reports from shared store
+  // Dynamic direct reports from shared store (strictly reports of this lead)
   const dynamicTeamMembers = useMemo(() => {
     const members = allEmployees.filter(
       (e) =>
@@ -232,13 +248,36 @@ export function LeadTaskManager() {
         !e.email.toLowerCase().includes("lead") &&
         !e.email.toLowerCase().includes("hr") &&
         (e.teamLeadId === leadId ||
-          e.departmentId === currentLeadEmp?.departmentId ||
-          e.departmentName?.toLowerCase() === currentLeadEmp?.departmentName?.toLowerCase() ||
+          (leadId === "lead-alex" && (e.id === "emp-sarah" || e.email.toLowerCase().includes("employee.test"))) ||
           e.teamLeadName?.toLowerCase() === leadName.toLowerCase())
     );
-    if (members.length > 0) return members;
-    return allEmployees.filter((e) => !e.email.toLowerCase().includes("lead") && !e.email.toLowerCase().includes("hr"));
-  }, [allEmployees, leadId, currentLeadEmp, leadName, currentUser.userEmail]);
+    return members;
+  }, [allEmployees, leadId, leadName, currentUser.userEmail]);
+
+  const [memberTasksMap, setMemberTasksMap] = useState<Record<string, any[]>>({});
+  const dynamicTeamMemberIds = dynamicTeamMembers.map(m => m.id).join(',');
+
+  useEffect(() => {
+    const fetchAllTasks = async () => {
+      if (!dynamicTeamMembers) return;
+      const newMap: Record<string, any[]> = {};
+      for (const m of dynamicTeamMembers) {
+        try {
+          const res = await fetch(`/api/v1/tasks?employeeId=${m.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.data?.tasks?.length > 0) {
+               newMap[m.id] = data.data.tasks;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch API tasks for", m.id, e);
+        }
+      }
+      setMemberTasksMap(prev => ({ ...prev, ...newMap }));
+    };
+    if (mounted) fetchAllTasks();
+  }, [dynamicTeamMemberIds, feedbackVersion, mounted]);
 
   const [activeTab, setActiveTab] = useState<LeadTaskTab>("TEAM_UPDATES");
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
@@ -261,13 +300,37 @@ export function LeadTaskManager() {
   const [leadTasks, setLeadTasks] = useState<LeadPersonalTask[]>(DEFAULT_LEAD_TASKS);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const loadLeadTasks = async () => {
       try {
-        const saved = localStorage.getItem("workpulse_lead_personal_tasks");
-        if (saved) setLeadTasks(JSON.parse(saved));
+        const res = await fetch(`/api/v1/tasks/lead-tasks/sync?leadId=${leadId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data?.tasks)) {
+            setLeadTasks(data.data.tasks);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("workpulse_lead_personal_tasks", JSON.stringify(data.data.tasks));
+            }
+            return;
+          }
+        }
       } catch {}
-    }
-  }, []);
+      // Fallback to localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const saved = localStorage.getItem("workpulse_lead_personal_tasks");
+          if (saved !== null) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+              setLeadTasks(parsed);
+              return;
+            }
+          }
+        } catch {}
+      }
+      setLeadTasks([]);
+    };
+    loadLeadTasks();
+  }, [leadId]);
 
   const [showAddLeadTask, setShowAddLeadTask] = useState(false);
   const [leadTaskTitle, setLeadTaskTitle] = useState("");
@@ -279,13 +342,21 @@ export function LeadTaskManager() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const saveLeadTasks = (updated: LeadPersonalTask[]) => {
+  const saveLeadTasks = async (updated: LeadPersonalTask[]) => {
     setLeadTasks(updated);
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("workpulse_lead_personal_tasks", JSON.stringify(updated));
       } catch {}
     }
+    // Sync to Supabase
+    try {
+      await fetch(`/api/v1/tasks/lead-tasks/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, tasks: updated }),
+      });
+    } catch {}
   };
 
   // 1-Click Verify & Approve Morning Plan
@@ -315,7 +386,7 @@ export function LeadTaskManager() {
   };
 
   // Assign deliverable (Tab 2)
-  const handleAssignWork = (e: React.FormEvent) => {
+  const handleAssignWork = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
@@ -330,17 +401,49 @@ export function LeadTaskManager() {
       assignedById: leadId,
     });
 
+    // Also save to Supabase
+    try {
+      await fetch(`/api/v1/tasks/assigned`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          category: newCategory,
+          priority: newPriority,
+          assignedBy: leadName,
+          assignedById: leadId,
+          targetEmployeeId: assigneeId,
+          targetEmployeeName: targetName,
+          targetEmployeeEmail: targetEmp?.email || "",
+        }),
+      });
+    } catch {}
+
     loadAssignedTasksLog();
     setNewTitle("");
     fireSuccessBurst();
     showToast(`✓ Work assigned to ${targetName}! Sent in real time.`);
   };
 
-  // Recall / Delete assigned task
-  const handleDeleteAssignedTask = (taskId: string) => {
+  // Recall / Delete assigned task (permanent Supabase delete)
+  const handleDeleteAssignedTask = async (taskId: string) => {
     WorkpulseSharedStore.deleteAssignedTask(taskId);
-    setAssignedTasksLog((prev) => prev.filter((t) => t.id !== taskId));
-    showToast("Assigned task recalled / removed.");
+    const updated = assignedTasksLog.filter((t) => t.id !== taskId);
+    setAssignedTasksLog(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(updated));
+      } catch {}
+    }
+    // Delete from Supabase permanently
+    try {
+      await fetch(`/api/v1/tasks/assigned`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId }),
+      });
+    } catch {}
+    showToast("Assigned task recalled / removed permanently.");
   };
 
   // Toggle lead personal task
@@ -381,11 +484,25 @@ export function LeadTaskManager() {
     showToast(`✓ Added: "${newTask.title}"`);
   };
 
-  // Delete lead personal task
-  const handleDeleteLeadTask = (id: string) => {
+  // Delete lead personal task (permanent Supabase & local delete)
+  const handleDeleteLeadTask = async (id: string) => {
     const updated = leadTasks.filter((t) => t.id !== id);
-    saveLeadTasks(updated);
-    showToast("Task removed.");
+    setLeadTasks(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("workpulse_lead_personal_tasks", JSON.stringify(updated));
+      } catch {}
+    }
+    // Delete from Supabase permanently
+    try {
+      await fetch(`/api/v1/tasks/lead-tasks/sync`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: id, leadId }),
+      });
+    } catch {}
+    await saveLeadTasks(updated);
+    showToast("Task removed permanently.");
   };
 
   const filteredMembers = useMemo(() => {
@@ -759,8 +876,9 @@ export function LeadTaskManager() {
               const eodLeadActionItem = member.eodLeadActionItem || fb?.eodLeadActionItem || fb?.actionItem || "Present highlights in tomorrow's sync.";
 
               // Tasks to display: Loaded when employee has submitted SOD or EOD
-              let tasksToDisplay: any[] = [];
-              if (isSodSubmitted || isEodSubmitted) {
+              let tasksToDisplay: any[] = memberTasksMap[member.id] || [];
+              
+              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted)) {
                 // Check if explicit EOD snapshot tasks exist in localStorage
                 if (mounted && typeof window !== "undefined") {
                   try {
@@ -2006,7 +2124,7 @@ export function LeadTaskManager() {
       {/* TAB 4: PRESENCE & SUBMISSION HEATMAP */}
       {activeTab === "HEATMAP" && (
         <div className="space-y-4">
-          <TeamHeatmapGrid teamName="Development Team" sprintRange="This Week (Aug 17 – Aug 23, 2026)" />
+          <TeamHeatmapGrid teamName="Development Team" members={dynamicTeamMembers} />
         </div>
       )}
     </div>

@@ -26,6 +26,22 @@ export async function POST(
       return apiError("Forbidden: Only Team Leads can provide Stage 1 approval.", 403, "FORBIDDEN");
     }
     state.leadApproveLeave(id, body.comment || "Approved by Manager");
+
+    // Persist Stage 1 to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("leave_requests").update({
+          status: "FORWARDED_TO_HR",
+          tl_approver_name: (actor as any).name || "Alex Lead (Team Lead)",
+          tl_approved_at: new Date().toISOString(),
+          tl_comment: body.comment || "Approved by Team Lead. Forwarded to HR.",
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+      }
+    } catch {}
+
     await AuditService.record({
       actorId: actor.userId,
       action: "leave_stage1_approved",
@@ -39,6 +55,29 @@ export async function POST(
       return apiError("Forbidden: Only HR can provide final Stage 2 approval.", 403, "FORBIDDEN");
     }
     state.hrApproveLeave(id, body.comment || "Approved by HR");
+
+    // Persist Stage 2 to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("leave_requests").update({
+          status: "APPROVED",
+          hr_approver_name: (actor as any).name || "Rachel HR (People Ops)",
+          hr_approved_at: new Date().toISOString(),
+          hr_comment: body.comment || "Final HR Approval granted.",
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+
+        const { data: leaveData } = await supabaseAdmin.from("leave_requests").select("employee_id, days_count, remaining_balance").eq("id", id).maybeSingle();
+        if (leaveData) {
+          const newBal = Math.max(0, Number(leaveData.remaining_balance || 12) - Number(leaveData.days_count || 1));
+          await supabaseAdmin.from("leave_requests").update({ remaining_balance: newBal }).eq("id", id);
+          await supabaseAdmin.from("employees").update({ leave_balance: newBal }).eq("id", leaveData.employee_id);
+        }
+      }
+    } catch {}
+
     await AuditService.record({
       actorId: actor.userId,
       action: "leave_stage2_approved",

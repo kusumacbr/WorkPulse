@@ -61,7 +61,7 @@ export const wfhRequestCreateSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be YYYY-MM-DD"),
   isSelfMarked: z.boolean().optional().default(false),
   reason: z.string().min(5, "Please specify reason for WFH"),
-  availabilityHours: z.string().optional().default("09:00-18:00"),
+  availabilityHours: z.string().optional().default("10:00-19:00"),
   contactMethod: z.string().optional().default("Slack & Google Meet"),
   plannedDeliverables: z.string().min(5, "Please list planned deliverables for WFH session"),
 });

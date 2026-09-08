@@ -181,6 +181,8 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
 
   const handleRemoveTask = (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    WorkpulseSharedStore.deleteAssignedTask(id);
+    showToast("Task permanently removed.");
   };
 
   const currentUser = useCurrentUser();

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError } from "@/server/api-helpers";
 import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   _req: NextRequest,
@@ -29,43 +30,94 @@ export async function PATCH(
     const body = await req.json();
     const state = workpulseSharedStore.getState();
 
+    const rawProgress = body.progress !== undefined ? body.progress : body.completionPercentage;
+    const progress = rawProgress !== undefined ? Math.max(0, Math.min(100, Math.round(Number(rawProgress) || 0))) : undefined;
+
+    let targetTask: any = null;
+    let targetEmp: any = null;
+
     for (const emp of state.allEmployees) {
       const taskIndex = emp.plannedTasks.findIndex((t: any) => t.id === id);
       if (taskIndex !== -1) {
-        const task = emp.plannedTasks[taskIndex];
-
-        // Completed task requires 100% completion
-        if (body.status === "COMPLETED" && body.completionPercentage !== undefined && body.completionPercentage < 100) {
-          return apiError("Validation Error: Completed tasks must have 100% completion percentage.", 422, "VALIDATION_FAILED");
-        }
-
-        // Cancelled task requires reason
-        if (body.status === "CANCELLED" && !body.delayReason && !body.reason) {
-          return apiError("Validation Error: A cancelled task requires a cancellation reason.", 422, "VALIDATION_FAILED");
-        }
+        targetTask = emp.plannedTasks[taskIndex];
+        targetEmp = emp;
 
         const updated = {
-          ...task,
+          ...targetTask,
           ...body,
+          ...(progress !== undefined ? { completionPercentage: progress, progress } : {}),
         };
 
         if (updated.status === "COMPLETED") {
           updated.completionPercentage = 100;
+          updated.progress = 100;
+        } else if (progress !== undefined && progress > 0 && updated.status === "NOT_STARTED") {
+          updated.status = "IN_PROGRESS";
         }
 
         emp.plannedTasks[taskIndex] = updated;
 
         // Recalculate employee overall progress
         const total = emp.plannedTasks.length;
-        const sum = emp.plannedTasks.reduce((acc: number, t: any) => acc + (t.completionPercentage || 0), 0);
+        const sum = emp.plannedTasks.reduce((acc: number, t: any) => acc + (t.completionPercentage || t.progress || 0), 0);
         emp.overallProgress = total > 0 ? Math.round(sum / total) : 0;
-
-        return apiSuccess({ task: updated, message: "Task updated successfully." });
+        targetTask = updated;
+        break;
       }
     }
 
-    return apiError(`Task '${id}' not found`, 404, "NOT_FOUND");
+    try {
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        const updatePayload: Record<string, any> = {};
+        if (body.title) updatePayload.title = body.title;
+        if (body.category || body.project) updatePayload.category = body.category || body.project;
+        if (body.priority) updatePayload.priority = body.priority;
+        if (body.status) updatePayload.status = body.status;
+        if (progress !== undefined) {
+          updatePayload.progress = progress;
+          if (progress === 100) updatePayload.status = "COMPLETED";
+          else if (progress > 0 && (!body.status || body.status === "NOT_STARTED")) updatePayload.status = "IN_PROGRESS";
+        }
+        if (body.acknowledged !== undefined) updatePayload.acknowledged = body.acknowledged;
+        if (body.acknowledgementNote !== undefined || body.acknowledgement_note !== undefined) {
+          updatePayload.acknowledgement_note = body.acknowledgementNote || body.acknowledgement_note;
+        }
+
+        await supabaseAdmin.from("daily_tasks").update(updatePayload).eq("id", id);
+
+        // Legacy sync to workdays
+        if (targetEmp) {
+          const today = new Date().toISOString().split("T")[0]!;
+          const { data: existingWd } = await supabaseAdmin
+            .from("workdays")
+            .select("planned_tasks")
+            .match({ employee_id: targetEmp.id, date: today })
+            .maybeSingle();
+
+          if (existingWd && targetTask) {
+            const currentTasks: any[] = existingWd.planned_tasks || [];
+            const taskDbIndex = currentTasks.findIndex((t: any) => t.id === id);
+            
+            if (taskDbIndex !== -1) {
+              currentTasks[taskDbIndex] = targetTask;
+            } else {
+              currentTasks.push(targetTask);
+            }
+
+            await supabaseAdmin.from("workdays").update({
+              planned_tasks: currentTasks,
+            }).eq("employee_id", targetEmp.id).eq("date", today);
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.error("[Tasks API] Failed to sync task update to Supabase", dbErr);
+    }
+
+    return apiSuccess({ task: targetTask || { id, ...body, progress }, message: "Task updated successfully." });
   } catch {
     return apiError("Invalid request payload", 400, "BAD_REQUEST");
   }
 }
+

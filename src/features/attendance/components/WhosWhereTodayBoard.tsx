@@ -23,46 +23,35 @@ export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardPro
 
     const map = new Map<string, WhosWhereEmployee>();
 
-    departments.forEach((dept) => {
-      // Lead
-      if (dept.teamLead && !map.has(dept.teamLead.id)) {
-        map.set(dept.teamLead.id, {
-          employeeId: dept.teamLead.id,
-          employeeName: dept.teamLead.name,
-          department: dept.name,
-          jobTitle: dept.teamLead.designation,
-          workMode: "OFFICE",
-          locationBadge: "HQ - Floor 3",
-          firstCheckIn: "08:55 AM",
+    const sourceList = allEmployees.length > 0 ? allEmployees : departments.flatMap((d) => d.employees);
+
+    sourceList.forEach((emp) => {
+      if (!map.has(emp.id)) {
+        map.set(emp.id, {
+          employeeId: emp.id,
+          employeeName: emp.name,
+          department: emp.departmentName || "Development",
+          jobTitle: emp.designation,
+          workMode: emp.workMode || "OFFICE",
+          locationBadge:
+            emp.workLocation ||
+            emp.location ||
+            (emp.workMode === "WFH" ? "Remote (India)" : "HQ - Floor 0"),
+          firstCheckIn:
+            emp.sodStatus === "SUBMITTED" || emp.sodStatus === "VERIFIED"
+              ? emp.sodTime || "10:05 AM"
+              : emp.id.startsWith("lead-") || emp.id.startsWith("admin-")
+              ? "09:55 AM"
+              : null,
         });
       }
-
-      // Employees
-      dept.employees.forEach((emp) => {
-        if (!map.has(emp.id)) {
-          map.set(emp.id, {
-            employeeId: emp.id,
-            employeeName: emp.name,
-            department: dept.name,
-            jobTitle: emp.designation,
-            workMode: emp.workMode || "OFFICE",
-            locationBadge:
-              emp.workLocation ||
-              (emp.workMode === "WFH" ? "Remote (India)" : "HQ - Floor 0"),
-            firstCheckIn:
-              emp.sodStatus === "SUBMITTED"
-                ? emp.sodTime || "09:30 AM"
-                : null,
-          });
-        }
-      });
     });
 
     return Array.from(map.values());
   }, [initialEmployees, departments, allEmployees]);
 
   const inOfficeCount = defaultEmployees.filter((e) => e.workMode === "OFFICE").length;
-  const wfhCount = defaultEmployees.filter((e) => e.workMode === "WFH").length;
+  const wfhCount = defaultEmployees.filter((e) => e.workMode === "WFH" || e.workMode === "HYBRID").length;
   const onLeaveCount = defaultEmployees.filter((e) => e.workMode === "FULL_DAY_LEAVE" || e.workMode === "HALF_DAY_LEAVE").length;
 
   const filteredEmployees = defaultEmployees.filter((emp) => {
@@ -74,7 +63,7 @@ export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardPro
     if (!matchesSearch) return false;
     if (filterMode === "ALL") return true;
     if (filterMode === "OFFICE") return emp.workMode === "OFFICE";
-    if (filterMode === "WFH") return emp.workMode === "WFH";
+    if (filterMode === "WFH") return emp.workMode === "WFH" || emp.workMode === "HYBRID";
     if (filterMode === "LEAVE") return emp.workMode === "FULL_DAY_LEAVE" || emp.workMode === "HALF_DAY_LEAVE";
     return true;
   });
@@ -85,6 +74,8 @@ export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardPro
         return <Badge variant="brand" className="text-[10px]">In Office</Badge>;
       case "WFH":
         return <Badge variant="secondary" className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30">WFH</Badge>;
+      case "HYBRID":
+        return <Badge variant="secondary" className="text-[10px] bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30">HYBRID</Badge>;
       case "FULL_DAY_LEAVE":
       case "HALF_DAY_LEAVE":
         return <Badge variant="destructive" className="text-[10px]">On Leave</Badge>;

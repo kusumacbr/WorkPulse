@@ -45,7 +45,7 @@ describe("Attendance Calculation Engine & Conflict Precedence (Phase 3)", () => 
     });
 
     expect(result.effectiveWorkMode).toBe("WFH");
-    expect(result.firstCheckIn).toBe("09:00");
+    expect(result.firstCheckIn).toBe("10:00");
   });
 
   it("correctly pairs biometric punches and flags anomalies (odd punch count, late arrival, early departure)", () => {
@@ -53,17 +53,17 @@ describe("Attendance Calculation Engine & Conflict Precedence (Phase 3)", () => 
       employeeId: "emp-sarah",
       workDate: "2026-08-20",
       biometricPunches: [
-        { time: "09:25", type: "IN" }, // Late (grace 09:15)
+        { time: "10:25", type: "IN" }, // Late (grace 10:15)
         { time: "13:00", type: "OUT" },
-        { time: "14:00", type: "IN" }, // Odd punches (no last OUT) and early departure (< 17:30)
+        { time: "14:00", type: "IN" }, // Odd punches (no last OUT) and early departure (< 18:30)
       ],
     });
 
     expect(result.effectiveWorkMode).toBe("OFFICE");
-    expect(result.firstCheckIn).toBe("09:25");
+    expect(result.firstCheckIn).toBe("10:25");
     expect(result.anomalies.length).toBe(3);
     expect(result.anomalies[0]).toContain("Odd punch count detected");
-    expect(result.anomalies[1]).toContain("Late arrival at 09:25");
+    expect(result.anomalies[1]).toContain("Late arrival at 10:25");
     expect(result.anomalies[2]).toContain("Early departure at 14:00");
   });
 

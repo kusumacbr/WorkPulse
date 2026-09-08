@@ -454,7 +454,7 @@ export class LeaveService {
       daysCount,
       isSelfMarked,
       reason: params.input.reason,
-      availabilityHours: params.input.availabilityHours || "09:00-18:00",
+      availabilityHours: params.input.availabilityHours || "10:00-19:00",
       contactMethod: params.input.contactMethod || "Slack & Google Meet",
       plannedDeliverables: params.input.plannedDeliverables,
       managerApproverId: status === "APPROVED" ? "SYSTEM_SELF_MARK" : null,

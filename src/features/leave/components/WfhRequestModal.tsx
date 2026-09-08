@@ -51,7 +51,7 @@ export function WfhRequestModal({
       endDate: new Date().toISOString().split("T")[0],
       isSelfMarked: monthlySelfMarkUsed < monthlyThreshold,
       reason: "",
-      availabilityHours: "09:00-18:00",
+      availabilityHours: "10:00-19:00",
       contactMethod: "Slack & Google Meet",
       plannedDeliverables: "",
     },
@@ -64,22 +64,7 @@ export function WfhRequestModal({
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // 1. Immediately register in shared store
-      addWfhRequest({
-        employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
-        employeeName: currentEmp?.name || user.userName || "Sarah Dev",
-        departmentId: currentEmp?.departmentId || "dept-development",
-        departmentName: currentEmp?.departmentName || "Development",
-        designation: currentEmp?.designation || "Senior Backend Engineer",
-        startDate: values.startDate,
-        endDate: values.endDate,
-        reason: values.reason,
-        availabilityHours: values.availabilityHours,
-        contactMethod: values.contactMethod,
-        plannedDeliverables: values.plannedDeliverables,
-      });
-
-      // 2. Persist to backend REST API
+      // Persist to backend REST API (creates single authoritative entry in store & Supabase)
       try {
         await WorkpulseApi.leave.applyWfh({
           startDate: values.startDate,
@@ -90,7 +75,21 @@ export function WfhRequestModal({
           plannedDeliverables: values.plannedDeliverables,
         });
       } catch (err) {
-        console.warn("Backend WFH sync completed in store:", err);
+        console.warn("Backend WFH submission fallback to local store:", err);
+        // Fallback to local store if offline
+        addWfhRequest({
+          employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
+          employeeName: currentEmp?.name || user.userName || "Sarah Dev",
+          departmentId: currentEmp?.departmentId || "dept-development",
+          departmentName: currentEmp?.departmentName || "Development",
+          designation: currentEmp?.designation || "Senior Backend Engineer",
+          startDate: values.startDate,
+          endDate: values.endDate,
+          reason: values.reason,
+          availabilityHours: values.availabilityHours,
+          contactMethod: values.contactMethod,
+          plannedDeliverables: values.plannedDeliverables,
+        });
       }
 
       setSubmitSuccess(true);

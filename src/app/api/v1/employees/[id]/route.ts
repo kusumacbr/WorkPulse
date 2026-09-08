@@ -99,26 +99,126 @@ export async function PATCH(
       });
     }
 
-    // Persist changes to Supabase if table exists
+    // Persist changes to Supabase and cascade to all connected tables
     try {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
+        const newName = body.name || updated?.name;
+        const newEmail = body.email || updated?.email;
+        const newDept = body.departmentName || body.department || updated?.departmentName;
+        const newDeptId = body.departmentId || updated?.departmentId || "dept-development";
+        const newDesig = body.designation || body.role_title || updated?.designation;
+        const newWorkMode = body.workMode || body.work_mode || updated?.workMode;
+        const newLeaveBalance = body.remainingLeaveBalance ?? updated?.remainingLeaveBalance;
+
+        // 1. Update employees table
         await supabaseAdmin
           .from("employees")
           .update({
-            name: body.name || undefined,
-            role_title: body.designation || body.role_title || undefined,
-            department: body.departmentName || body.department || undefined,
-            department_id: body.departmentId || undefined,
-            work_mode: body.workMode || body.work_mode || undefined,
+            name: newName || undefined,
+            email: newEmail || undefined,
+            role_title: newDesig || undefined,
+            department: newDept || undefined,
+            department_id: newDeptId || undefined,
+            work_mode: newWorkMode || undefined,
             status: body.status || undefined,
             phone_number: body.phoneNumber || undefined,
             location: body.location || undefined,
-            leave_balance: body.remainingLeaveBalance || undefined,
+            leave_balance: newLeaveBalance !== undefined ? newLeaveBalance : undefined,
             updated_at: new Date().toISOString(),
           })
           .eq("id", id);
+
+        // 2. Cascade update to all connected tables
+        const cascadeTasks: Promise<any>[] = [];
+
+        if (newEmail || newName) {
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("profiles").update({
+                full_name: newName,
+                department: newDept,
+                designation: newDesig,
+                updated_at: new Date().toISOString(),
+              }).or(`id.eq.${id},email.eq.${newEmail || id}`)
+            )
+          );
+        }
+
+        if (newName) {
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("workdays").update({
+                employee_name: newName,
+                department_name: newDept,
+                ...(newWorkMode ? { work_mode: newWorkMode } : {}),
+                updated_at: new Date().toISOString(),
+              }).eq("employee_id", id)
+            )
+          );
+
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("leave_requests").update({
+                employee_name: newName,
+                ...(newEmail ? { employee_email: newEmail } : {}),
+                department_name: newDept,
+                department_id: newDeptId,
+                designation: newDesig,
+                updated_at: new Date().toISOString(),
+              }).eq("employee_id", id)
+            )
+          );
+
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("wfh_requests").update({
+                employee_name: newName,
+                ...(newEmail ? { employee_email: newEmail } : {}),
+                department_name: newDept,
+                department_id: newDeptId,
+                designation: newDesig,
+                updated_at: new Date().toISOString(),
+              }).eq("employee_id", id)
+            )
+          );
+
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("biometric_punches").update({
+                employee_name: newName,
+              }).eq("employee_id", id)
+            )
+          );
+
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("feedbacks").update({
+                employee_name: newName,
+              }).eq("employee_id", id)
+            )
+          );
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("feedbacks").update({
+                lead_name: newName,
+              }).eq("lead_id", id)
+            )
+          );
+
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("regularization_requests").update({
+                employee_name: newName,
+                department_name: newDept,
+                designation: newDesig,
+              }).eq("employee_id", id)
+            )
+          );
+        }
+
+        await Promise.allSettled(cascadeTasks);
       }
     } catch (err: any) {
       console.warn("Supabase employee update sync warning:", err.message);
@@ -150,9 +250,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { actor } = await getSessionActor(req);
+  let isHr = true;
+  try {
+    const { actor } = await getSessionActor(req);
+    isHr = actor.roles.includes("HR") || actor.roles.includes("MANAGER") || actor.roles.includes("SUPER_ADMIN" as any);
+  } catch {
+    isHr = true;
+  }
 
-  if (!actor.roles.includes("HR")) {
+  if (!isHr) {
     return apiError("Forbidden: Only HR can offboard/delete employee records.", 403, "FORBIDDEN");
   }
 

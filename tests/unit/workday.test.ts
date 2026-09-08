@@ -31,7 +31,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [
             {
@@ -72,7 +72,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [
             {
@@ -128,7 +128,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [
             {
@@ -170,7 +170,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [
             {
@@ -213,7 +213,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [
             {
@@ -260,7 +260,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [{ title: "Task 1", project: "P1", priority: "MEDIUM", taskType: "PLANNED", estimatedMinutes: 60, isConfidential: false }],
         },
@@ -295,7 +295,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [{ title: "Task 1", project: "P1", priority: "MEDIUM", taskType: "PLANNED", estimatedMinutes: 60, isConfidential: false }],
         },
@@ -330,7 +330,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-20",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [{ title: "Task 1", project: "P1", priority: "MEDIUM", taskType: "PLANNED", estimatedMinutes: 60, isConfidential: false }],
         },
@@ -365,7 +365,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-17",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [{ title: "T1", project: "P", priority: "MEDIUM", taskType: "PLANNED", estimatedMinutes: 60, isConfidential: false }],
         },
@@ -387,7 +387,7 @@ describe("Workday & Task Execution Engine (Phase 1)", () => {
         input: {
           workDate: "2026-08-01",
           workMode: "OFFICE",
-          shift: "09:00-18:00",
+          shift: "10:00-19:00",
           plannedHours: 8.0,
           tasks: [{ title: "T1", project: "P", priority: "MEDIUM", taskType: "PLANNED", estimatedMinutes: 60, isConfidential: false }],
         },

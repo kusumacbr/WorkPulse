@@ -31,7 +31,7 @@ export function HRTopLevelSummary({
   const { departments, allEmployees, leaveRequests, wfhRequests } = useWorkpulseSharedStore();
 
   // Dynamic calculations from live store
-  const totalEmployeesCount = allEmployees.length + departments.length;
+  const totalEmployeesCount = allEmployees.length;
   const pendingLeaves = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");
   const pendingWfhs = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
   const pendingProbationsCount = 2; // Candidates due for 30/90-day confirmation

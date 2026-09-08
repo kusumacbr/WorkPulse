@@ -74,10 +74,9 @@ export async function GET(req: NextRequest) {
         map.set(key, n);
       } else {
         const existing = map.get(key)!;
-        // Keep the unread one if either is unread
-        if (!n.read && existing.read) {
-          map.set(key, n);
-        }
+        // If either copy was marked as read by this user, PRESERVE read: true!
+        const isRead = Boolean(existing.read || n.read);
+        map.set(key, { ...existing, read: isRead });
       }
     });
 
@@ -155,3 +154,14 @@ export async function POST(req: NextRequest) {
     return apiError(err.message || "Failed to dispatch broadcast notification", 500);
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { user, actor } = await getSessionActor(req);
+    await NotificationService.deleteAllNotifications(user.id, actor.roles.includes("HR"));
+    return apiSuccess({ success: true, message: "All notifications permanently deleted" });
+  } catch (err: any) {
+    return apiError(err.message || "Failed to delete all notifications", 400);
+  }
+}
+

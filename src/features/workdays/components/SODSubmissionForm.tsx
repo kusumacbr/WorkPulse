@@ -30,7 +30,7 @@ export function SODSubmissionForm({
     defaultValues: {
       workDate: initialDate,
       workMode: "OFFICE",
-      shift: "09:00-18:00",
+      shift: "10:00-19:00",
       plannedHours: 8.0,
       tasks: [
         {
@@ -144,7 +144,7 @@ export function SODSubmissionForm({
               <Input
                 {...form.register("shift")}
                 className="h-9 text-xs"
-                placeholder="09:00-18:00"
+                placeholder="10:00-19:00"
               />
             </div>
 

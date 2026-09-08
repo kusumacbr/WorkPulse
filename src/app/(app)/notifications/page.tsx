@@ -232,6 +232,58 @@ export default function NotificationsPage() {
     } catch {}
   };
 
+  const deleteNotification = async (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setToastMsg("Notification permanently deleted.");
+    setTimeout(() => setToastMsg(null), 3000);
+
+    try {
+      await fetch(`/api/v1/notifications/${id}`, { method: "DELETE" });
+
+      const supabase = createClient();
+      const channel = supabase.channel("workpulse-supabase-live-channel");
+      await channel.send({
+        type: "broadcast",
+        event: "notification:deleted",
+        payload: { id },
+      });
+
+      if ("BroadcastChannel" in window) {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "notification:deleted", payload: { id } });
+        bc.close();
+      }
+    } catch {}
+  };
+
+  const deleteAllNotifications = async () => {
+    setNotifications([]);
+    setToastMsg("All notifications permanently deleted.");
+    setTimeout(() => setToastMsg(null), 3000);
+
+    try {
+      await fetch("/api/v1/notifications", { method: "DELETE" });
+
+      const supabase = createClient();
+      const channel = supabase.channel("workpulse-supabase-live-channel");
+      await channel.send({
+        type: "broadcast",
+        event: "notification:deleted_all",
+        payload: { at: new Date().toISOString() },
+      });
+
+      if ("BroadcastChannel" in window) {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "notification:deleted_all" });
+        bc.close();
+      }
+    } catch {}
+  };
+
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
@@ -403,6 +455,19 @@ export default function NotificationsPage() {
               </Button>
             )}
 
+            {notifications.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={deleteAllNotifications}
+                className="text-xs h-8 px-3 rounded-lg border-red-500/30 text-red-400 hover:bg-red-500/10 gap-1.5 font-medium"
+                title="Permanently delete all notifications"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Clear All</span>
+              </Button>
+            )}
+
             {isHR && (
               <Button
                 variant="brand"
@@ -498,7 +563,7 @@ export default function NotificationsPage() {
             filtered.map((notif) => (
               <div
                 key={notif.id}
-                className={`p-4 rounded-xl border transition-all ${
+                className={`p-4 rounded-xl border transition-all group ${
                   !notif.read
                     ? "border-cyan-500/30 bg-card/90 border-l-4 border-l-cyan-500 shadow-sm"
                     : "border-border/60 bg-card/40 hover:bg-card/70"
@@ -541,17 +606,29 @@ export default function NotificationsPage() {
                     </div>
                   </div>
 
-                  {!notif.read && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {!notif.read && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => markAsRead(notif.id)}
+                        className="text-[11px] h-7 px-2.5 text-muted-foreground hover:text-cyan-500 rounded-lg font-medium"
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        <span>Mark read</span>
+                      </Button>
+                    )}
+
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => markAsRead(notif.id)}
-                      className="text-[11px] h-7 px-2.5 text-muted-foreground hover:text-cyan-500 shrink-0 rounded-lg font-medium"
+                      onClick={(e) => deleteNotification(notif.id, e)}
+                      title="Permanently delete notification"
+                      className="text-[11px] h-7 px-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg font-medium opacity-70 group-hover:opacity-100 transition-opacity"
                     >
-                      <Check className="h-3 w-3 mr-1" />
-                      <span>Mark read</span>
+                      <X className="h-3.5 w-3.5" />
                     </Button>
-                  )}
+                  </div>
                 </div>
               </div>
             ))

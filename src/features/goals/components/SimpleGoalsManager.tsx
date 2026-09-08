@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
+import { useCurrentUser } from "@/components/layout/UserContext";
 import {
   Target,
   CheckCircle2,
@@ -175,16 +176,9 @@ const GOAL_CATEGORY_CONFIG: Record<string, GoalCategoryStyle> = {
 };
 
 export function SimpleGoalsManager() {
-  const [goals, setGoals] = useState<SimpleGoalItem[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_simple_goals");
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
-    return DEFAULT_FRIENDLY_GOALS;
-  });
-
+  const currentUser = useCurrentUser();
+  const employeeId = currentUser?.userEmail || "emp-sarah";
+  const [goals, setGoals] = useState<SimpleGoalItem[]>([]);
   const [activeTab, setActiveTab] = useState<GoalTab>("ALL");
   const [showAddForm, setShowAddForm] = useState(false);
   const [showCompanyOkrs, setShowCompanyOkrs] = useState(false);
@@ -193,19 +187,78 @@ export function SimpleGoalsManager() {
   const [newTargetDate, setNewTargetDate] = useState("This Month");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Load goals from Supabase API on mount
+  useEffect(() => {
+    const loadGoals = async () => {
+      try {
+        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(employeeId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data?.goals)) {
+            setGoals(data.data.goals);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("workpulse_simple_goals", JSON.stringify(data.data.goals));
+            }
+            return;
+          }
+        }
+      } catch {}
+      // Fallback to localStorage
+      try {
+        const saved = localStorage.getItem("workpulse_simple_goals");
+        if (saved !== null) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setGoals(parsed);
+            return;
+          }
+        }
+      } catch {}
+      // If nothing loaded, initialize empty
+      setGoals([]);
+    };
+    loadGoals();
+  }, [employeeId]);
+
+  // Listen to cross-component sync events
+  useEffect(() => {
+    const handleSync = async () => {
+      try {
+        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(employeeId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data?.goals)) {
+            setGoals(data.data.goals);
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener("workpulse_sync", handleSync);
+    return () => window.removeEventListener("workpulse_sync", handleSync);
+  }, [employeeId]);
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const saveGoals = (updated: SimpleGoalItem[]) => {
+  const saveGoals = async (updated: SimpleGoalItem[]) => {
     setGoals(updated);
+    // Sync to localStorage for backward compat
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("workpulse_simple_goals", JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
+    // Sync all goals to Supabase via API
+    try {
+      await fetch(`/api/v1/goals/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, goals: updated }),
+      });
+    } catch {}
   };
 
   const handleToggleComplete = (id: string) => {
@@ -337,11 +390,12 @@ export function SimpleGoalsManager() {
                   strokeLinecap="round"
                   fill="transparent"
                   className="transition-all duration-700 ease-out"
+                  suppressHydrationWarning
                 />
               </svg>
               {/* Inner Center Text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="font-mono font-black text-xl text-foreground tracking-tight">
+                <span className="font-mono font-black text-xl text-foreground tracking-tight" suppressHydrationWarning>
                   {averageProgress}%
                 </span>
                 <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">

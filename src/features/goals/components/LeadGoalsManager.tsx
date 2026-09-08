@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,22 +187,43 @@ const TEAM_CATEGORY_CONFIG: Record<string, TeamCategoryStyle> = {
 };
 
 export function LeadGoalsManager() {
-  const [goals, setGoals] = useState<TeamSprintGoal[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_lead_team_goals");
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
-    return DEFAULT_TEAM_SPRINT_GOALS;
-  });
-
+  const [goals, setGoals] = useState<TeamSprintGoal[]>(DEFAULT_TEAM_SPRINT_GOALS);
   const [activeTab, setActiveTab] = useState<"TEAM_SPRINT" | "DIRECT_REPORTS">("TEAM_SPRINT");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("Architecture");
   const [newTargetDate, setNewTargetDate] = useState("This Week");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Load saved team goals on client mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("workpulse_lead_team_goals");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setGoals(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Cross-component sync
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const saved = localStorage.getItem("workpulse_lead_team_goals");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setGoals(parsed);
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener("workpulse_sync", handleSync);
+    return () => window.removeEventListener("workpulse_sync", handleSync);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -333,10 +354,11 @@ export function LeadGoalsManager() {
                   strokeLinecap="round"
                   fill="transparent"
                   className="transition-all duration-700 ease-out"
+                  suppressHydrationWarning
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="font-mono font-black text-xl text-foreground tracking-tight">
+                <span className="font-mono font-black text-xl text-foreground tracking-tight" suppressHydrationWarning>
                   {averageTeamProgress}%
                 </span>
                 <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">

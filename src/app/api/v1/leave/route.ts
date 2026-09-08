@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
-import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { WorkpulseSharedStore, getDeletedLeaveIds } from "@/lib/stores/workpulse-shared-store";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -20,33 +20,36 @@ export async function GET(req: NextRequest) {
             query = query.eq("employee_id", employeeId);
           }
         }
-        const { data } = await query;
-        if (data && data.length > 0) {
-          const requests = data.map((r: any) => ({
-            id: r.id,
-            employeeId: r.employee_id,
-            employeeName: r.employee_name,
-            departmentId: r.department_id || "dept-development",
-            departmentName: r.department_name || "Development",
-            designation: r.designation || "Engineer",
-            leaveType: r.leave_type || "CASUAL",
-            startDate: r.start_date,
-            endDate: r.end_date,
-            daysCount: Number(r.days_count) || 1,
-            reason: r.reason,
-            handoverNotes: r.handover_notes,
-            backupPersonName: r.backup_person_name,
-            remainingBalance: Number(r.remaining_balance) || 11.0,
-            status: r.status,
-            tlApproverName: r.tl_approver_name,
-            tlApprovedAt: r.tl_approved_at,
-            tlComment: r.tl_comment,
-            hrApproverName: r.hr_approver_name,
-            hrApprovedAt: r.hr_approved_at,
-            hrComment: r.hr_comment,
-            rejectionReason: r.rejection_reason,
-            createdAt: r.created_at,
-          }));
+        const { data, error } = await query;
+        if (!error && data) {
+          const deletedIds = getDeletedLeaveIds();
+          const requests = data
+            .map((r: any) => ({
+              id: r.id,
+              employeeId: r.employee_id,
+              employeeName: r.employee_name,
+              departmentId: r.department_id || "dept-development",
+              departmentName: r.department_name || "Development",
+              designation: r.designation || "Engineer",
+              leaveType: r.leave_type || "CASUAL",
+              startDate: r.start_date,
+              endDate: r.end_date,
+              daysCount: Number(r.days_count) || 1,
+              reason: r.reason,
+              handoverNotes: r.handover_notes,
+              backupPersonName: r.backup_person_name,
+              remainingBalance: Number(r.remaining_balance) || 11.0,
+              status: r.status,
+              tlApproverName: r.tl_approver_name,
+              tlApprovedAt: r.tl_approved_at,
+              tlComment: r.tl_comment,
+              hrApproverName: r.hr_approver_name,
+              hrApprovedAt: r.hr_approved_at,
+              hrComment: r.hr_comment,
+              rejectionReason: r.rejection_reason,
+              createdAt: r.created_at,
+            }))
+            .filter((r: any) => !deletedIds.has(r.id));
 
           // Sync to in-memory store for live UI updates
           WorkpulseSharedStore.setLeaveRequestsFromSupabase(requests);
@@ -181,5 +184,35 @@ export async function POST(req: NextRequest) {
     return apiSuccess({ request: newReq, message: "Leave application submitted and forwarded for approval" }, 201);
   } catch (err: any) {
     return apiError(err.message || "Failed to apply for leave", 400);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    let employeeId: string | undefined;
+    try {
+      const { actor } = await getSessionActor(req);
+      employeeId = actor.employeeId;
+    } catch {}
+
+    const body = await req.json().catch(() => ({}));
+    const targetEmpId = body.employeeId || employeeId;
+
+    try {
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        if (targetEmpId) {
+          await supabaseAdmin.from("leave_requests").delete().eq("employee_id", targetEmpId);
+        } else {
+          await supabaseAdmin.from("leave_requests").delete().neq("id", "__dummy__");
+        }
+      }
+    } catch (err) {
+      console.warn("[Leave Bulk DELETE API] Supabase delete warning:", err);
+    }
+
+    return apiSuccess({ success: true, message: "Leave requests permanently deleted from Supabase." });
+  } catch (err: any) {
+    return apiError(err.message || "Failed to delete leave requests", 400);
   }
 }

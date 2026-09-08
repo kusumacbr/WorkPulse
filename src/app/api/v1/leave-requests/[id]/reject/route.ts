@@ -16,7 +16,23 @@ export async function POST(
 
   try {
     const body = await req.json().catch(() => ({}));
-    state.hrRejectLeave(id, body.reason || "Rejected by Reviewer");
+    const reason = body.reason || "Rejected by Reviewer";
+    state.hrRejectLeave(id, reason);
+
+    // Persist to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("leave_requests").update({
+          status: "REJECTED",
+          rejection_reason: reason,
+          hr_approver_name: (actor as any).name || "Reviewer",
+          hr_approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+      }
+    } catch {}
 
     await AuditService.record({
       actorId: actor.userId,

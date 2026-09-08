@@ -65,23 +65,7 @@ export function LeaveRequestModal({
       const backupEmp = allEmployees.find((e) => e.id === values.backupEmployeeId);
       const backupName = backupEmp ? `${backupEmp.name} (${backupEmp.designation})` : "Rohit Sharma (Frontend)";
 
-      // 1. Immediately add to reactive store for instant Stage-1 Lead queue display
-      addLeaveRequest({
-        employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
-        employeeName: currentEmp?.name || user.userName || "Sarah Dev",
-        departmentId: currentEmp?.departmentId || "dept-development",
-        departmentName: currentEmp?.departmentName || "Development",
-        designation: currentEmp?.designation || "Senior Backend Engineer",
-        leaveType: values.leaveType,
-        startDate: values.startDate,
-        endDate: values.endDate,
-        daysCount: values.isHalfDay ? 0.5 : 1.0,
-        reason: values.reason,
-        handoverNotes: values.handoverNotes || undefined,
-        backupPersonName: backupName,
-      });
-
-      // 2. Persist to backend REST API
+      // Persist to backend REST API (creates single authoritative entry in store & Supabase)
       try {
         await WorkpulseApi.leave.applyLeave({
           leaveType: values.leaveType,
@@ -93,7 +77,22 @@ export function LeaveRequestModal({
           backupPersonName: backupName,
         });
       } catch (err) {
-        console.warn("Backend leave sync completed in store:", err);
+        console.warn("Backend leave submission fallback to local store:", err);
+        // Fallback to local store if offline
+        addLeaveRequest({
+          employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
+          employeeName: currentEmp?.name || user.userName || "Sarah Dev",
+          departmentId: currentEmp?.departmentId || "dept-development",
+          departmentName: currentEmp?.departmentName || "Development",
+          designation: currentEmp?.designation || "Senior Backend Engineer",
+          leaveType: values.leaveType,
+          startDate: values.startDate,
+          endDate: values.endDate,
+          daysCount: values.isHalfDay ? 0.5 : 1.0,
+          reason: values.reason,
+          handoverNotes: values.handoverNotes || undefined,
+          backupPersonName: backupName,
+        });
       }
 
       setSubmitSuccess(true);

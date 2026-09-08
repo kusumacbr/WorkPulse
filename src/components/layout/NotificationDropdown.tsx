@@ -282,6 +282,58 @@ export function NotificationDropdown() {
     } catch {}
   };
 
+  // Permanently delete single notification
+  const deleteNotification = async (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    try {
+      await fetch(`/api/v1/notifications/${id}`, { method: "DELETE" });
+
+      const supabase = createClient();
+      const channel = supabase.channel("workpulse-supabase-live-channel");
+      await channel.send({
+        type: "broadcast",
+        event: "notification:deleted",
+        payload: { id },
+      });
+
+      if ("BroadcastChannel" in window) {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "notification:deleted", payload: { id } });
+        bc.close();
+      }
+    } catch {}
+  };
+
+  // Permanently delete all notifications
+  const deleteAllNotifications = async () => {
+    setNotifications([]);
+    setUnreadCount(0);
+
+    try {
+      await fetch("/api/v1/notifications", { method: "DELETE" });
+
+      const supabase = createClient();
+      const channel = supabase.channel("workpulse-supabase-live-channel");
+      await channel.send({
+        type: "broadcast",
+        event: "notification:deleted_all",
+        payload: { at: new Date().toISOString() },
+      });
+
+      if ("BroadcastChannel" in window) {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "notification:deleted_all" });
+        bc.close();
+      }
+    } catch {}
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case "BIRTHDAY_BROADCAST":
@@ -331,16 +383,28 @@ export function NotificationDropdown() {
                   </Badge>
                 )}
               </div>
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={markAllAsRead}
-                  className="text-[11px] text-cyan-500 hover:underline font-medium flex items-center gap-1"
-                >
-                  <Check className="h-3 w-3" />
-                  <span>Mark all read</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllAsRead}
+                    className="text-[11px] text-cyan-500 hover:underline font-medium flex items-center gap-1"
+                  >
+                    <Check className="h-3 w-3" />
+                    <span>Mark read</span>
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={deleteAllNotifications}
+                    className="text-[11px] text-red-500 hover:underline font-medium"
+                    title="Permanently delete all notifications"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="max-h-80 overflow-y-auto divide-y divide-border/60">
@@ -352,7 +416,7 @@ export function NotificationDropdown() {
                 notifications.map((notif) => (
                   <div
                     key={notif.id}
-                    className={`p-3.5 hover:bg-muted/40 transition-colors text-xs space-y-1.5 ${
+                    className={`p-3.5 hover:bg-muted/40 transition-colors text-xs space-y-1.5 group relative ${
                       !notif.read ? "bg-cyan-500/5 dark:bg-cyan-500/10 border-l-2 border-l-cyan-500" : ""
                     }`}
                   >
@@ -364,22 +428,32 @@ export function NotificationDropdown() {
                             if (!notif.read) markAsRead(notif.id);
                             setIsOpen(false);
                           }}
-                          className="flex items-center gap-1.5 font-semibold text-foreground hover:text-cyan-500 transition-colors text-left"
+                          className="flex items-center gap-1.5 font-semibold text-foreground hover:text-cyan-500 transition-colors text-left pr-4"
                         >
                           {getIcon(notif.type)}
                           <span className="truncate max-w-[200px]">{notif.title}</span>
                         </Link>
                       ) : (
-                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground pr-4">
                           {getIcon(notif.type)}
                           <span className="truncate max-w-[200px]">{notif.title}</span>
                         </div>
                       )}
-                      <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
-                        {typeof notif.createdAt === "string" && notif.createdAt.includes("T")
-                          ? new Date(notif.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                          : notif.createdAt || "Recent"}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {typeof notif.createdAt === "string" && notif.createdAt.includes("T")
+                            ? new Date(notif.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : notif.createdAt || "Recent"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => deleteNotification(notif.id, e)}
+                          title="Delete permanently"
+                          className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 opacity-70 hover:opacity-100 transition-all cursor-pointer"
+                        >
+                          <span className="text-[12px] leading-none font-bold">&times;</span>
+                        </button>
+                      </div>
                     </div>
                     <p className="text-muted-foreground leading-relaxed pl-5 line-clamp-2">{notif.message}</p>
                     {!notif.read && (

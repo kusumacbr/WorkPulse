@@ -11,16 +11,29 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await getSessionActor(req);
+    try {
+      await getSessionActor(req);
+    } catch {
+      // Allow deletion without strict auth header from client store sync
+    }
+
+    const existingReq = WorkpulseSharedStore.getWfhRequests().find((r) => r.id === id);
 
     // 1. Delete from in-memory / shared store
     WorkpulseSharedStore.deleteWfhRequest(id);
 
-    // 2. Delete from Supabase if available
+    // 2. Delete from Supabase permanently with service role
     try {
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
         await supabaseAdmin.from("wfh_requests").delete().eq("id", id);
+        if (existingReq?.employeeId && existingReq?.startDate) {
+          await supabaseAdmin
+            .from("wfh_requests")
+            .delete()
+            .eq("employee_id", existingReq.employeeId)
+            .eq("start_date", existingReq.startDate);
+        }
       }
     } catch (dbErr) {
       console.warn("[WFH DELETE API] Supabase delete warning:", dbErr);

@@ -198,6 +198,41 @@ describe("Employee CRUD Operations & Store Management", () => {
       // Clean up window mock
       delete (globalThis as any).window;
     });
+
+    it("permanently prevents resurrecting deleted employees during setEmployeesFromSupabase and hydrateFromStorage", () => {
+      // 1. Add employee
+      const emp = WorkpulseSharedStore.addEmployee({
+        name: "Doomed Candidate",
+        email: "doomed@xorstack.com",
+        designation: "Temp Staff",
+        departmentId: "dept-development",
+      });
+      expect(emp).toBeDefined();
+      const empId = emp!.id;
+
+      // 2. Delete employee
+      WorkpulseSharedStore.deleteEmployee(empId);
+      expect(WorkpulseSharedStore.getEmployeeById(empId)).toBeUndefined();
+      expect(WorkpulseSharedStore.getAllEmployees().some((e) => e.id === empId)).toBe(false);
+
+      // 3. Attempt to resurrect via setEmployeesFromSupabase with stale payload
+      WorkpulseSharedStore.setEmployeesFromSupabase([
+        {
+          id: empId,
+          name: "Doomed Candidate",
+          email: "doomed@xorstack.com",
+          designation: "Temp Staff",
+          departmentId: "dept-development",
+        },
+      ]);
+      expect(WorkpulseSharedStore.getEmployeeById(empId)).toBeUndefined();
+      expect(WorkpulseSharedStore.getAllEmployees().some((e) => e.id === empId)).toBe(false);
+
+      // 4. Attempt to resurrect via hydrateFromStorage
+      WorkpulseSharedStore.hydrateFromStorage();
+      expect(WorkpulseSharedStore.getEmployeeById(empId)).toBeUndefined();
+      expect(WorkpulseSharedStore.getAllEmployees().some((e) => e.id === empId)).toBe(false);
+    });
   });
 
   describe("Employee REST API Routes", () => {

@@ -58,7 +58,7 @@ export type SodTaskInput = z.infer<typeof sodTaskSchema>;
 export const sodSubmissionSchema = z.object({
   workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Work date must be YYYY-MM-DD"),
   workMode: WorkModeEnum.default("OFFICE"),
-  shift: z.string().default("09:00-18:00"),
+  shift: z.string().default("10:00-19:00"),
   plannedHours: z.coerce.number().min(0).max(24).default(8.0),
   tasks: z.array(sodTaskSchema).min(1, "At least one task is required for an active workday"),
 });

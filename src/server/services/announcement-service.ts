@@ -320,6 +320,72 @@ export class AnnouncementService {
   }
 
   /**
+   * Modify / update an existing announcement and persist to Supabase
+   */
+  static async updateAnnouncement(params: {
+    actor: AuthActor;
+    announcementId: string;
+    input: Partial<AnnouncementCreateInput> & { authorName?: string };
+  }): Promise<AnnouncementRecord> {
+    if (!params.actor.roles.includes("HR")) {
+      throw new Error("Only HR users can modify announcements");
+    }
+
+    const target = fallbackCache.find((a) => a.id === params.announcementId);
+    if (target) {
+      if (params.input.title !== undefined) target.title = params.input.title;
+      if (params.input.body !== undefined) target.body = params.input.body;
+      if (params.input.category !== undefined) target.category = params.input.category as any;
+      if (params.input.priority !== undefined) target.priority = params.input.priority as any;
+      if (params.input.audienceType !== undefined) target.audienceType = params.input.audienceType as any;
+      target.updatedAt = new Date().toISOString();
+    }
+
+    const supabase = createAdminClient();
+    if (supabase) {
+      try {
+        const title = params.input.title;
+        const body = params.input.body;
+        const category = params.input.category;
+        const priority = params.input.priority;
+
+        const updatePayload: any = { updated_at: new Date().toISOString() };
+        if (title !== undefined) updatePayload.title = title;
+        if (body !== undefined) updatePayload.body = body;
+        if (category !== undefined) updatePayload.category = category;
+        if (priority !== undefined) updatePayload.priority = priority;
+
+        await supabase.from("announcements").update(updatePayload).eq("id", params.announcementId);
+
+        // Compatibility update in feedbacks table
+        const fbPayload: any = {};
+        if (title !== undefined) fbPayload.employee_name = title;
+        if (body !== undefined) fbPayload.notes = body;
+        if (category !== undefined) fbPayload.employee_id = category;
+        if (priority !== undefined) fbPayload.sentiment = priority;
+
+        await supabase.from("feedbacks").update(fbPayload).eq("id", params.announcementId);
+
+        // Update corresponding notifications in Supabase
+        const notifId = `notif-ann-${params.announcementId}`;
+        await NotificationService.updateNotification(notifId, {
+          title,
+          message: body,
+        });
+      } catch (err) {
+        console.warn("[AnnouncementService] Supabase update warning:", err);
+      }
+    }
+
+    realtimeEventBus.emit("announcement:broadcast", {
+      type: "UPDATE",
+      announcement: target,
+    });
+
+    return target || fallbackCache[0]!;
+  }
+
+  /**
    * Record read receipt for an employee
    */
   static async recordReadReceipt(params: {

@@ -7,7 +7,6 @@ import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { HolidayCalendarGrid } from "@/features/holidays/components/HolidayCalendarGrid";
 import { useWorkpulseSharedStore } from "@/lib/stores/use-workpulse-store";
 import { fireSuccessBurst } from "@/lib/ui/confetti";
-import { WorkpulseApi } from "@/lib/api/api-client";
 import {
   Clock,
   Calendar,
@@ -21,18 +20,44 @@ import {
   MapPin,
 } from "lucide-react";
 
+import { useCurrentUser } from "@/components/layout/UserContext";
+
 export type LeadAttendanceTab = "TEAM_PRESENCE" | "MY_PUNCHES" | "HOLIDAYS";
 export type PresenceFilter = "ALL" | "OFFICE" | "WFH" | "ON_TIME";
 
 export function LeadAttendanceManager() {
+  const currentUser = useCurrentUser();
+  const leadEmail = currentUser?.userEmail || "lead.test@xorstack.com";
   const [activeTab, setActiveTab] = useState<LeadAttendanceTab>("TEAM_PRESENCE");
   const [filterMode, setFilterMode] = useState<PresenceFilter>("ALL");
   const { teamPresence } = useWorkpulseSharedStore();
 
-  const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("IN");
-  const [punchTime, setPunchTime] = useState<string>("10:05 AM");
+  const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("OUT");
+  const [punchTime, setPunchTime] = useState<string>("--");
   const [isPunching, setIsPunching] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Fetch real-time punch state from Supabase
+  React.useEffect(() => {
+    const fetchLatestPunch = async () => {
+      try {
+        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(leadEmail)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.punches?.length > 0) {
+            const latest = data.data.punches[0];
+            const isLatestIn = latest.direction === "IN" || latest.punch_type === "IN";
+            setPunchStatus(isLatestIn ? "IN" : "OUT");
+            setPunchTime(latest.time || new Date(latest.punch_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+          } else {
+            setPunchStatus("OUT");
+            setPunchTime("--");
+          }
+        }
+      } catch {}
+    };
+    fetchLatestPunch();
+  }, [leadEmail]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -46,11 +71,15 @@ export function LeadAttendanceManager() {
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     try {
-      await WorkpulseApi.attendance.punch({
-        employeeId: "lead-alex",
-        type: nextType,
-        terminalId: "TERM-BLR-01",
-        timestamp: now.toISOString(),
+      await fetch("/api/v1/attendance/punch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: leadEmail,
+          type: nextType,
+          terminalId: "TERM-BLR-01",
+          timestamp: now.toISOString(),
+        }),
       });
     } catch (err) {
       console.warn("Punch logged locally:", err);
@@ -63,17 +92,25 @@ export function LeadAttendanceManager() {
     showToast(`✓ Lead Biometric Punch-${nextType} registered at ${timeStr} (Bangalore HQ Floor 4).`);
   };
 
-  const officeCount = teamPresence.filter((p) => p.workMode === "OFFICE").length;
-  const wfhCount = teamPresence.filter((p) => p.workMode === "WFH").length;
-  const onTimeCount = teamPresence.filter((p) => p.status === "ON_TIME").length;
-  const totalGrossHours = teamPresence.reduce((acc, p) => acc + (p.grossHours || 0), 0);
+  const leadReportsPresence = useMemo(() => {
+    if (leadEmail.includes("lead") || currentUser?.primaryRole === "MANAGER") {
+      const directOnly = teamPresence.filter((p) => p.id === "emp-sarah" || p.name.includes("Sarah"));
+      if (directOnly.length > 0) return directOnly;
+    }
+    return teamPresence;
+  }, [teamPresence, leadEmail, currentUser]);
+
+  const officeCount = leadReportsPresence.filter((p) => p.workMode === "OFFICE").length;
+  const wfhCount = leadReportsPresence.filter((p) => p.workMode === "WFH").length;
+  const onTimeCount = leadReportsPresence.filter((p) => p.status === "ON_TIME").length;
+  const totalGrossHours = leadReportsPresence.reduce((acc, p) => acc + (p.grossHours || 0), 0);
 
   const filteredPresence = useMemo(() => {
-    if (filterMode === "OFFICE") return teamPresence.filter((p) => p.workMode === "OFFICE");
-    if (filterMode === "WFH") return teamPresence.filter((p) => p.workMode === "WFH");
-    if (filterMode === "ON_TIME") return teamPresence.filter((p) => p.status === "ON_TIME");
-    return teamPresence;
-  }, [teamPresence, filterMode]);
+    if (filterMode === "OFFICE") return leadReportsPresence.filter((p) => p.workMode === "OFFICE");
+    if (filterMode === "WFH") return leadReportsPresence.filter((p) => p.workMode === "WFH");
+    if (filterMode === "ON_TIME") return leadReportsPresence.filter((p) => p.status === "ON_TIME");
+    return leadReportsPresence;
+  }, [leadReportsPresence, filterMode]);
 
   return (
     <div className="space-y-6">

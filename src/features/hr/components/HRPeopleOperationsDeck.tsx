@@ -492,9 +492,8 @@ export function HRPeopleOperationsDeck({
       const response = await fetch(`/api/v1/employees/${empId}`, {
         method: "DELETE",
       });
-      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(result.error?.message || "Unable to delete the employee from Supabase.");
+        throw new Error("Unable to delete the employee from Supabase.");
       }
 
       deleteEmployee(empId);

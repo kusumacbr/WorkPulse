@@ -131,8 +131,8 @@ export class AttendanceService {
         employeeId: params.employeeId,
         workDate: params.workDate,
         effectiveWorkMode: "WFH",
-        firstCheckIn: "09:00",
-        lastCheckOut: "18:00",
+        firstCheckIn: "10:00",
+        lastCheckOut: "19:00",
         grossSpanHours: 9,
         breakMinutes: 60,
         netWorkedHours: 8,
@@ -154,13 +154,13 @@ export class AttendanceService {
       const firstIn = punches[0]!.time;
       const lastOut = punches[punches.length - 1]!.time;
 
-      // Check late arrival (> 09:15)
-      if (firstIn > "09:15") {
-        anomalies.push(`Late arrival at ${firstIn} (Grace period: 09:15).`);
+      // Check late arrival (> 10:15)
+      if (firstIn > "10:15") {
+        anomalies.push(`Late arrival at ${firstIn} (Grace period: 10:15).`);
       }
 
-      // Check early departure (< 17:30)
-      if (lastOut < "17:30") {
+      // Check early departure (< 18:30)
+      if (lastOut < "18:30") {
         anomalies.push(`Early departure at ${lastOut}.`);
       }
 
@@ -246,7 +246,7 @@ export class AttendanceService {
         jobTitle: "Senior Backend Engineer",
         workMode: "OFFICE",
         locationBadge: "HQ - Floor 3",
-        firstCheckIn: "09:12 AM",
+        firstCheckIn: "10:08 AM",
       },
       {
         employeeId: "emp-rohit",
@@ -255,7 +255,7 @@ export class AttendanceService {
         jobTitle: "Frontend Engineer (UI/UX)",
         workMode: "WFH",
         locationBadge: "Remote (Bangalore)",
-        firstCheckIn: "09:00 AM",
+        firstCheckIn: "10:00 AM",
       },
       {
         employeeId: "lead-alex",
@@ -264,7 +264,7 @@ export class AttendanceService {
         jobTitle: "Engineering Lead · Development",
         workMode: "OFFICE",
         locationBadge: "HQ - Floor 4",
-        firstCheckIn: "08:55 AM",
+        firstCheckIn: "09:55 AM",
       },
       {
         employeeId: "emp-priya",
@@ -282,7 +282,7 @@ export class AttendanceService {
         jobTitle: "DevOps Engineer",
         workMode: "OFFICE",
         locationBadge: "HQ - Server Room",
-        firstCheckIn: "09:05 AM",
+        firstCheckIn: "10:05 AM",
       },
       {
         employeeId: "emp-rachel",
@@ -291,7 +291,7 @@ export class AttendanceService {
         jobTitle: "HR Lead",
         workMode: "OFFICE",
         locationBadge: "HQ - Floor 2",
-        firstCheckIn: "09:15 AM",
+        firstCheckIn: "10:12 AM",
       },
     ];
 

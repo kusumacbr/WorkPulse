@@ -75,6 +75,29 @@ export async function POST(req: NextRequest) {
 
     state.leaveRequests.unshift(newReq as any);
 
+    // Persist to Supabase
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabaseAdmin = createAdminClient();
+      if (supabaseAdmin) {
+        await supabaseAdmin.from("leave_requests").upsert({
+          id: newReq.id,
+          employee_id: newReq.employeeId,
+          employee_name: newReq.employeeName,
+          department_name: newReq.departmentName,
+          leave_type: newReq.leaveType,
+          start_date: newReq.startDate,
+          end_date: newReq.endDate,
+          days_count: newReq.daysCount,
+          reason: newReq.reason,
+          backup_person_name: newReq.backupPersonName,
+          handover_notes: newReq.handoverNotes,
+          status: newReq.status,
+          created_at: newReq.createdAt,
+        });
+      }
+    } catch {}
+
     return apiSuccess({ request: newReq, message: "Leave application submitted to Team Lead." }, 201);
   } catch {
     return apiError("Invalid request body", 400, "BAD_REQUEST");
