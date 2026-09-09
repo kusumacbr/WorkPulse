@@ -1375,68 +1375,68 @@ export const WorkpulseSharedStore = {
         globalFeedbacks = mappedFb;
       }
 
-      // Merge Supabase workdays into employee states
+      // Merge Supabase workdays into employee states using a single Map pass for maximum performance
       if (wdRes.data && wdRes.data.length > 0) {
-        // Filter out legacy dummy rows like 'wd-sarah-today'
         const workdaysList = wdRes.data.filter((wd) => wd.id !== "wd-sarah-today");
-
+        const wdMap = new Map<string, any>();
         for (const wd of workdaysList) {
-          const empId = wd.employee_id;
-          globalDepartments = globalDepartments.map((dept) => ({
-            ...dept,
-            employees: dept.employees.map((emp) => {
-              if (emp.id === empId || emp.email.toLowerCase() === empId?.toLowerCase()) {
-                let currentTasks = Array.isArray(wd.planned_tasks) && wd.planned_tasks.length > 0 ? wd.planned_tasks : emp.plannedTasks;
-                
-                // If Sarah Dev has local tasks saved in workpulse_simple_tasks with higher task count, preserve them
-                if (typeof window !== "undefined" && (emp.id === "emp-sarah" || emp.email.toLowerCase() === "employee.test@xorstack.com")) {
-                  try {
-                    const localSaved = localStorage.getItem("workpulse_simple_tasks");
-                    if (localSaved) {
-                      const parsed = JSON.parse(localSaved);
-                      // Browser task storage is the source of truth for this interactive
-                      // task list, including an intentionally empty list after deletions.
-                      if (Array.isArray(parsed)) {
-                        currentTasks = parsed.map((t: any) => ({
-                          id: t.id,
-                          title: t.title,
-                          project: t.category || t.project || "General",
-                          priority: t.priority || "MEDIUM",
-                          estimatedMinutes: 60,
-                          completionPercentage: t.progress || 0,
-                          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-                          expectedOutput: t.title,
-                        }));
-                      }
-                    }
-                  } catch {}
-                }
-
-                return {
-                  ...emp,
-                  sodStatus: wd.sod_status === "VERIFIED" ? "VERIFIED" : wd.sod_status === "SUBMITTED" ? "SUBMITTED" : emp.sodStatus,
-                  sodTime: wd.sod_time || emp.sodTime,
-                  sodVerifiedBy: wd.sod_verified_by || emp.sodVerifiedBy,
-                  sodVerifiedAt: wd.sod_verified_at || emp.sodVerifiedAt,
-                  sodLeadNote: wd.sod_lead_note || wd.lead_feedback_note || emp.sodLeadNote,
-                  eodStatus: wd.eod_status === "VERIFIED" ? "VERIFIED" : wd.eod_status === "SUBMITTED" ? "SUBMITTED" : emp.eodStatus,
-                  eodTime: wd.eod_time || emp.eodTime,
-                  eodVerifiedBy: wd.eod_verified_by || emp.eodVerifiedBy,
-                  eodVerifiedAt: wd.eod_verified_at || emp.eodVerifiedAt,
-                  eodLeadRating: Number(wd.lead_rating) || emp.eodLeadRating,
-                  eodLeadComment: wd.lead_feedback_note || emp.eodLeadComment,
-                  eodLeadActionItem: wd.lead_action_item || emp.eodLeadActionItem,
-                  plannedTasks: currentTasks,
-                  overallProgress: Number(wd.overall_progress) ?? emp.overallProgress,
-                  eodAchievements: wd.achievements || emp.eodAchievements,
-                  eodBlockers: wd.blockers || emp.eodBlockers,
-                  eodTomorrowFocus: wd.tomorrow_focus || emp.eodTomorrowFocus,
-                };
-              }
-              return emp;
-            }),
-          }));
+          if (wd.employee_id) {
+            wdMap.set(wd.employee_id.toLowerCase(), wd);
+          }
         }
+
+        let localSavedTasks: any[] | null = null;
+        if (typeof window !== "undefined") {
+          try {
+            const raw = localStorage.getItem("workpulse_simple_tasks");
+            if (raw) localSavedTasks = JSON.parse(raw);
+          } catch {}
+        }
+
+        globalDepartments = globalDepartments.map((dept) => ({
+          ...dept,
+          employees: dept.employees.map((emp) => {
+            const empIdLower = emp.id.toLowerCase();
+            const empEmailLower = emp.email?.toLowerCase() || "";
+            const wd = wdMap.get(empIdLower) || wdMap.get(empEmailLower);
+            if (!wd) return emp;
+
+            let currentTasks = Array.isArray(wd.planned_tasks) && wd.planned_tasks.length > 0 ? wd.planned_tasks : emp.plannedTasks;
+            if (localSavedTasks && Array.isArray(localSavedTasks) && (emp.id === "emp-sarah" || empEmailLower === "employee.test@xorstack.com")) {
+              currentTasks = localSavedTasks.map((t: any) => ({
+                id: t.id,
+                title: t.title,
+                project: t.category || t.project || "General",
+                priority: t.priority || "MEDIUM",
+                estimatedMinutes: 60,
+                completionPercentage: t.progress || 0,
+                status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+                expectedOutput: t.title,
+              }));
+            }
+
+            return {
+              ...emp,
+              sodStatus: wd.sod_status === "VERIFIED" ? "VERIFIED" : wd.sod_status === "SUBMITTED" ? "SUBMITTED" : emp.sodStatus,
+              sodTime: wd.sod_time || emp.sodTime,
+              sodVerifiedBy: wd.sod_verified_by || emp.sodVerifiedBy,
+              sodVerifiedAt: wd.sod_verified_at || emp.sodVerifiedAt,
+              sodLeadNote: wd.sod_lead_note || wd.lead_feedback_note || emp.sodLeadNote,
+              eodStatus: wd.eod_status === "VERIFIED" ? "VERIFIED" : wd.eod_status === "SUBMITTED" ? "SUBMITTED" : emp.eodStatus,
+              eodTime: wd.eod_time || emp.eodTime,
+              eodVerifiedBy: wd.eod_verified_by || emp.eodVerifiedBy,
+              eodVerifiedAt: wd.eod_verified_at || emp.eodVerifiedAt,
+              eodLeadRating: Number(wd.lead_rating) || emp.eodLeadRating,
+              eodLeadComment: wd.lead_feedback_note || emp.eodLeadComment,
+              eodLeadActionItem: wd.lead_action_item || emp.eodLeadActionItem,
+              plannedTasks: currentTasks,
+              overallProgress: Number(wd.overall_progress) ?? emp.overallProgress,
+              eodAchievements: wd.achievements || emp.eodAchievements,
+              eodBlockers: wd.blockers || emp.eodBlockers,
+              eodTomorrowFocus: wd.tomorrow_focus || emp.eodTomorrowFocus,
+            };
+          }),
+        }));
       }
 
       supabaseHydrated = true;

@@ -41,11 +41,6 @@ export function UserProvider({
         sessionStorage.setItem("workpulse_session_email", user.userEmail);
       } else if (stored && stored !== tabEmail) {
         setTabEmail(stored);
-        fetch("/api/auth/dev-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: stored }),
-        }).catch(() => {});
       }
     }
   }, [user.userEmail, tabEmail]);
@@ -55,18 +50,14 @@ export function UserProvider({
     const handleFocus = () => {
       if (typeof window !== "undefined") {
         const stored = sessionStorage.getItem("workpulse_session_email");
-        if (stored) {
-          fetch("/api/auth/dev-login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: stored }),
-          }).catch(() => {});
+        if (stored && stored !== tabEmail) {
+          setTabEmail(stored);
         }
       }
     };
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, []);
+  }, [tabEmail]);
 
   const dynamicUser: UserContextValue = useMemo(() => {
     const activeEmail = (tabEmail || user.userEmail || "").toLowerCase();

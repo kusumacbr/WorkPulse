@@ -225,8 +225,10 @@ export function HRPeopleOperationsDeck({
     syncWithSupabase,
   } = useWorkpulseSharedStore();
   const [subTab, setSubTab] = useState<"joiners_probation" | "org_tree" | "directory" | "exits" | "profile_queries">(defaultSubTab);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     syncWithSupabase();
   }, []);
 
@@ -488,8 +490,8 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
     const seen = new Set<string>();
     const list: DirectoryEmployeeItem[] = [];
 
-    // Prioritize all live employees from the reactive Supabase store
-    const sourceList = allEmployees.length > 0 ? allEmployees : departments.flatMap((d) => d.employees);
+    // Prioritize all live employees from the reactive Supabase store only after client mount to prevent SSR hydration mismatch
+    const sourceList = mounted && allEmployees.length > 0 ? allEmployees : departments.flatMap((d) => d.employees);
 
     sourceList.forEach((emp) => {
       if (seen.has(emp.id)) return;
@@ -541,7 +543,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
     });
 
     return list;
-  }, [allEmployees, departments, probationList]);
+  }, [allEmployees, departments, probationList, mounted]);
 
   // Filtered directory
   const filteredDirectory = useMemo(() => {
@@ -967,19 +969,19 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                       <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
                         <td className="p-3.5 pl-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-300 text-xs shrink-0">
+                            <div suppressHydrationWarning className="h-8 w-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-300 text-xs shrink-0">
                               {emp.name.slice(0, 2).toUpperCase()}
                             </div>
                             <div className="min-w-0">
                               <div className="font-bold text-foreground flex items-center gap-1.5">
-                                <span className="truncate">{emp.name}</span>
+                                <span suppressHydrationWarning className="truncate">{emp.name}</span>
                                 {emp.isLead && (
                                   <Badge variant="purple" className="text-[8px] px-1 py-0 font-bold">
                                     Lead
                                   </Badge>
                                 )}
                               </div>
-                              <span className="text-[11px] text-muted-foreground font-mono block truncate">
+                              <span suppressHydrationWarning className="text-[11px] text-muted-foreground font-mono block truncate">
                                 {emp.email}
                               </span>
                             </div>

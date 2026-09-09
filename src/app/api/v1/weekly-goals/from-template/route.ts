@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const { actor } = await getSessionActor(req);
 

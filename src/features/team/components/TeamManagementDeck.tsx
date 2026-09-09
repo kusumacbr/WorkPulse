@@ -50,15 +50,20 @@ export function TeamManagementDeck() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const [mounted, setMounted] = useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Direct reports (Platform Team & all assigned direct reports)
   const directReports = useMemo(() => {
-    if (allEmployees.length > 0) {
+    if (mounted && allEmployees.length > 0) {
       return allEmployees;
     }
-    // Fallback to department employees
+    // Fallback to department employees during SSR/initial hydration pass
     const devDept = departments.find((d) => d.id === "dept-dev") || departments[0];
     return devDept ? devDept.employees : [];
-  }, [allEmployees, departments]);
+  }, [allEmployees, departments, mounted]);
 
   const filteredMembers = useMemo(() => {
     return directReports.filter((emp) => {

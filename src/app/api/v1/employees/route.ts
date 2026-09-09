@@ -7,6 +7,10 @@ import { broadcastServerEvent } from "@/lib/supabase/broadcast";
 
 export const dynamic = "force-dynamic";
 
+let cachedSupaEmployees: any[] | null = null;
+let lastCacheTime = 0;
+const CACHE_TTL_MS = 3000;
+
 export async function GET(req: NextRequest) {
   try {
     const { actor } = await getSessionActor(req);
@@ -15,74 +19,85 @@ export async function GET(req: NextRequest) {
     const searchQuery = searchParams.get("search")?.toLowerCase();
 
     let liveEmployees: any[] = [];
+    const now = Date.now();
 
-    // Query Supabase directly
+    // Query Supabase directly with 3s in-memory cache for maximum performance
     try {
-      const supabaseAdmin = createAdminClient();
-      if (supabaseAdmin) {
-        const { data: supaEmployees, error } = await supabaseAdmin
-          .from("employees")
-          .select("*")
-          .neq("status", "ARCHIVED")
-          .order("created_at", { ascending: true });
-
-        if (!error && supaEmployees && supaEmployees.length > 0) {
-          liveEmployees = supaEmployees.map((se) => {
-            const deptName = se.department || "Development";
-            const deptId =
-              se.department_id ||
-              (deptName.toLowerCase().includes("devops")
-                ? "dept-devops"
-                : deptName.toLowerCase().includes("data")
-                ? "dept-data-processing"
-                : deptName.toLowerCase().includes("r & d") || deptName.toLowerCase().includes("rd")
-                ? "dept-rd"
-                : deptName.toLowerCase().includes("configtap") || deptName.toLowerCase().includes("service")
-                ? "dept-configtap"
-                : deptName.toLowerCase().includes("hr") || deptName.toLowerCase().includes("human")
-                ? "dept-hr"
-                : "dept-development");
-
-            const isLead =
-              se.id.startsWith("lead-") ||
-              se.id.startsWith("admin-") ||
-              (se.role_title && se.role_title.toLowerCase().includes("lead")) ||
-              (se.role_title && se.role_title.toLowerCase().includes("director"));
-
-            const leadId = se.manager_id || (deptId === "dept-devops" ? "lead-marcus" : deptId === "dept-data-processing" ? "lead-vikram" : deptId === "dept-rd" ? "admin-david" : deptId === "dept-hr" ? "admin-david" : "lead-alex");
-            const matchingLead = supaEmployees.find((s) => s.id === leadId || (s.email && s.email.toLowerCase() === leadId?.toLowerCase()));
-            const leadName = se.manager_name || matchingLead?.name || (deptId === "dept-devops" ? "Marcus Vance" : deptId === "dept-data-processing" ? "Vikram Rao" : deptId === "dept-rd" ? "David Director" : deptId === "dept-hr" ? "David Director" : "Alex Lead");
-
-            return {
-              id: se.id,
-              name: se.name,
-              email: se.email,
-              designation: se.role_title || se.designation || "Engineer",
-              departmentId: deptId,
-              departmentName: deptName,
-              teamLeadId: leadId,
-              teamLeadName: leadName,
-              avatar: se.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
-              workMode: se.work_mode || "OFFICE",
-              status: se.status || "ACTIVE",
-              employmentType: se.employment_type || "Full-Time",
-              remainingLeaveBalance: Number(se.leave_balance) || 12.0,
-              joiningDate: se.joining_date || "2025-06-01",
-              phoneNumber: se.phone_number || "+91 98450 11223",
-              location: se.location || "Bangalore HQ",
-              workLocation: se.location || "Bangalore HQ",
-              isLead,
-              sodStatus: "SUBMITTED",
-              sodTime: "10:15 AM",
-              eodStatus: "IN_PROGRESS",
-              overallProgress: 80,
-              plannedTasks: [],
-            };
-          });
-
-          // Sync into shared store
-          WorkpulseSharedStore.setEmployeesFromSupabase(liveEmployees);
+      let supaEmployees: any[] | null = null;
+      if (cachedSupaEmployees && now - lastCacheTime < CACHE_TTL_MS) {
+        supaEmployees = cachedSupaEmployees;
+      } else {
+        const supabaseAdmin = createAdminClient();
+        if (supabaseAdmin) {
+          const { data, error } = await supabaseAdmin
+            .from("employees")
+            .select("*")
+            .neq("status", "ARCHIVED")
+            .order("created_at", { ascending: true });
+          if (!error && data) {
+            supaEmployees = data;
+            cachedSupaEmployees = data;
+            lastCacheTime = now;
+          }
         }
+      }
+
+      if (supaEmployees && supaEmployees.length > 0) {
+        liveEmployees = supaEmployees.map((se) => {
+          const deptName = se.department || "Development";
+          const deptId =
+            se.department_id ||
+            (deptName.toLowerCase().includes("devops")
+              ? "dept-devops"
+              : deptName.toLowerCase().includes("data")
+              ? "dept-data-processing"
+              : deptName.toLowerCase().includes("r & d") || deptName.toLowerCase().includes("rd")
+              ? "dept-rd"
+              : deptName.toLowerCase().includes("configtap") || deptName.toLowerCase().includes("service")
+              ? "dept-configtap"
+              : deptName.toLowerCase().includes("hr") || deptName.toLowerCase().includes("human")
+              ? "dept-hr"
+              : "dept-development");
+
+          const isLead =
+            se.id.startsWith("lead-") ||
+            se.id.startsWith("admin-") ||
+            (se.role_title && se.role_title.toLowerCase().includes("lead")) ||
+            (se.role_title && se.role_title.toLowerCase().includes("director"));
+
+          const leadId = se.manager_id || (deptId === "dept-devops" ? "lead-marcus" : deptId === "dept-data-processing" ? "lead-vikram" : deptId === "dept-rd" ? "admin-david" : deptId === "dept-hr" ? "admin-david" : "lead-alex");
+          const matchingLead = supaEmployees.find((s) => s.id === leadId || (s.email && s.email.toLowerCase() === leadId?.toLowerCase()));
+          const leadName = se.manager_name || matchingLead?.name || (deptId === "dept-devops" ? "Marcus Vance" : deptId === "dept-data-processing" ? "Vikram Rao" : deptId === "dept-rd" ? "David Director" : deptId === "dept-hr" ? "David Director" : "Alex Lead");
+
+          return {
+            id: se.id,
+            name: se.name,
+            email: se.email,
+            designation: se.role_title || se.designation || "Engineer",
+            departmentId: deptId,
+            departmentName: deptName,
+            teamLeadId: leadId,
+            teamLeadName: leadName,
+            avatar: se.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
+            workMode: se.work_mode || "OFFICE",
+            status: se.status || "ACTIVE",
+            employmentType: se.employment_type || "Full-Time",
+            remainingLeaveBalance: Number(se.leave_balance) || 12.0,
+            joiningDate: se.joining_date || "2025-06-01",
+            phoneNumber: se.phone_number || "+91 98450 11223",
+            location: se.location || "Bangalore HQ",
+            workLocation: se.location || "Bangalore HQ",
+            isLead,
+            sodStatus: "SUBMITTED",
+            sodTime: "10:15 AM",
+            eodStatus: "IN_PROGRESS",
+            overallProgress: 80,
+            plannedTasks: [],
+          };
+        });
+
+        // Sync into shared store
+        WorkpulseSharedStore.setEmployeesFromSupabase(liveEmployees);
       }
     } catch (e) {
       console.warn("Supabase direct query fallback:", e);
@@ -192,6 +207,8 @@ export async function POST(req: NextRequest) {
     if (!created) {
       return apiError("Failed to onboard employee", 400, "BAD_REQUEST");
     }
+
+    cachedSupaEmployees = null;
 
     // Persist to Supabase public.employees & public.profiles
     try {
