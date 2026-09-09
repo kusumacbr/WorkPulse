@@ -88,8 +88,12 @@ export async function GET(req: NextRequest) {
       console.warn("Supabase direct query fallback:", e);
     }
 
-    // Supabase is the single source of truth — no ephemeral serverDeletedEmployeeIds filtering needed.
-    // If an employee was deleted from Supabase, the query above already excluded them.
+    const deletedIds = WorkpulseSharedStore.getDeletedEmployeeIds();
+    if (deletedIds && deletedIds.size > 0) {
+      liveEmployees = liveEmployees.filter(
+        (e) => !deletedIds.has(e.id?.toLowerCase()) && !deletedIds.has(e.email?.toLowerCase())
+      );
+    }
 
     if (liveEmployees.length === 0) {
       liveEmployees = WorkpulseSharedStore.getAllEmployees();

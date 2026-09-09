@@ -84,26 +84,36 @@ export async function POST(req: NextRequest) {
       }
 
       case "delete_employee": {
-        if (!id) return apiError("Missing employee 'id'", 400);
+        const empId = id || record?.id;
+        const empEmail = record?.email;
+        if (!empId) return apiError("Missing employee 'id'", 400);
+
+        const idOrEmailFilter = empEmail
+          ? `id.eq.${empId},email.eq.${empEmail}`
+          : `id.eq.${empId},email.eq.${empId}`;
+        const empIdOrEmailFilter = empEmail
+          ? `employee_id.eq.${empId},employee_id.eq.${empEmail}`
+          : `employee_id.eq.${empId},employee_id.eq.${empId}`;
+
         // Cascade delete related records across all child tables and clear manager links
         await Promise.allSettled([
-          supabaseAdmin.from("leave_requests").delete().eq("employee_id", id),
-          supabaseAdmin.from("wfh_requests").delete().eq("employee_id", id),
-          supabaseAdmin.from("workdays").delete().eq("employee_id", id),
-          supabaseAdmin.from("biometric_punches").delete().eq("employee_id", id),
-          supabaseAdmin.from("feedbacks").delete().eq("employee_id", id),
-          supabaseAdmin.from("regularization_requests").delete().eq("employee_id", id),
-          supabaseAdmin.from("daily_tasks").delete().eq("employee_id", id),
-          supabaseAdmin.from("notifications").delete().eq("user_id", id),
-          supabaseAdmin.from("profiles").delete().eq("id", id),
-          supabaseAdmin.from("employees").update({ manager_id: null, manager_name: null }).eq("manager_id", id),
+          supabaseAdmin.from("leave_requests").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("wfh_requests").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("workdays").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("biometric_punches").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("feedbacks").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("regularization_requests").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("daily_tasks").delete().or(empIdOrEmailFilter),
+          supabaseAdmin.from("notifications").delete().or(`user_id.eq.${empId},user_id.eq.${empEmail || empId}`),
+          supabaseAdmin.from("profiles").delete().or(idOrEmailFilter),
+          supabaseAdmin.from("employees").update({ manager_id: null, manager_name: null }).or(`manager_id.eq.${empId},manager_id.eq.${empEmail || empId}`),
         ]);
-        const { data, error } = await supabaseAdmin.from("employees").delete().eq("id", id);
+        const { data, error } = await supabaseAdmin.from("employees").delete().or(idOrEmailFilter);
         if (error) console.warn("[Supabase Admin Sync] Employee delete warning:", error.message);
         try {
-          await supabaseAdmin.from("profiles").delete().eq("id", id);
+          await supabaseAdmin.from("profiles").delete().or(idOrEmailFilter);
         } catch {}
-        return apiSuccess({ success: true, data, message: `Employee '${id}' and all associated records deleted.` });
+        return apiSuccess({ success: true, data, message: `Employee '${empId}' and all associated records permanently deleted.` });
       }
 
       case "delete_sod": {
@@ -152,34 +162,67 @@ export async function POST(req: NextRequest) {
         const managerId = record?.manager_id || record?.teamLeadId;
         const managerName = record?.manager_name || record?.teamLeadName;
 
-        // 1. Update public.employees table
-        await supabaseAdmin.from("employees").upsert({
-          id: empId,
-          name,
-          email,
-          role_title: designation,
-          department,
-          department_id: departmentId,
-          work_mode: workMode,
-          status,
-          employment_type: employmentType,
-          manager_id: managerId,
-          manager_name: managerName,
-          phone_number: phoneNumber,
-          location,
-          leave_balance: leaveBalance,
+        const idOrEmailFilter = email
+          ? `id.eq.${empId},email.eq.${email}`
+          : `id.eq.${empId},email.eq.${empId}`;
+        const empIdOrEmailFilter = email
+          ? `employee_id.eq.${empId},employee_id.eq.${email}`
+          : `employee_id.eq.${empId},employee_id.eq.${empId}`;
+
+        // 1. Try update first on matching rows by id OR email in public.employees
+        const updatePayload: any = {
           updated_at: new Date().toISOString(),
-        });
+        };
+        if (name !== undefined) updatePayload.name = name;
+        if (email !== undefined) updatePayload.email = email;
+        if (designation !== undefined) updatePayload.role_title = designation;
+        if (department !== undefined) updatePayload.department = department;
+        if (departmentId !== undefined) updatePayload.department_id = departmentId;
+        if (workMode !== undefined) updatePayload.work_mode = workMode;
+        if (status !== undefined) updatePayload.status = status;
+        if (employmentType !== undefined) updatePayload.employment_type = employmentType;
+        if (managerId !== undefined) updatePayload.manager_id = managerId;
+        if (managerName !== undefined) updatePayload.manager_name = managerName;
+        if (phoneNumber !== undefined) updatePayload.phone_number = phoneNumber;
+        if (location !== undefined) updatePayload.location = location;
+        if (leaveBalance !== undefined) updatePayload.leave_balance = leaveBalance;
+
+        const { data: updatedRows, error: updateErr } = await supabaseAdmin
+          .from("employees")
+          .update(updatePayload)
+          .or(idOrEmailFilter)
+          .select();
+
+        if (updateErr || !updatedRows || updatedRows.length === 0) {
+          // Fallback to upsert if row does not exist yet
+          await supabaseAdmin.from("employees").upsert({
+            id: empId,
+            name: name || "Employee",
+            email: email || `${empId}@xorstack.com`,
+            role_title: designation || "Engineer",
+            department: department || "Development",
+            department_id: departmentId,
+            work_mode: workMode || "OFFICE",
+            status: status || "ACTIVE",
+            employment_type: employmentType,
+            manager_id: managerId,
+            manager_name: managerName,
+            phone_number: phoneNumber,
+            location,
+            leave_balance: leaveBalance !== undefined ? leaveBalance : 12.0,
+            updated_at: new Date().toISOString(),
+          });
+        }
 
         // 2. Cascade update to public.profiles
         if (email || name) {
           try {
             await supabaseAdmin.from("profiles").update({
-              full_name: name,
-              department,
-              designation,
+              ...(name ? { full_name: name } : {}),
+              ...(department ? { department } : {}),
+              ...(designation ? { designation } : {}),
               updated_at: new Date().toISOString(),
-            }).or(`id.eq.${empId},email.eq.${email}`);
+            }).or(idOrEmailFilter);
           } catch {}
         }
 
@@ -192,7 +235,7 @@ export async function POST(req: NextRequest) {
             Promise.resolve(
               supabaseAdmin.from("employees").update({
                 manager_name: name,
-              }).eq("manager_id", empId)
+              }).or(`manager_id.eq.${empId},manager_id.eq.${email || empId}`)
             )
           );
         }
@@ -201,11 +244,11 @@ export async function POST(req: NextRequest) {
         cascadeTasks.push(
           Promise.resolve(
             supabaseAdmin.from("workdays").update({
-              employee_name: name,
-              department_name: department,
+              ...(name ? { employee_name: name } : {}),
+              ...(department ? { department_name: department } : {}),
               ...(workMode ? { work_mode: workMode } : {}),
               updated_at: new Date().toISOString(),
-            }).eq("employee_id", empId)
+            }).or(empIdOrEmailFilter)
           )
         );
 
@@ -213,13 +256,13 @@ export async function POST(req: NextRequest) {
         cascadeTasks.push(
           Promise.resolve(
             supabaseAdmin.from("leave_requests").update({
-              employee_name: name,
+              ...(name ? { employee_name: name } : {}),
               ...(email ? { employee_email: email } : {}),
-              department_name: department,
-              department_id: departmentId,
-              designation,
+              ...(department ? { department_name: department } : {}),
+              ...(departmentId ? { department_id: departmentId } : {}),
+              ...(designation ? { designation } : {}),
               updated_at: new Date().toISOString(),
-            }).eq("employee_id", empId)
+            }).or(empIdOrEmailFilter)
           )
         );
 
@@ -227,49 +270,53 @@ export async function POST(req: NextRequest) {
         cascadeTasks.push(
           Promise.resolve(
             supabaseAdmin.from("wfh_requests").update({
-              employee_name: name,
+              ...(name ? { employee_name: name } : {}),
               ...(email ? { employee_email: email } : {}),
-              department_name: department,
-              department_id: departmentId,
-              designation,
+              ...(department ? { department_name: department } : {}),
+              ...(departmentId ? { department_id: departmentId } : {}),
+              ...(designation ? { designation } : {}),
               updated_at: new Date().toISOString(),
-            }).eq("employee_id", empId)
+            }).or(empIdOrEmailFilter)
           )
         );
 
         // biometric_punches
-        cascadeTasks.push(
-          Promise.resolve(
-            supabaseAdmin.from("biometric_punches").update({
-              employee_name: name,
-            }).eq("employee_id", empId)
-          )
-        );
+        if (name) {
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("biometric_punches").update({
+                employee_name: name,
+              }).or(empIdOrEmailFilter)
+            )
+          );
+        }
 
         // feedbacks
-        cascadeTasks.push(
-          Promise.resolve(
-            supabaseAdmin.from("feedbacks").update({
-              employee_name: name,
-            }).eq("employee_id", empId)
-          )
-        );
-        cascadeTasks.push(
-          Promise.resolve(
-            supabaseAdmin.from("feedbacks").update({
-              lead_name: name,
-            }).eq("lead_id", empId)
-          )
-        );
+        if (name) {
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("feedbacks").update({
+                employee_name: name,
+              }).or(empIdOrEmailFilter)
+            )
+          );
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("feedbacks").update({
+                lead_name: name,
+              }).or(`lead_id.eq.${empId},lead_id.eq.${email || empId}`)
+            )
+          );
+        }
 
         // regularization_requests
         cascadeTasks.push(
           Promise.resolve(
             supabaseAdmin.from("regularization_requests").update({
-              employee_name: name,
-              department_name: department,
-              designation,
-            }).eq("employee_id", empId)
+              ...(name ? { employee_name: name } : {}),
+              ...(department ? { department_name: department } : {}),
+              ...(designation ? { designation } : {}),
+            }).or(empIdOrEmailFilter)
           )
         );
 

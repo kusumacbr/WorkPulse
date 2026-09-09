@@ -135,7 +135,14 @@ export async function PATCH(
         // Map status: frontend uses "Full-Time"/"Probation"/"Notice Period", keep as-is for consistency
         const newStatus = body.status || updated?.status;
 
-        // 1. Update employees table
+        const idOrEmailFilter = newEmail
+          ? `id.eq.${id},email.eq.${newEmail}`
+          : `id.eq.${id},email.eq.${id}`;
+        const empIdOrEmailFilter = newEmail
+          ? `employee_id.eq.${id},employee_id.eq.${newEmail}`
+          : `employee_id.eq.${id},employee_id.eq.${id}`;
+
+        // 1. Update employees table matching id OR email
         await supabaseAdmin
           .from("employees")
           .update({
@@ -154,7 +161,7 @@ export async function PATCH(
             manager_name: updated?.teamLeadName || undefined,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", id);
+          .or(idOrEmailFilter);
 
         // 2. Cascade update to all connected tables
         const cascadeTasks: Promise<any>[] = [];
@@ -167,7 +174,7 @@ export async function PATCH(
                 department: newDept,
                 designation: newDesig,
                 updated_at: new Date().toISOString(),
-              }).or(`id.eq.${id},email.eq.${newEmail || id}`)
+              }).or(idOrEmailFilter)
             )
           );
         }
@@ -178,7 +185,7 @@ export async function PATCH(
             Promise.resolve(
               supabaseAdmin.from("employees").update({
                 manager_name: newName,
-              }).eq("manager_id", id)
+              }).or(`manager_id.eq.${id},manager_id.eq.${newEmail || id}`)
             )
           );
 
@@ -189,7 +196,7 @@ export async function PATCH(
                 department_name: newDept,
                 ...(newWorkMode ? { work_mode: newWorkMode } : {}),
                 updated_at: new Date().toISOString(),
-              }).eq("employee_id", id)
+              }).or(empIdOrEmailFilter)
             )
           );
 
@@ -202,7 +209,7 @@ export async function PATCH(
                 department_id: newDeptId,
                 designation: newDesig,
                 updated_at: new Date().toISOString(),
-              }).eq("employee_id", id)
+              }).or(empIdOrEmailFilter)
             )
           );
 
@@ -226,7 +233,7 @@ export async function PATCH(
                 department_id: newDeptId,
                 designation: newDesig,
                 updated_at: new Date().toISOString(),
-              }).eq("employee_id", id)
+              }).or(empIdOrEmailFilter)
             )
           );
 
@@ -234,7 +241,7 @@ export async function PATCH(
             Promise.resolve(
               supabaseAdmin.from("biometric_punches").update({
                 employee_name: newName,
-              }).eq("employee_id", id)
+              }).or(empIdOrEmailFilter)
             )
           );
 
@@ -242,14 +249,14 @@ export async function PATCH(
             Promise.resolve(
               supabaseAdmin.from("feedbacks").update({
                 employee_name: newName,
-              }).eq("employee_id", id)
+              }).or(empIdOrEmailFilter)
             )
           );
           cascadeTasks.push(
             Promise.resolve(
               supabaseAdmin.from("feedbacks").update({
                 lead_name: newName,
-              }).eq("lead_id", id)
+              }).or(`lead_id.eq.${id},lead_id.eq.${newEmail || id}`)
             )
           );
 
@@ -259,7 +266,7 @@ export async function PATCH(
                 employee_name: newName,
                 department_name: newDept,
                 designation: newDesig,
-              }).eq("employee_id", id)
+              }).or(empIdOrEmailFilter)
             )
           );
         }
@@ -321,27 +328,32 @@ export async function DELETE(
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabaseAdmin = createAdminClient();
     if (supabaseAdmin) {
+      const targetEmail = removed?.email || id;
+      const idOrEmailFilter = `id.eq.${id},email.eq.${targetEmail}`;
+      const empIdOrEmailFilter = `employee_id.eq.${id},employee_id.eq.${targetEmail}`;
+
       // Cascade delete related records across all child tables and reassign direct reports
       await Promise.allSettled([
-        supabaseAdmin.from("leave_requests").delete().eq("employee_id", id),
-        supabaseAdmin.from("wfh_requests").delete().eq("employee_id", id),
-        supabaseAdmin.from("workdays").delete().eq("employee_id", id),
-        supabaseAdmin.from("biometric_punches").delete().eq("employee_id", id),
-        supabaseAdmin.from("feedbacks").delete().eq("employee_id", id),
-        supabaseAdmin.from("regularization_requests").delete().eq("employee_id", id),
-        supabaseAdmin.from("daily_tasks").delete().eq("employee_id", id),
-        supabaseAdmin.from("notifications").delete().eq("user_id", id),
-        supabaseAdmin.from("profiles").delete().eq("id", id),
-        supabaseAdmin.from("employees").update({ manager_id: null, manager_name: null }).eq("manager_id", id),
+        supabaseAdmin.from("leave_requests").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("wfh_requests").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("workdays").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("biometric_punches").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("feedbacks").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("regularization_requests").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("daily_tasks").delete().or(empIdOrEmailFilter),
+        supabaseAdmin.from("notifications").delete().or(`user_id.eq.${id},user_id.eq.${targetEmail}`),
+        supabaseAdmin.from("profiles").delete().or(idOrEmailFilter),
+        supabaseAdmin.from("employees").update({ manager_id: null, manager_name: null }).or(`manager_id.eq.${id},manager_id.eq.${targetEmail}`),
       ]);
 
       // Delete the employee row from Supabase
-      const { data: delRow, error: delErr } = await supabaseAdmin
+      const { data: delRows, error: delErr } = await supabaseAdmin
         .from("employees")
         .delete()
-        .eq("id", id)
-        .select()
-        .maybeSingle();
+        .or(idOrEmailFilter)
+        .select();
+
+      const delRow = delRows && delRows[0];
 
       if (delRow && !removed) {
         removed = { id: delRow.id, name: delRow.name } as any;

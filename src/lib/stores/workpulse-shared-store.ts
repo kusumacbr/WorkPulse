@@ -950,7 +950,7 @@ async function syncGoalToSupabase(goal: {
   } catch {}
 }
 
-async function deleteEmployeeFromSupabase(id: string): Promise<void> {
+async function deleteEmployeeFromSupabase(id: string, email?: string): Promise<void> {
   if (typeof window === "undefined") return;
   try {
     // AWAIT the server-side Admin endpoint to ensure cascade delete completes
@@ -958,7 +958,7 @@ async function deleteEmployeeFromSupabase(id: string): Promise<void> {
     await fetch("/api/v1/supabase/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete_employee", id }),
+      body: JSON.stringify({ action: "delete_employee", id, record: { email } }),
     }).catch(() => {});
   } catch {
     // Graceful offline fallback
@@ -1455,11 +1455,14 @@ export const WorkpulseSharedStore = {
 
   setEmployeesFromSupabase: (supaEmployees: any[]) => {
     if (!Array.isArray(supaEmployees) || supaEmployees.length === 0) return;
-    // Supabase IS the single source of truth — if an employee exists in Supabase, they exist.
-    // No filtering by deletedEmployeeIds; that was a workaround for missing Supabase authority.
     supabaseHydrated = true;
 
-    const allMapped: OrgEmployee[] = supaEmployees
+    const deletedEmployeeIds = getDeletedEmployeeIds();
+    const filteredSupa = supaEmployees.filter(
+      (se) => !deletedEmployeeIds.has(se.id?.toLowerCase()) && !deletedEmployeeIds.has(se.email?.toLowerCase())
+    );
+
+    const allMapped: OrgEmployee[] = filteredSupa
       .map((se) => {
         const name = se.name || "Employee";
         const avatar = name
@@ -2304,7 +2307,7 @@ export const WorkpulseSharedStore = {
     } catch {
       // safe fallback
     }
-    deleteEmployeeFromSupabase(id);
+    deleteEmployeeFromSupabase(id, removedEmployee?.email);
     return removedEmployee;
   },
 
