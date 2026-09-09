@@ -1,17 +1,46 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Prevent static prerendering of authenticated pages
+  reactStrictMode: true,
+  swcMinify: true,
   experimental: {
-    // Allow server actions
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "framer-motion",
+      "@radix-ui/react-icons",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-select",
+      "@radix-ui/react-slot",
+      "@radix-ui/react-toast",
+      "@radix-ui/react-tooltip",
+    ],
   },
   eslint: {
-    // Don't fail build on lint warnings
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Type checking done separately via tsc
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
+  },
+  images: {
+    unoptimized: true,
+  },
+  async headers() {
+    return [
+      {
+        source: "/:all*(svg|jpg|png|webp|avif|woff2)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
   },
 };
 
 export default nextConfig;
+

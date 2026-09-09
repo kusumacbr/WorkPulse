@@ -64,3 +64,63 @@ export async function GET(req: NextRequest) {
     return apiError(err.message || "Failed to fetch punches", 500);
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const punches = Array.isArray(body.punches) ? body.punches : body ? [body] : [];
+    if (punches.length === 0) {
+      return apiError("No biometric punches provided in payload", 400);
+    }
+
+    const supabase = createAdminClient();
+    const recordsToInsert = punches.map((p: any) => {
+      const dateStr = p.date || new Date().toISOString().split("T")[0];
+      const timeStr = p.firstIn || p.time || "10:00 AM";
+      let punchTimeIso = p.punch_time;
+
+      if (!punchTimeIso) {
+        try {
+          punchTimeIso = new Date(`${dateStr} ${timeStr}`).toISOString();
+        } catch {
+          punchTimeIso = new Date().toISOString();
+        }
+      }
+
+      return {
+        id: p.id || `biom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        employee_id: p.employeeId || p.employee_id || "emp-sarah",
+        employee_name: p.employeeName || p.employee_name || "Employee",
+        punch_type: p.punchType || p.punch_type || "IN",
+        punch_time: punchTimeIso,
+        method: p.method || "BIOMETRIC",
+        terminal_id: p.terminalId || p.terminal_id || "TERM-BLR-01",
+        location: p.location || "Bangalore HQ",
+        status: "VERIFIED",
+        raw_payload: {
+          date: dateStr,
+          first_in: p.firstIn || timeStr,
+          last_out: p.lastOut || "07:00 PM",
+          work_mode: p.workMode || "OFFICE",
+          imported_at: new Date().toISOString(),
+        },
+      };
+    });
+
+    if (supabase) {
+      const { error } = await supabase.from("biometric_punches").upsert(recordsToInsert);
+      if (error) {
+        console.warn("[Punches POST API] Supabase upsert notice:", error.message);
+      }
+    }
+
+    return apiSuccess({
+      success: true,
+      message: `Successfully processed ${recordsToInsert.length} biometric punch records`,
+      count: recordsToInsert.length,
+      records: recordsToInsert,
+    });
+  } catch (err: any) {
+    return apiError(err.message || "Failed to process biometric punches", 500);
+  }
+}

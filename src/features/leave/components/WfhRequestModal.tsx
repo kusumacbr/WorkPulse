@@ -64,33 +64,37 @@ export function WfhRequestModal({
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Persist to backend REST API (creates single authoritative entry in store & Supabase)
-      try {
-        await WorkpulseApi.leave.applyWfh({
-          startDate: values.startDate,
-          endDate: values.endDate,
-          reason: values.reason,
-          availabilityHours: values.availabilityHours,
-          contactMethod: values.contactMethod,
-          plannedDeliverables: values.plannedDeliverables,
-        });
-      } catch (err) {
-        console.warn("Backend WFH submission fallback to local store:", err);
-        // Fallback to local store if offline
-        addWfhRequest({
-          employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
-          employeeName: currentEmp?.name || user.userName || "Sarah Dev",
-          departmentId: currentEmp?.departmentId || "dept-development",
-          departmentName: currentEmp?.departmentName || "Development",
-          designation: currentEmp?.designation || "Senior Backend Engineer",
-          startDate: values.startDate,
-          endDate: values.endDate,
-          reason: values.reason,
-          availabilityHours: values.availabilityHours,
-          contactMethod: values.contactMethod,
-          plannedDeliverables: values.plannedDeliverables,
-        });
-      }
+      const reqId = `wfh-req-v2-${Date.now()}`;
+
+      // 1. Instant optimistic local store update so parent renders in <1ms
+      addWfhRequest({
+        id: reqId,
+        employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
+        employeeName: currentEmp?.name || user.userName || "Sarah Dev",
+        departmentId: currentEmp?.departmentId || "dept-development",
+        departmentName: currentEmp?.departmentName || "Development",
+        designation: currentEmp?.designation || "Senior Backend Engineer",
+        startDate: values.startDate,
+        endDate: values.endDate,
+        daysCount: 1.0,
+        reason: values.reason,
+        availabilityHours: values.availabilityHours,
+        contactMethod: values.contactMethod,
+        plannedDeliverables: values.plannedDeliverables,
+      });
+
+      // 2. Persist to backend REST API & Supabase asynchronously
+      WorkpulseApi.leave.applyWfh({
+        id: reqId,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        reason: values.reason,
+        availabilityHours: values.availabilityHours,
+        contactMethod: values.contactMethod,
+        plannedDeliverables: values.plannedDeliverables,
+      }).catch((err) => {
+        console.warn("Backend WFH background sync status:", err);
+      });
 
       setSubmitSuccess(true);
       if (onSuccess) onSuccess(values);

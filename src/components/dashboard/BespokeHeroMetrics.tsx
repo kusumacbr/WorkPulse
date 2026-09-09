@@ -54,7 +54,7 @@ export function MemberHeroMetrics({
       {/* -------------------------------------------------------------
           CARD 1: TODAY'S ATTENDANCE (Biometric Pulse & Shift Timeline)
          ------------------------------------------------------------- */}
-      <Link href="/attendance" className="block group">
+      <Link prefetch={true} href="/attendance" className="block group">
         <div className="h-full p-5 rounded-3xl border border-cyan-500/30 dark:border-cyan-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-cyan-500/60 group-hover:shadow-[0_8px_30px_rgba(6,182,212,0.15)] group-hover:-translate-y-1">
           {/* Subtle Accent Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 dark:bg-cyan-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -70,7 +70,6 @@ export function MemberHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 block">
                     Today&apos;s Attendance
                   </span>
-                  <span className="text-[11px] text-muted-foreground font-medium">Biometric Shift</span>
                 </div>
               </div>
 
@@ -90,7 +89,6 @@ export function MemberHeroMetrics({
                   In: {checkInTime}
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Biometric shift verified on enterprise logs.</p>
             </div>
 
             {/* Bottom: Shift Progress Timeline Track */}
@@ -116,7 +114,7 @@ export function MemberHeroMetrics({
       {/* -------------------------------------------------------------
           CARD 2: MY TASKS VELOCITY (Circular Donut Ring & Pill Tags)
          ------------------------------------------------------------- */}
-      <Link href="/my-work" className="block group">
+      <Link prefetch={true} href="/my-work" className="block group">
         <div className="h-full p-5 rounded-3xl border border-amber-500/30 dark:border-amber-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-amber-500/60 group-hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] group-hover:-translate-y-1">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 dark:bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -132,7 +130,6 @@ export function MemberHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">
                     My Tasks Velocity
                   </span>
-                  <span className="text-[11px] text-muted-foreground font-medium">Daily Execution</span>
                 </div>
               </div>
 
@@ -157,11 +154,6 @@ export function MemberHeroMetrics({
                     </>
                   )}
                 </div>
-                <span className="text-[11px] text-muted-foreground font-medium block">
-                  {tasksCount === 0
-                    ? "Start your daily morning SOD plan"
-                    : `${safeCompletedTasks} Completed · ${safeTasksCount - safeCompletedTasks} In Progress`}
-                </span>
               </div>
 
               {/* Mini SVG Progress Ring */}
@@ -208,7 +200,7 @@ export function MemberHeroMetrics({
       {/* -------------------------------------------------------------
           CARD 3: OVERALL GOAL PROGRESS (OKR Trajectory & Milestones)
          ------------------------------------------------------------- */}
-      <Link href="/goals" className="block group">
+      <Link prefetch={true} href="/goals" className="block group">
         <div className="h-full p-5 rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-emerald-500/60 group-hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] group-hover:-translate-y-1">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -224,7 +216,6 @@ export function MemberHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
                     OKR Goal Progress
                   </span>
-                  <span className="text-[11px] text-muted-foreground font-medium">Strategic Goals</span>
                 </div>
               </div>
 
@@ -244,7 +235,6 @@ export function MemberHeroMetrics({
                   {completedGoalsCount} of {totalGoalsCount} OKRs Done
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Strategic milestones tracked in Goals deck.</p>
             </div>
 
             {/* Bottom: 4 Milestone Step Dots */}
@@ -275,7 +265,7 @@ export function MemberHeroMetrics({
       {/* -------------------------------------------------------------
           CARD 4: LEAVE BALANCE & TIME-OFF (Dual Quota Gauges)
          ------------------------------------------------------------- */}
-      <Link href="/leave" className="block group">
+      <Link prefetch={true} href="/leave" className="block group">
         <div className="h-full p-5 rounded-3xl border border-rose-500/30 dark:border-rose-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-rose-500/60 group-hover:shadow-[0_8px_30px_rgba(244,63,94,0.15)] group-hover:-translate-y-1">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 dark:bg-rose-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -291,7 +281,6 @@ export function MemberHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
                     Leave &amp; Time-Off
                   </span>
-                  <span className="text-[11px] text-muted-foreground font-medium">Annual Quota</span>
                 </div>
               </div>
 
@@ -308,7 +297,6 @@ export function MemberHeroMetrics({
                 </span>
                 <span className="text-xs text-muted-foreground font-medium">/ 12 Casual</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Paid time-off quota synced with Leave Desk.</p>
             </div>
 
             {/* Bottom: Dual Quota Breakdown Badges */}
@@ -351,11 +339,7 @@ export function LeadHeroMetrics({
   totalTeamCount,
   morningPlansCount,
   pendingRequestsCount,
-  pendingLeavesCount,
-  pendingWfhsCount,
   sprintVelocityPercent,
-  achievedOkrsCount,
-  totalOkrsCount,
 }: LeadHeroMetricsProps) {
   const safeTotal = Math.max(totalTeamCount, 1);
   const attendanceRate = Math.round((presentCount / safeTotal) * 100);
@@ -364,7 +348,7 @@ export function LeadHeroMetrics({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
       {/* 1. Team Attendance Card */}
-      <Link href="/attendance" className="block group">
+      <Link prefetch={true} href="/attendance" className="block group">
         <div className="h-full p-5 rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-emerald-500/60 group-hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -376,7 +360,6 @@ export function LeadHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
                     Team Attendance
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Direct Reports</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -388,7 +371,6 @@ export function LeadHeroMetrics({
               <div className="text-3xl font-black text-foreground font-mono">
                 {presentCount} <span className="text-lg text-muted-foreground">/ {safeTotal} Present</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">All direct reports logged via biometric shifts.</p>
             </div>
 
             <div className="pt-2 border-t border-border/70">
@@ -406,7 +388,7 @@ export function LeadHeroMetrics({
       </Link>
 
       {/* 2. Morning SOD Plans Card */}
-      <Link href="/my-work" className="block group">
+      <Link prefetch={true} href="/my-work" className="block group">
         <div className="h-full p-5 rounded-3xl border border-cyan-500/30 dark:border-cyan-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-cyan-500/60 group-hover:shadow-[0_8px_30px_rgba(6,182,212,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -418,7 +400,6 @@ export function LeadHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 block">
                     Morning SOD Plans
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Daily Standup</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[10px] font-bold text-cyan-600 dark:text-cyan-400 font-mono">
@@ -430,7 +411,6 @@ export function LeadHeroMetrics({
               <div className="text-3xl font-black text-foreground font-mono">
                 {morningPlansCount} <span className="text-lg text-muted-foreground">/ {safeTotal} Shared</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Ready for sprint lead verification &amp; feedback.</p>
             </div>
 
             <div className="pt-2 border-t border-border/70 flex items-center justify-between text-[10px] font-mono">
@@ -442,7 +422,7 @@ export function LeadHeroMetrics({
       </Link>
 
       {/* 3. Team Leave Approvals Card */}
-      <Link href="/leave" className="block group">
+      <Link prefetch={true} href="/leave" className="block group">
         <div className="h-full p-5 rounded-3xl border border-rose-500/30 dark:border-rose-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-rose-500/60 group-hover:shadow-[0_8px_30px_rgba(244,63,94,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -454,7 +434,6 @@ export function LeadHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
                     Team Leave Queue
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Stage-1 Approvals</span>
                 </div>
               </div>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -470,9 +449,6 @@ export function LeadHeroMetrics({
               <div className="text-3xl font-black text-rose-600 dark:text-rose-400 font-mono">
                 {pendingRequestsCount} <span className="text-lg text-foreground font-black">Pending</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                {pendingLeavesCount} Leave · {pendingWfhsCount} WFH requests from your engineers.
-              </p>
             </div>
 
             <div className="pt-2 border-t border-border/70 flex items-center justify-between text-[10px] font-mono">
@@ -484,7 +460,7 @@ export function LeadHeroMetrics({
       </Link>
 
       {/* 4. Sprint Velocity Card */}
-      <Link href="/goals" className="block group">
+      <Link prefetch={true} href="/goals" className="block group">
         <div className="h-full p-5 rounded-3xl border border-purple-500/30 dark:border-purple-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-purple-500/60 group-hover:shadow-[0_8px_30px_rgba(168,85,247,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -496,7 +472,6 @@ export function LeadHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">
                     Team OKR Velocity
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Sprint Goals</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-[10px] font-bold text-purple-600 dark:text-purple-400">
@@ -508,9 +483,6 @@ export function LeadHeroMetrics({
               <div className="text-3xl font-black text-purple-600 dark:text-purple-400 font-mono">
                 {sprintVelocityPercent}%
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                {achievedOkrsCount} of {totalOkrsCount} team deliverables signed off.
-              </p>
             </div>
 
             <div className="pt-2 border-t border-border/70">
@@ -552,17 +524,14 @@ export function HRHeroMetrics({
   presentStaff,
   attendanceRate,
   totalHRPending,
-  stage2Leaves,
-  stage2Wfhs,
   inOfficeStaff,
   remoteStaff,
   onLeaveStaff,
-  deptCount,
 }: HRHeroMetricsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
       {/* 1. Total Headcount Card */}
-      <Link href="/my-work" className="block group">
+      <Link prefetch={true} href="/my-work" className="block group">
         <div className="h-full p-5 rounded-3xl border border-cyan-500/30 dark:border-cyan-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-cyan-500/60 group-hover:shadow-[0_8px_30px_rgba(6,182,212,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -574,7 +543,6 @@ export function HRHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 block">
                     Enterprise Staff
                   </span>
-                  <span className="text-[11px] text-muted-foreground">{deptCount} Active Teams</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[10px] font-bold text-cyan-600 dark:text-cyan-400">
@@ -586,7 +554,6 @@ export function HRHeroMetrics({
               <div className="text-3xl font-black text-foreground font-mono">
                 {totalStaff} <span className="text-lg text-muted-foreground">Staff</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">100% headcount accounted across all departments.</p>
             </div>
 
             <div className="pt-2 border-t border-border/70 flex items-center justify-between text-[10px] font-mono">
@@ -598,7 +565,7 @@ export function HRHeroMetrics({
       </Link>
 
       {/* 2. Present Today Attendance */}
-      <Link href="/attendance" className="block group">
+      <Link prefetch={true} href="/attendance" className="block group">
         <div className="h-full p-5 rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-emerald-500/60 group-hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -610,7 +577,6 @@ export function HRHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
                     Present Today
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Biometric Logs</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -622,7 +588,6 @@ export function HRHeroMetrics({
               <div className="text-3xl font-black text-foreground font-mono">
                 {presentStaff} <span className="text-lg text-muted-foreground">/ {totalStaff}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">{inOfficeStaff} In-Office · {remoteStaff} Remote (WFH)</p>
             </div>
 
             <div className="pt-2 border-t border-border/70">
@@ -640,7 +605,7 @@ export function HRHeroMetrics({
       </Link>
 
       {/* 3. Pending HR Stage-2 Approvals */}
-      <Link href="/leave" className="block group">
+      <Link prefetch={true} href="/leave" className="block group">
         <div className="h-full p-5 rounded-3xl border border-rose-500/30 dark:border-rose-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-rose-500/60 group-hover:shadow-[0_8px_30px_rgba(244,63,94,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -652,7 +617,6 @@ export function HRHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
                     HR Stage-2 Queue
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Payroll Sync</span>
                 </div>
               </div>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -668,9 +632,6 @@ export function HRHeroMetrics({
               <div className="text-3xl font-black text-rose-600 dark:text-rose-400 font-mono">
                 {totalHRPending} <span className="text-lg text-foreground font-black">Authorizations</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                {stage2Leaves} Leaves · {stage2Wfhs} WFH requests awaiting final approval.
-              </p>
             </div>
 
             <div className="pt-2 border-t border-border/70 flex items-center justify-between text-[10px] font-mono">
@@ -682,7 +643,7 @@ export function HRHeroMetrics({
       </Link>
 
       {/* 4. Shift Mode Distribution */}
-      <Link href="/attendance" className="block group">
+      <Link prefetch={true} href="/attendance" className="block group">
         <div className="h-full p-5 rounded-3xl border border-purple-500/30 dark:border-purple-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-purple-500/60 group-hover:shadow-[0_8px_30px_rgba(168,85,247,0.15)] group-hover:-translate-y-1">
           <div className="relative z-10 space-y-3.5 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
@@ -694,7 +655,6 @@ export function HRHeroMetrics({
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">
                     Workplace Split
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Office / Remote</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-[10px] font-bold text-purple-600 dark:text-purple-400">
@@ -706,7 +666,6 @@ export function HRHeroMetrics({
               <div className="text-3xl font-black text-purple-600 dark:text-purple-400 font-mono">
                 {inOfficeStaff} <span className="text-lg text-muted-foreground font-medium">Office</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">{remoteStaff} Remote (WFH) · {onLeaveStaff} On Leave</p>
             </div>
 
             <div className="pt-2 border-t border-border/70 flex items-center justify-between text-[10px] font-mono">

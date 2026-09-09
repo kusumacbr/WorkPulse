@@ -121,3 +121,27 @@ export async function PATCH(
   }
 }
 
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const state = workpulseSharedStore.getState();
+
+  for (const emp of state.allEmployees) {
+    emp.plannedTasks = emp.plannedTasks.filter((t: any) => t.id !== id);
+  }
+
+  try {
+    const supabaseAdmin = createAdminClient();
+    if (supabaseAdmin) {
+      await supabaseAdmin.from("daily_tasks").delete().eq("id", id);
+    }
+  } catch (err) {
+    console.error("[Tasks API] Error deleting task:", err);
+  }
+
+  return apiSuccess({ message: `Task ${id} deleted successfully.` });
+}
+
+

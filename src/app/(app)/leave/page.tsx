@@ -50,7 +50,15 @@ export default function LeavePage() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const { allEmployees, leaveRequests, wfhRequests, deleteLeaveRequest, deleteWfhRequest } = useWorkpulseSharedStore();
+  const {
+    allEmployees,
+    leaveRequests,
+    setLeaveRequestsFromSupabase,
+    wfhRequests,
+    setWfhRequestsFromSupabase,
+    deleteLeaveRequest,
+    deleteWfhRequest,
+  } = useWorkpulseSharedStore();
 
   const handleDeleteLeave = (id: string) => {
     const targetReq = leaveRequests.find((r) => r.id === id);
@@ -120,14 +128,26 @@ export default function LeavePage() {
     setMounted(true);
     fetch("/api/v1/leave")
       .then((res) => res.json())
+      .then((json) => {
+        if (json?.data?.requests && Array.isArray(json.data.requests)) {
+          setLeaveRequestsFromSupabase(json.data.requests);
+        }
+      })
       .catch(() => {});
+
     fetch("/api/v1/leave/wfh")
       .then((res) => res.json())
+      .then((json) => {
+        if (json?.data?.requests && Array.isArray(json.data.requests)) {
+          setWfhRequestsFromSupabase(json.data.requests);
+        }
+      })
       .catch(() => {});
+
     fetch("/api/v1/employees")
       .then((res) => res.json())
       .catch(() => {});
-  }, []);
+  }, [setLeaveRequestsFromSupabase, setWfhRequestsFromSupabase]);
 
   const matchedEmp = useMemo(() => {
     return (
@@ -644,8 +664,23 @@ export default function LeavePage() {
       </div>
 
       {/* Modals */}
-      {showLeaveModal && <LeaveRequestModal remainingBalance={casualLeaveBalance} onClose={() => setShowLeaveModal(false)} />}
-      {showWfhModal && <WfhRequestModal onClose={() => setShowWfhModal(false)} />}
+      {showLeaveModal && (
+        <LeaveRequestModal
+          remainingBalance={casualLeaveBalance}
+          onClose={() => setShowLeaveModal(false)}
+          onSuccess={() => {
+            showToast("✓ Leave request applied successfully!");
+          }}
+        />
+      )}
+      {showWfhModal && (
+        <WfhRequestModal
+          onClose={() => setShowWfhModal(false)}
+          onSuccess={() => {
+            showToast("✓ WFH request applied successfully!");
+          }}
+        />
+      )}
     </PageTransition>
   );
 }

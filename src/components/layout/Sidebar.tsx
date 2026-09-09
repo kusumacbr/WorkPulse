@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { RoleType } from "@/lib/authorization/types";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -80,6 +80,7 @@ interface SidebarProps {
 
 export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const currentUser = useCurrentUser();
   const userRoles = currentUser?.roles?.length ? currentUser.roles : propUserRoles;
   const userEmail = currentUser?.userEmail?.toLowerCase() || "";
@@ -94,6 +95,15 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
     if (!item.requiredRoles) return true;
     return item.requiredRoles.some((role) => userRoles.includes(role)) || (item.requiredRoles.includes("HR") && isHR);
   });
+
+  // Eagerly prefetch all section routes on mount for instant switching
+  React.useEffect(() => {
+    visibleItems.forEach((item) => {
+      try {
+        router.prefetch(item.href);
+      } catch {}
+    });
+  }, [router, visibleItems]);
 
   return (
     <aside className="w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col justify-between hidden md:flex shrink-0 z-20 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_35px_rgba(0,0,0,0.6)]">
@@ -117,6 +127,16 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
                   key={item.href}
                   href={item.href}
                   prefetch={true}
+                  onMouseEnter={() => {
+                    try {
+                      router.prefetch(item.href);
+                    } catch {}
+                  }}
+                  onFocus={() => {
+                    try {
+                      router.prefetch(item.href);
+                    } catch {}
+                  }}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 group relative border ${
                     isActive
                       ? `${item.activeBgClass}`

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const { actor } = await getSessionActor(req);
     const employeeId = actor.employeeId;
 
-    // Always try Supabase first for fresh data
+    // Always try Supabase first for fresh data with fast fallback
     try {
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
@@ -20,7 +20,10 @@ export async function GET(req: NextRequest) {
             query = query.eq("employee_id", employeeId);
           }
         }
-        const { data, error } = await query;
+        const { data, error }: any = await Promise.race([
+          query,
+          new Promise((resolve) => setTimeout(() => resolve({ data: null, error: new Error("DB_TIMEOUT") }), 500)),
+        ]);
         if (!error && data) {
           const deletedIds = getDeletedLeaveIds();
           const requests = data
@@ -132,6 +135,7 @@ export async function POST(req: NextRequest) {
 
     // Create in-memory request
     const newReq = WorkpulseSharedStore.addLeaveRequest({
+      id: body.id,
       employeeId,
       employeeName,
       departmentId,
@@ -151,11 +155,11 @@ export async function POST(req: NextRequest) {
       (newReq as any).status = initialStatus;
     }
 
-    // Persist to Supabase
+    // Persist to Supabase with fast timeout cap so API responds in milliseconds
     try {
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
-        await supabaseAdmin.from("leave_requests").upsert({
+        const upsertPromise = supabaseAdmin.from("leave_requests").upsert({
           id: newReq.id,
           employee_id: employeeId,
           employee_name: employeeName,
@@ -176,6 +180,11 @@ export async function POST(req: NextRequest) {
           tl_approved_at: isLeadOrManager ? new Date().toISOString() : null,
           tl_comment: isLeadOrManager ? "Auto-forwarded to HR (submitted by Team Lead)." : null,
         });
+
+        await Promise.race([
+          upsertPromise,
+          new Promise((resolve) => setTimeout(resolve, 300)),
+        ]);
       }
     } catch {
       // graceful fallback

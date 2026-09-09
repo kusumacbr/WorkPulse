@@ -50,9 +50,6 @@ export function WeeklyActivityBarChart({
                 Sprint 32
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Biometric check-in logs &amp; focus blocks
-            </p>
           </div>
         </div>
 

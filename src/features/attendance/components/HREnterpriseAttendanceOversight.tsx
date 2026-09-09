@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MetricTile3D } from "@/components/3d/MetricTile3D";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { ExportReportModal } from "@/features/communication/components/ExportReportModal";
+import { UploadBiometricModal, BiometricPunchRecord } from "./UploadBiometricModal";
 import {
   Clock,
   Building2,
@@ -17,6 +18,7 @@ import {
   X,
   Search,
   Radio,
+  Upload,
 } from "lucide-react";
 
 interface RegularizationRequest {
@@ -81,29 +83,68 @@ export function HREnterpriseAttendanceOversight() {
   const [selectedDept, setSelectedDept] = useState<string>("ALL");
   const [regularizations, setRegularizations] = useState<RegularizationRequest[]>(INITIAL_REGULARIZATIONS);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [uploadedBiometricMap, setUploadedBiometricMap] = useState<Record<string, BiometricPunchRecord>>({});
 
-  // Flatten all employees with simulated live punch metrics
-  const allEmployeesWithPunches = departments.flatMap((dept) =>
-    dept.employees.map((emp, idx) => {
-      // Deterministic punch simulation
-      const isProbation = emp.id === "emp-john" || emp.id === "emp-farhan" || emp.id === "emp-nikhil";
-      const isLate = idx === 1 && dept.id === "dept-development";
-      const firstIn = isLate ? "10:22 AM" : emp.sodTime !== "--" ? emp.sodTime || "10:05 AM" : "10:12 AM";
-      const status = isLate ? "LATE_ARRIVAL" : emp.workMode === "WFH" ? "APPROVED_WFH" : "ON_TIME";
-      const workedHours = emp.sodStatus === "SUBMITTED" ? 8.2 : 7.5;
+  useEffect(() => {
+    const loadUploadedPunches = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = localStorage.getItem("workpulse_biometric_overrides_map");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            setUploadedBiometricMap(parsed);
+          }
+        }
+      } catch {}
+    };
 
-      return {
-        ...emp,
-        firstIn,
-        lastOut: "07:05 PM",
-        workedHours,
-        isProbation,
-        status,
-        punchAnomaly: isLate ? "Late arrival by 7 mins (Grace: 10:15 AM)" : null,
-      };
-    })
-  );
+    loadUploadedPunches();
+
+    window.addEventListener("workday:biometric_uploaded", loadUploadedPunches);
+    window.addEventListener("workpulse_sync", loadUploadedPunches);
+    window.addEventListener("storage", loadUploadedPunches);
+
+    return () => {
+      window.removeEventListener("workday:biometric_uploaded", loadUploadedPunches);
+      window.removeEventListener("workpulse_sync", loadUploadedPunches);
+      window.removeEventListener("storage", loadUploadedPunches);
+    };
+  }, []);
+
+  // Flatten all employees merged with live uploaded biometric punch overrides
+  const allEmployeesWithPunches = useMemo(() => {
+    return departments.flatMap((dept) =>
+      dept.employees.map((emp, idx) => {
+        const biom =
+          uploadedBiometricMap[emp.id] ||
+          uploadedBiometricMap[emp.name.toLowerCase()] ||
+          (emp.email ? uploadedBiometricMap[emp.email.toLowerCase()] : null);
+
+        const isProbation = emp.id === "emp-john" || emp.id === "emp-farhan" || emp.id === "emp-nikhil";
+        const isLate = biom ? biom.status === "LATE_ARRIVAL" : idx === 1 && dept.id === "dept-development";
+        const firstIn = biom ? biom.firstIn : isLate ? "10:22 AM" : emp.sodTime !== "--" ? emp.sodTime || "10:05 AM" : "10:12 AM";
+        const lastOut = biom ? biom.lastOut : "07:05 PM";
+        const workMode = biom ? biom.workMode : emp.workMode;
+        const status = biom ? biom.status : isLate ? "LATE_ARRIVAL" : emp.workMode === "WFH" ? "APPROVED_WFH" : "ON_TIME";
+        const workedHours = emp.sodStatus === "SUBMITTED" ? 8.2 : 7.5;
+
+        return {
+          ...emp,
+          firstIn,
+          lastOut,
+          workMode,
+          workedHours,
+          isProbation,
+          status,
+          punchAnomaly: isLate ? "Late arrival by 7 mins (Grace: 10:15 AM)" : null,
+          hasUploadedBiometric: Boolean(biom),
+        };
+      })
+    );
+  }, [departments, uploadedBiometricMap]);
 
   const filteredEmployees = allEmployeesWithPunches.filter((emp) => {
     const matchesSearch =
@@ -204,15 +245,26 @@ export function HREnterpriseAttendanceOversight() {
                 </Badge>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowExportModal(true)}
-                className="text-xs font-bold gap-1.5 h-8 border-border/80 bg-background/60 hover:bg-muted/40 rounded-xl"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5 text-cyan-400" />
-                <span>Export Sheet</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowUploadModal(true)}
+                  size="sm"
+                  className="text-xs font-bold gap-1.5 h-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl shadow-sm cursor-pointer"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Upload Biometric File</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowExportModal(true)}
+                  className="text-xs font-bold gap-1.5 h-8 border-border/80 bg-background/60 hover:bg-muted/40 rounded-xl"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Export Sheet</span>
+                </Button>
+              </div>
             </div>
 
             {/* Filter & Search Controls */}
@@ -250,14 +302,14 @@ export function HREnterpriseAttendanceOversight() {
                   className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-xl bg-muted/60 border border-border/80 flex items-center justify-center font-bold text-foreground text-xs shrink-0">
-                      {emp.avatar}
+                    <div className="h-8 w-8 rounded-xl bg-muted/60 border border-border/80 flex items-center justify-center font-bold text-foreground text-xs shrink-0" suppressHydrationWarning>
+                      {(emp.avatar || emp.name || "WP").slice(0, 2).toUpperCase()}
                     </div>
 
                     <div className="min-w-0 space-y-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <strong className="text-foreground font-bold">{emp.name}</strong>
-                        <span className="text-muted-foreground text-[11px]">({emp.departmentName})</span>
+                        <strong className="text-foreground font-bold" suppressHydrationWarning>{emp.name}</strong>
+                        <span className="text-muted-foreground text-[11px]" suppressHydrationWarning>({emp.departmentName})</span>
                         {emp.isProbation && (
                           <Badge variant="outline" className="text-[9px] text-amber-300 border-amber-500/30">
                             Probation
@@ -265,7 +317,7 @@ export function HREnterpriseAttendanceOversight() {
                         )}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        <span>{emp.designation}</span>
+                        <span suppressHydrationWarning>{emp.designation}</span>
                         <span className="mx-1.5">·</span>
                         <span>In: <strong className="text-foreground font-mono">{emp.firstIn}</strong></span>
                         <span className="mx-1.5">·</span>
@@ -329,7 +381,7 @@ export function HREnterpriseAttendanceOversight() {
                     className="py-3 space-y-2"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <strong className="text-foreground font-bold">{employeeName}</strong>
+                      <strong className="text-foreground font-bold" suppressHydrationWarning>{employeeName}</strong>
                       <Badge
                         variant="outline"
                         className={`text-[9px] font-bold ${
@@ -384,6 +436,14 @@ export function HREnterpriseAttendanceOversight() {
       </div>
 
       {showExportModal && <ExportReportModal onClose={() => setShowExportModal(false)} />}
+      <UploadBiometricModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploadSuccess={(punches) => {
+          setToastMsg(`✓ Biometric attendance file uploaded successfully! ${punches.length} punch records saved & updated project-wide.`);
+          setTimeout(() => setToastMsg(null), 4000);
+        }}
+      />
     </div>
   );
 }

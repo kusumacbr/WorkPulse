@@ -13,7 +13,7 @@ const pageVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      duration: 0.12,
+      duration: 0.06,
       ease: "easeOut",
     },
   },
@@ -23,7 +23,7 @@ export const itemFadeInUp: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { duration: 0.1, ease: "easeOut" },
+    transition: { duration: 0.05, ease: "easeOut" },
   },
 };
 

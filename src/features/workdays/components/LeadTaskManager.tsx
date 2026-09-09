@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TeamHeatmapGrid } from "@/features/team/components/TeamHeatmapGrid";
+import { deduplicateTasks } from "@/features/workdays/components/SimpleTaskManager";
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
 import {
   Users,
@@ -13,13 +14,12 @@ import {
   ListTodo,
   Send,
   Star,
-  ChevronDown,
   ChevronUp,
+  ChevronRight,
   Trash2,
   Check,
   Moon,
   Clock,
-  Sparkles,
   Layers,
   Eye,
   HelpCircle,
@@ -75,6 +75,20 @@ import { useWorkpulseSharedStore, WorkpulseSharedStore } from "@/lib/stores/work
 export function LeadTaskManager() {
   const currentUser = useCurrentUser();
   const { allEmployees, helpRequests, acknowledgeHelpRequest, resolveHelpRequest } = useWorkpulseSharedStore();
+
+  const currentLeadEmp = useMemo(() => {
+    const emailLower = (currentUser?.userEmail || "").toLowerCase();
+    return allEmployees.find(
+      (e) =>
+        e.email.toLowerCase() === emailLower ||
+        e.id === currentUser?.userEmail ||
+        (emailLower === "lead.test@xorstack.com" && e.id === "lead-alex")
+    );
+  }, [allEmployees, currentUser]);
+
+  const leadName = currentLeadEmp?.name || currentUser.userName || "Alex Lead";
+  const leadId = currentLeadEmp?.id || "lead-alex";
+
   const [feedbackVersion, setFeedbackVersion] = useState(0);
   const [expandedApprovedTasks, setExpandedApprovedTasks] = useState<Record<string, boolean>>({});
   const [expandedWrapupTasks, setExpandedWrapupTasks] = useState<Record<string, boolean>>({});
@@ -123,38 +137,59 @@ export function LeadTaskManager() {
       loadAssignedTasksLog();
     };
 
+    const handleFocus = () => {
+      loadAssignedTasksLog();
+    };
+
+    window.addEventListener("focus", handleFocus);
     window.addEventListener("workpulse:lead_feedback_updated", handleUpdate);
     window.addEventListener("workpulse:task_assigned", handleUpdate);
     window.addEventListener("workpulse:task_acknowledged", handleUpdate);
+    window.addEventListener("workpulse:tasks_changed", handleUpdate);
+    window.addEventListener("workpulse:task_deleted", handleUpdate);
     window.addEventListener("workday:sod_submitted", handleUpdate);
     window.addEventListener("workday:eod_submitted", handleUpdate);
     window.addEventListener("workday:eod_verified", handleUpdate);
-    window.addEventListener("workpulse_sync", handleUpdate);
     window.addEventListener("storage", handleUpdate);
 
     let bc: BroadcastChannel | null = null;
     try {
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.onmessage = () => {
-          setFeedbackVersion((v) => v + 1);
-          loadAssignedTasksLog();
+        bc.onmessage = (ev) => {
+          if (ev.data?.type === "task:progress_changed") {
+            const { taskId, progress, status } = ev.data;
+            setAssignedTasksLog((prev) =>
+              prev.map((t) => (t.id === taskId ? { ...t, progress, status: status || t.status } : t))
+            );
+            return;
+          }
+          if (
+            ev.data?.type === "task:acknowledged" ||
+            ev.data?.type === "task:assigned" ||
+            ev.data?.type === "task:recalled" ||
+            ev.data?.type === "employee:sod_submitted"
+          ) {
+            handleUpdate();
+          }
         };
       }
     } catch {}
 
     return () => {
+      if (bc) bc.close();
+      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("workpulse:lead_feedback_updated", handleUpdate);
       window.removeEventListener("workpulse:task_assigned", handleUpdate);
       window.removeEventListener("workpulse:task_acknowledged", handleUpdate);
+      window.removeEventListener("workpulse:tasks_changed", handleUpdate);
+      window.removeEventListener("workpulse:task_deleted", handleUpdate);
       window.removeEventListener("workday:sod_submitted", handleUpdate);
       window.removeEventListener("workday:eod_submitted", handleUpdate);
       window.removeEventListener("workday:eod_verified", handleUpdate);
-      window.removeEventListener("workpulse_sync", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
-      if (bc) bc.close();
     };
-  }, []);
+  }, [leadId]);
 
 
 
@@ -226,19 +261,6 @@ export function LeadTaskManager() {
     return {};
   }, [allEmployees, feedbackVersion, mounted]);
 
-  const currentLeadEmp = useMemo(() => {
-    const emailLower = (currentUser?.userEmail || "").toLowerCase();
-    return allEmployees.find(
-      (e) =>
-        e.email.toLowerCase() === emailLower ||
-        e.id === currentUser?.userEmail ||
-        (emailLower === "lead.test@xorstack.com" && e.id === "lead-alex")
-    );
-  }, [allEmployees, currentUser]);
-
-  const leadName = currentLeadEmp?.name || currentUser.userName || "Alex Lead";
-  const leadId = currentLeadEmp?.id || "lead-alex";
-
   // Dynamic direct reports from shared store (strictly reports of this lead)
   const dynamicTeamMembers = useMemo(() => {
     const members = allEmployees.filter(
@@ -267,7 +289,7 @@ export function LeadTaskManager() {
           if (res.ok) {
             const data = await res.json();
             if (data.data?.tasks?.length > 0) {
-               newMap[m.id] = data.data.tasks;
+               newMap[m.id] = deduplicateTasks(data.data.tasks);
             }
           }
         } catch (e) {
@@ -293,7 +315,7 @@ export function LeadTaskManager() {
   // Assign deliverable form state (Tab 2)
   const [assigneeId, setAssigneeId] = useState<string>(dynamicTeamMembers[0]?.id || "emp-sarah");
   const [newTitle, setNewTitle] = useState("");
-  const [newCategory, setNewCategory] = useState("Frontend & UI");
+  const [newCategory, setNewCategory] = useState("Operations");
   const [newPriority, setNewPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
 
   // Lead personal task state (Tab 3)
@@ -334,7 +356,7 @@ export function LeadTaskManager() {
 
   const [showAddLeadTask, setShowAddLeadTask] = useState(false);
   const [leadTaskTitle, setLeadTaskTitle] = useState("");
-  const [leadTaskCategory, setLeadTaskCategory] = useState("Code Review");
+  const [leadTaskCategory, setLeadTaskCategory] = useState("Operations");
   const [leadTaskFilter, setLeadTaskFilter] = useState<"ALL" | "OPEN" | "COMPLETED">("ALL");
 
   const showToast = (msg: string) => {
@@ -392,9 +414,12 @@ export function LeadTaskManager() {
 
     const targetEmp = dynamicTeamMembers.find((e) => e.id === assigneeId) || dynamicTeamMembers[0];
     const targetName = targetEmp ? targetEmp.name : "Team Member";
+    const taskId = `atask-${Date.now()}`;
 
     WorkpulseSharedStore.assignTaskToEmployee(assigneeId, {
+      id: taskId,
       title: newTitle.trim(),
+      category: newCategory,
       project: newCategory,
       priority: newPriority,
       assignedBy: leadName,
@@ -407,6 +432,7 @@ export function LeadTaskManager() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: taskId,
           title: newTitle.trim(),
           category: newCategory,
           priority: newPriority,
@@ -418,6 +444,14 @@ export function LeadTaskManager() {
         }),
       });
     } catch {}
+
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "task:assigned", targetEmployeeId: assigneeId, taskId, timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
 
     loadAssignedTasksLog();
     setNewTitle("");
@@ -443,6 +477,15 @@ export function LeadTaskManager() {
         body: JSON.stringify({ taskId }),
       });
     } catch {}
+
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "task:recalled", taskId, timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
+
     showToast("Assigned task recalled / removed permanently.");
   };
 
@@ -520,7 +563,7 @@ export function LeadTaskManager() {
 
   const activeTeamHelpRequests = useMemo(() => {
     return helpRequests.filter(
-      (h) => h.status === "PENDING" || h.status === "ACKNOWLEDGED"
+      (h) => h.status !== "RESOLVED" && !h.resolvedByLead
     );
   }, [helpRequests]);
 
@@ -528,7 +571,7 @@ export function LeadTaskManager() {
     <div className="space-y-5">
       {/* Toast Feedback */}
       {toastMsg && (
-        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 flex items-center gap-2 animate-in fade-in">
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span className="font-semibold">{toastMsg}</span>
         </div>
@@ -576,11 +619,15 @@ export function LeadTaskManager() {
                       {req.topic}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground font-mono">{req.createdAt}</span>
-                    {req.status === "ACKNOWLEDGED" && (
+                    {req.resolvedByEmployee ? (
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold">
+                        ✓ Employee Resolved
+                      </Badge>
+                    ) : req.status === "ACKNOWLEDGED" ? (
                       <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold">
                         ✓ Connected
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                   <p className="text-xs text-foreground/90 font-medium leading-relaxed">
                     &ldquo;{req.details || "Assistance needed on sprint task."}&rdquo;
@@ -604,7 +651,7 @@ export function LeadTaskManager() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        resolveHelpRequest(req.id);
+                        resolveHelpRequest(req.id, "lead");
                         fireCelebrationConfetti();
                         showToast(`✓ Resolved help request for ${req.employeeName}!`);
                       }}
@@ -745,17 +792,18 @@ export function LeadTaskManager() {
                               (isSpecialSarah ? localStorage.getItem("workpulse_simple_tasks") : null);
                             if (local) {
                               const parsed = JSON.parse(local);
-                              if (Array.isArray(parsed) && parsed.length > 0) tasks = parsed;
+                              if (Array.isArray(parsed) && parsed.length > 0) tasks = deduplicateTasks(parsed);
                             }
                           }
                         } catch {}
+                        tasks = deduplicateTasks(tasks);
                         const prog =
                           tasks.length > 0
                             ? Math.round(
-                                tasks.reduce((sum, t) => sum + (t.progress !== undefined ? t.progress : (t.completionPercentage || 0)), 0) /
+                                tasks.reduce((sum, t) => sum + (Number(t.progress !== undefined ? t.progress : (t.completionPercentage || 0)) || 0), 0) /
                                   tasks.length
                               )
-                            : m.overallProgress || 0;
+                            : (Number(m.overallProgress) || 0);
                         totalProg += prog;
                         activeCount++;
                       }
@@ -876,99 +924,123 @@ export function LeadTaskManager() {
               const eodLeadActionItem = member.eodLeadActionItem || fb?.eodLeadActionItem || fb?.actionItem || "Present highlights in tomorrow's sync.";
 
               // Tasks to display: Loaded when employee has submitted SOD or EOD
-              let tasksToDisplay: any[] = memberTasksMap[member.id] || [];
-              
-              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted)) {
-                // Check if explicit EOD snapshot tasks exist in localStorage
-                if (mounted && typeof window !== "undefined") {
-                  try {
-                    const eodRaw = localStorage.getItem(`workpulse_eod_submitted_tasks_${member.id}`) ||
-                      (member.email ? localStorage.getItem(`workpulse_eod_submitted_tasks_${member.email.toLowerCase()}`) : null) ||
-                      (isSpecialSarah ? (localStorage.getItem("workpulse_eod_submitted_tasks_emp-sarah") || localStorage.getItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com")) : null);
-                    if (eodRaw) {
-                      const parsed = JSON.parse(eodRaw);
-                      if (Array.isArray(parsed) && parsed.length > 0) {
-                        tasksToDisplay = parsed;
-                      }
-                    }
-                  } catch {}
-                }
+              let tasksToDisplay: any[] = [];
 
-                // If not in EOD snapshot, check standard task sources
-                if (tasksToDisplay.length === 0) {
-                  tasksToDisplay = member.plannedTasks || [];
-                  if (mounted && typeof window !== "undefined") {
-                    try {
-                      const local = localStorage.getItem(`workpulse_simple_tasks_${member.id}`) ||
-                        (member.email ? localStorage.getItem(`workpulse_simple_tasks_${member.email.toLowerCase()}`) : null) ||
-                        (isSpecialSarah ? localStorage.getItem("workpulse_simple_tasks") : null);
-                      if (local) {
-                        const parsed = JSON.parse(local);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                          tasksToDisplay = parsed.map((t: any) => ({
-                            id: t.id,
-                            title: t.title,
-                            project: t.category || t.project || "General",
-                            priority: t.priority || "MEDIUM",
-                            estimatedMinutes: 60,
-                            completionPercentage: t.progress !== undefined ? t.progress : (t.completionPercentage || 0),
-                            status: t.status === "COMPLETED" || t.progress === 100 ? "COMPLETED" : t.status === "IN_PROGRESS" || (t.progress || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED",
-                            expectedOutput: t.expectedOutput || t.title,
-                          }));
-                        }
-                      }
-                    } catch {}
+              // 1. If EOD is submitted, check explicit EOD snapshot tasks
+              if (isEodSubmitted && mounted && typeof window !== "undefined") {
+                try {
+                  const eodRaw =
+                    localStorage.getItem(`workpulse_eod_submitted_tasks_${member.id}`) ||
+                    (member.email ? localStorage.getItem(`workpulse_eod_submitted_tasks_${member.email.toLowerCase()}`) : null) ||
+                    (isSpecialSarah ? (localStorage.getItem("workpulse_eod_submitted_tasks_emp-sarah") || localStorage.getItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com")) : null);
+                  if (eodRaw) {
+                    const parsed = JSON.parse(eodRaw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      tasksToDisplay = deduplicateTasks(parsed);
+                    }
                   }
-                }
+                } catch {}
+              }
 
-                // If still empty and in EOD, check completed tasks history
-                if (tasksToDisplay.length === 0 && mounted && typeof window !== "undefined") {
-                  try {
-                    const histRaw = localStorage.getItem(`workpulse_completed_tasks_history_${member.id}`) ||
-                      (member.email ? localStorage.getItem(`workpulse_completed_tasks_history_${member.email.toLowerCase()}`) : null) ||
-                      (isSpecialSarah ? localStorage.getItem("workpulse_completed_tasks_history_emp-sarah") : null);
-                    if (histRaw) {
-                      const parsed = JSON.parse(histRaw);
-                      if (Array.isArray(parsed) && parsed.length > 0) {
-                        tasksToDisplay = parsed.map((t: any) => ({
-                          id: t.id,
-                          title: t.title,
-                          project: t.category || t.project || "General",
-                          priority: t.priority || "MEDIUM",
-                          estimatedMinutes: 60,
-                          completionPercentage: 100,
-                          status: "COMPLETED",
-                          expectedOutput: t.expectedOutput || t.title,
-                        }));
-                      }
+              // 2. If SOD is submitted, check explicit SOD submitted tasks snapshot (what the employee actually submitted/resubmitted)
+              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted) && mounted && typeof window !== "undefined") {
+                try {
+                  const sodRaw =
+                    localStorage.getItem(`workpulse_sod_submitted_tasks_${member.id}`) ||
+                    (member.email ? localStorage.getItem(`workpulse_sod_submitted_tasks_${member.email.toLowerCase()}`) : null) ||
+                    (isSpecialSarah ? (localStorage.getItem("workpulse_sod_submitted_tasks_emp-sarah") || localStorage.getItem("workpulse_sod_submitted_tasks")) : null);
+                  if (sodRaw) {
+                    const parsed = JSON.parse(sodRaw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      tasksToDisplay = deduplicateTasks(parsed);
                     }
-                  } catch {}
+                  }
+                } catch {}
+              }
+
+              // 3. If SOD snapshot not in localStorage, check plannedTasks from shared store
+              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted) && member.plannedTasks && member.plannedTasks.length > 0) {
+                tasksToDisplay = deduplicateTasks(member.plannedTasks);
+              }
+
+              // 4. API tasks from memberTasksMap fallback
+              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted)) {
+                const rawMapTasks = memberTasksMap[member.id];
+                if (rawMapTasks && rawMapTasks.length > 0) {
+                  tasksToDisplay = deduplicateTasks(rawMapTasks);
                 }
+              }
+
+              // 5. Fallback for unsubmitted tasks (if viewing draft state)
+              if (tasksToDisplay.length === 0 && mounted && typeof window !== "undefined") {
+                try {
+                  const local =
+                    localStorage.getItem(`workpulse_simple_tasks_${member.id}`) ||
+                    (member.email ? localStorage.getItem(`workpulse_simple_tasks_${member.email.toLowerCase()}`) : null) ||
+                    (isSpecialSarah ? (localStorage.getItem("workpulse_simple_tasks_emp-sarah") || localStorage.getItem("workpulse_simple_tasks")) : null);
+                  if (local) {
+                    const parsed = JSON.parse(local);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      tasksToDisplay = deduplicateTasks(parsed);
+                    }
+                  }
+                } catch {}
+              }
+
+              // 6. Quaternary source (for EOD): Completed tasks history
+              if (tasksToDisplay.length === 0 && isEodSubmitted && mounted && typeof window !== "undefined") {
+                try {
+                  const histRaw =
+                    localStorage.getItem(`workpulse_completed_tasks_history_${member.id}`) ||
+                    (member.email ? localStorage.getItem(`workpulse_completed_tasks_history_${member.email.toLowerCase()}`) : null) ||
+                    (isSpecialSarah ? localStorage.getItem("workpulse_completed_tasks_history_emp-sarah") : null);
+                  if (histRaw) {
+                    const parsed = JSON.parse(histRaw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      tasksToDisplay = deduplicateTasks(parsed);
+                    }
+                  }
+                } catch {}
+              }
+
+              // Always ensure assigned deliverables for this member are merged into their task execution list
+              const memberAssigned = assignedTasksLog.filter(
+                (at) =>
+                  at.targetEmployeeId === member.id ||
+                  (member.email && at.targetEmployeeEmail?.toLowerCase() === member.email.toLowerCase()) ||
+                  (isSpecialSarah && (at.targetEmployeeId === "emp-sarah" || at.targetEmployeeEmail?.includes("employee.test")))
+              );
+              if (memberAssigned.length > 0) {
+                tasksToDisplay = deduplicateTasks([...memberAssigned, ...tasksToDisplay]);
+              } else {
+                tasksToDisplay = deduplicateTasks(tasksToDisplay);
               }
 
               const memberProgress =
                 (isSodSubmitted || isEodSubmitted) && tasksToDisplay.length > 0
                   ? Math.round(
-                      tasksToDisplay.reduce((sum, t) => sum + (t.completionPercentage || 0), 0) /
-                        tasksToDisplay.length
+                      tasksToDisplay.reduce((sum, t) => {
+                        const pct = Number(t.progress !== undefined ? t.progress : (t.completionPercentage !== undefined ? t.completionPercentage : 0)) || 0;
+                        return sum + pct;
+                      }, 0) / tasksToDisplay.length
                     )
-                  : (isEodSubmitted && member.overallProgress ? member.overallProgress : 0);
+                  : (isEodSubmitted && member.overallProgress ? member.overallProgress : (member.overallProgress || 0));
 
               return (
                 <div
                   key={member.id}
                   className={`rounded-2xl border transition-all overflow-hidden ${
                     isSodVerified && isEodVerified
-                      ? "border-emerald-500/40 bg-emerald-500/[0.02]"
+                      ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-500/[0.02] shadow-sm"
                       : isEodSubmitted || isSodSubmitted
-                      ? "border-cyan-500/40 bg-cyan-500/[0.02]"
-                      : "border-border bg-card/60"
+                      ? "border-cyan-300 dark:border-cyan-500/40 bg-cyan-50/40 dark:bg-cyan-500/[0.02] shadow-sm"
+                      : "border-slate-200 dark:border-border bg-white dark:bg-card/60 shadow-sm"
                   }`}
                 >
                   {/* Clickable Header Row */}
                   <div
                     onClick={() => setExpandedMemberId(isExpanded ? null : member.id)}
-                    className="p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/20 transition-colors select-none"
+                    className="p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-100/60 dark:hover:bg-muted/20 transition-colors select-none"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       {/* Avatar */}
@@ -978,128 +1050,126 @@ export function LeadTaskManager() {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <strong className="text-sm font-semibold text-foreground truncate">{member.name}</strong>
-                          <span className="text-xs text-muted-foreground hidden sm:inline">· {member.designation}</span>
-                          <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/40 hidden md:inline">
+                          <strong className="text-sm font-semibold text-slate-900 dark:text-foreground truncate">{member.name}</strong>
+                          <span className="text-xs text-slate-500 dark:text-muted-foreground hidden sm:inline">· {member.designation}</span>
+                          <span className="text-[10px] text-slate-600 dark:text-muted-foreground px-1.5 py-0.5 rounded bg-slate-100 dark:bg-muted/40 border border-slate-200/60 dark:border-transparent hidden md:inline">
                             {member.workMode === "OFFICE" ? "Office" : "Remote"}
                           </span>
                         </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                        <div className="text-[11px] text-slate-500 dark:text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                           {isNewDayForMember ? (
-                            <span className="text-cyan-400 font-medium">Awaiting morning plan</span>
+                            <span className="text-cyan-700 dark:text-cyan-400 font-bold">Awaiting morning plan</span>
                           ) : (
                             <>
-                              <span>Plan: <span className="text-foreground font-medium">{displaySodTime || (isEodSubmitted ? (displayEodTime ? `Ended at ${displayEodTime}` : "Day Ended") : "Pending")}</span></span>
+                              <span>Plan: <span className="text-slate-900 dark:text-foreground font-semibold">{displaySodTime || (isEodSubmitted ? (displayEodTime ? `Ended at ${displayEodTime}` : "Day Ended") : "Pending")}</span></span>
 
                               {isEodSubmitted && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-purple-300">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-purple-700 dark:text-purple-300 font-bold">
                                   <Moon className="h-2.5 w-2.5" />
                                   <span>Day Ended</span>
                                 </span>
                               )}
                               <span>·</span>
                               <span>
-                                Progress: <strong className="text-cyan-400 font-mono font-semibold">{memberProgress}%</strong>
+                                Progress: <strong className="text-cyan-700 dark:text-cyan-400 font-mono font-black">{memberProgress}%</strong>
                               </span>
                             </>
                           )}
                         </div>
                       </div>
-                    </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isNewDayForMember ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs font-bold gap-1.5 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/30 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 rounded-xl"
+                          >
+                            <Sun className="h-3.5 w-3.5" />
+                            <span>View Details</span>
+                            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-90 text-cyan-500" : ""}`} />
+                          </Button>
+                        ) : (
+                          <>
+                            {/* SOD Status Badge / Navigation */}
+                            {isEodSubmitted ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                <span>SOD Completed</span>
+                              </span>
+                            ) : isSodVerified ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                <span>Plan Verified</span>
+                              </span>
+                            ) : isSodSubmitted ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-100 dark:bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30 flex items-center gap-1 animate-pulse">
+                                <Clock className="h-3 w-3" />
+                                <span>Verify Plan</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>Plan Pending</span>
+                              </span>
+                            )}
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isNewDayForMember ? (
-                        /* New day started — show a single clear "New Day" badge */
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
-                          <Sun className="h-3 w-3" />
-                          <span>New Day</span>
-                        </span>
-                      ) : (
-                        <>
-                          {/* SOD Status Badge */}
-                          {isEodSubmitted ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                              <Check className="h-3 w-3" />
-                              <span>SOD Completed</span>
-                            </span>
-                          ) : isSodVerified ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                              <Check className="h-3 w-3" />
-                              <span>Plan Verified</span>
-                            </span>
-                          ) : isSodSubmitted ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1 animate-pulse">
-                              <Clock className="h-3 w-3" />
-                              <span>Verify Plan</span>
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              <span>Plan Pending</span>
-                            </span>
-                          )}
-
-                          {/* EOD Status Badge */}
-                          {isEodVerified ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                              <span>{eodLeadRating}.0★ Verified</span>
-                            </span>
-                          ) : isEodSubmitted ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1 animate-pulse">
-                              <Sparkles className="h-3 w-3 text-purple-400" />
-                              <span>Verify Wrap-Up</span>
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-muted/40 text-muted-foreground border border-border hidden sm:inline-flex">
-                              Wrap-Up Pending
-                            </span>
-                          )}
-                        </>
-                      )}
-
-                      <div className="text-muted-foreground p-1">
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            {/* Navigation Action Button */}
+                            <Button
+                              size="sm"
+                              variant={isSodSubmitted && !isSodVerified ? "brand" : isEodSubmitted && !isEodVerified ? "amber" : "outline"}
+                              className="h-8 text-xs font-bold gap-1 rounded-xl shadow-xs"
+                            >
+                              <span>
+                                {isSodSubmitted && !isSodVerified
+                                  ? "Review Plan"
+                                  : isEodSubmitted && !isEodVerified
+                                  ? "Review Wrap-Up"
+                                  : "View Details"}
+                              </span>
+                              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* Expanded Body: Vertical Stack (Approved Tasks on top, Evening Wrap-Up below) */}
                   {isExpanded && (
-                    <div className="p-4 pt-0 border-t border-border/40 animate-in fade-in">
+                    <div className="p-4 pt-0 border-t border-slate-200/80 dark:border-border/40 animate-in fade-in">
                       <div className="flex flex-col gap-4 mt-4">
 
                         {/* 🌅 New Workday Banner — shown when EOD is done + 2-min window elapsed */}
                         {isNewDayForMember && (
-                          <div className="p-4 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/30 via-card to-card flex flex-col gap-3 shadow-sm">
+                          <div className="p-4 rounded-2xl border border-cyan-200 dark:border-cyan-500/40 bg-gradient-to-r from-cyan-50/90 via-slate-50/40 to-white dark:from-cyan-950/30 dark:via-card dark:to-card flex flex-col gap-3 shadow-sm">
                             <div className="flex items-center justify-between gap-3 flex-wrap">
                               <div className="flex items-center gap-2.5">
-                                <span className="p-1.5 rounded-xl bg-cyan-500/15 text-cyan-400 shrink-0">
+                                <span className="p-1.5 rounded-xl bg-cyan-100 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 shrink-0 border border-cyan-200 dark:border-cyan-500/30">
                                   <Sun className="h-4 w-4" />
                                 </span>
                                 <div>
-                                  <p className="text-sm font-black text-cyan-300 leading-tight">New Workday Started</p>
-                                  <p className="text-[11px] text-muted-foreground">
+                                  <p className="text-sm font-black text-cyan-950 dark:text-cyan-300 leading-tight">New Workday Started</p>
+                                  <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
                                     {member.name}&apos;s previous day is complete. Awaiting today&apos;s morning SOD plan.
                                   </p>
                                 </div>
                               </div>
-                              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shrink-0 flex items-center gap-1">
+                              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-cyan-100 dark:bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30 shrink-0 flex items-center gap-1 shadow-sm">
                                 <Clock className="h-3 w-3" />
                                 Day Reset
                               </span>
                             </div>
                             {/* Yesterday's EOD summary strip */}
                             {isEodVerified && (
-                              <div className="p-3 rounded-xl bg-purple-500/[0.06] border border-purple-500/20 text-[11px] flex items-center gap-3">
-                                <span className="p-1 rounded-md bg-purple-500/15 text-purple-400 shrink-0">
+                              <div className="p-3 rounded-xl bg-purple-50/90 dark:bg-purple-500/[0.06] border border-purple-200 dark:border-purple-500/20 text-[11px] flex items-center gap-3">
+                                <span className="p-1 rounded-md bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 shrink-0 border border-purple-200 dark:border-purple-500/30">
                                   <Moon className="h-3.5 w-3.5" />
                                 </span>
                                 <div className="min-w-0">
-                                  <span className="font-semibold text-purple-300">Yesterday&apos;s Wrap-Up:</span>
-                                  <span className="text-muted-foreground ml-1.5">Rated {eodLeadRating}.0★ · Verified by {eodVerifiedBy}</span>
+                                  <span className="font-bold text-purple-900 dark:text-purple-300">Yesterday&apos;s Wrap-Up:</span>
+                                  <span className="text-slate-600 dark:text-muted-foreground ml-1.5 font-medium">Rated {eodLeadRating}.0★ · Verified by {eodVerifiedBy}</span>
                                   {eodLeadComment && (
-                                    <p className="text-[10px] text-muted-foreground/80 italic truncate mt-0.5">&quot;{eodLeadComment}&quot;</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-muted-foreground/80 italic truncate mt-0.5">&quot;{eodLeadComment}&quot;</p>
                                   )}
                                 </div>
                               </div>
@@ -1110,46 +1180,46 @@ export function LeadTaskManager() {
                         {/* ☀️ Top Panel: Morning Tasks (SOD) */}
                         {isNewDayForMember ? (
                           /* New day: waiting for employee to submit fresh SOD */
-                          <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] flex items-center gap-3 shadow-inner">
-                            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 shrink-0">
+                          <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/[0.03] flex items-center gap-3 shadow-inner">
+                            <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0 border border-amber-200 dark:border-amber-500/20">
                               <ListTodo className="h-4 w-4" />
                             </span>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-amber-300">Morning SOD Plan — Awaiting Submission</p>
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-xs font-black text-amber-900 dark:text-amber-300">Morning SOD Plan — Awaiting Submission</p>
+                              <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
                                 {member.name} hasn&apos;t submitted today&apos;s morning tasks yet.
                               </p>
                             </div>
                           </div>
                         ) : isEodSubmitted ? (
                           /* EOD submitted: show a compact locked SOD summary — no actions needed */
-                          <div className="p-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] flex items-center justify-between gap-3 shadow-inner">
+                          <div className="p-3.5 rounded-2xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/[0.04] flex items-center justify-between gap-3 shadow-inner">
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 shrink-0">
+                              <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-500/30">
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                               </span>
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-emerald-300">
+                                <p className="text-xs font-black text-emerald-900 dark:text-emerald-300">
                                   SOD Plan — Day Complete
                                 </p>
-                                <p className="text-[11px] text-muted-foreground truncate">
+                                <p className="text-[11px] text-slate-600 dark:text-muted-foreground truncate">
                                   {tasksToDisplay.length} task(s) approved by {sodVerifiedBy} · EOD submitted
                                 </p>
                               </div>
                             </div>
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 shrink-0">
                               Locked
                             </span>
                           </div>
                         ) : !isSodSubmitted ? (
                           /* SOD not submitted: show awaiting message */
-                          <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] flex items-center gap-3 shadow-inner">
-                            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 shrink-0">
+                          <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/[0.03] flex items-center gap-3 shadow-inner">
+                            <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0 border border-amber-200 dark:border-amber-500/20">
                               <ListTodo className="h-4 w-4" />
                             </span>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-amber-300">Morning SOD Plan — Awaiting Submission</p>
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-xs font-black text-amber-900 dark:text-amber-300">Morning SOD Plan — Awaiting Submission</p>
+                              <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
                                 {member.name} hasn&apos;t submitted today&apos;s morning tasks yet.
                               </p>
                             </div>
@@ -1157,45 +1227,44 @@ export function LeadTaskManager() {
                         ) : (
                         <div className={`p-4 rounded-2xl border space-y-3 shadow-inner ${
                           isSodVerified
-                            ? "bg-emerald-500/[0.04] border-emerald-500/25"
-                            : "bg-amber-500/[0.04] border-amber-500/25"
+                            ? "bg-emerald-50/70 dark:bg-emerald-500/[0.04] border-emerald-200 dark:border-emerald-500/25"
+                            : "bg-amber-50/70 dark:bg-amber-500/[0.04] border-amber-200 dark:border-amber-500/25"
                         }`}>
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <span className={`font-bold text-xs flex items-center gap-1.5 ${
-                              isSodVerified ? "text-emerald-300" : "text-amber-300"
+                              isSodVerified ? "text-emerald-900 dark:text-emerald-300" : "text-amber-900 dark:text-amber-300"
                             }`}>
                               <span className={`p-1 rounded-md ${
-                                isSodVerified ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
+                                isSodVerified ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30" : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30"
                               }`}>
                                 {isSodVerified ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ListTodo className="h-3.5 w-3.5" />}
                               </span>
                               <span>{isSodVerified ? "Approved Tasks" : "Submitted Tasks"} ({tasksToDisplay.length})</span>
                             </span>
                             <div className="flex items-center gap-2">
-                              <span className={`text-[10px] font-mono ${
-                                isSodVerified ? "text-emerald-400/80" : "text-amber-400/80"
+                              <span className={`text-[10px] font-mono font-medium ${
+                                isSodVerified ? "text-emerald-800 dark:text-emerald-400/80" : "text-amber-800 dark:text-amber-400/80"
                               }`}>
                                 {displaySodTime ? `Submitted at ${displaySodTime}` : "Not submitted yet"}
                               </span>
-
                             </div>
                           </div>
 
                           {isSodVerified ? (
                             /* When Approved: Summary card with inline toggleable task list */
                             <div className="space-y-3 py-1">
-                              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between gap-3">
+                              <div className="p-3.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs flex items-center justify-between gap-3 shadow-sm">
                                 <div className="space-y-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-emerald-300 text-xs">
+                                    <span className="font-bold text-emerald-950 dark:text-emerald-300 text-xs">
                                       {tasksToDisplay.length} Tasks Verified &amp; Approved
                                     </span>
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-200/80 dark:bg-emerald-500/20 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
                                       {memberProgress}% Progress
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    Verified by <strong className="text-foreground">{sodVerifiedBy}</strong> ({sodVerifiedAt})
+                                  <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
+                                    Verified by <strong className="text-slate-900 dark:text-foreground">{sodVerifiedBy}</strong> ({sodVerifiedAt})
                                   </p>
                                 </div>
 
@@ -1222,68 +1291,69 @@ export function LeadTaskManager() {
                                 </Button>
                               </div>
 
-                              <div className="p-3 rounded-xl bg-background/80 border border-emerald-500/20 text-[11px] text-muted-foreground flex items-center gap-2">
-                                <span className="text-emerald-400 font-semibold shrink-0">Lead Note:</span>
-                                <span className="italic truncate">&quot;{sodLeadNote}&quot;</span>
+                              <div className="p-3 rounded-xl bg-white dark:bg-background/80 border border-emerald-200 dark:border-emerald-500/20 text-[11px] text-slate-600 dark:text-muted-foreground flex items-center gap-2 shadow-sm">
+                                <span className="text-emerald-700 dark:text-emerald-400 font-bold shrink-0">Lead Note:</span>
+                                <span className="italic truncate text-slate-700 dark:text-foreground/90">&quot;{sodLeadNote}&quot;</span>
                               </div>
 
                               {/* Inline Approved Tasks List (Expands below without opening a new window) */}
                               {expandedApprovedTasks[member.id] && (
-                                <div className="space-y-2 pt-2 border-t border-emerald-500/20 animate-in fade-in slide-in-from-top-2">
-                                  <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-400 px-0.5">
+                                <div className="space-y-2 pt-2 border-t border-emerald-200 dark:border-emerald-500/20 animate-in fade-in slide-in-from-top-2">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800 dark:text-emerald-400 px-0.5">
                                     <span>Approved Deliverables ({tasksToDisplay.length})</span>
-                                    <span className="font-mono text-[10px] text-muted-foreground">{memberProgress}% Completed</span>
+                                    <span className="font-mono text-[10px] text-slate-500 dark:text-muted-foreground">{memberProgress}% Completed</span>
                                   </div>
                                   <div className="space-y-2">
                                     {tasksToDisplay.map((t, i) => {
-                                      const isDone = t.completionPercentage === 100 || t.status === "COMPLETED";
-                                      const pct = t.completionPercentage || 0;
+                                      const pct = Number(t.progress !== undefined ? t.progress : (t.completionPercentage !== undefined ? t.completionPercentage : 0)) || 0;
+                                      const isDone = pct === 100 || t.status === "COMPLETED";
                                       return (
                                         <div
                                           key={t.id || i}
-                                          className="p-3 rounded-xl bg-background/90 border border-emerald-500/15 space-y-2 text-xs hover:border-emerald-500/30 transition-all shadow-sm"
+                                          className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-background/90 border border-slate-200 dark:border-emerald-500/15 space-y-2.5 hover:border-emerald-400 dark:hover:border-emerald-500/30 transition-all shadow-sm"
                                         >
-                                          <div className="flex items-center justify-between gap-2">
-                                            <div className="space-y-0.5 min-w-0">
-                                              <div className="flex items-center gap-2">
-                                                <span className={`font-medium truncate block ${isDone ? "text-foreground font-semibold" : "text-foreground/90"}`}>
+                                          <div className="flex items-center justify-between gap-2.5">
+                                            <div className="space-y-1 min-w-0 flex-1">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-xs font-bold leading-snug truncate ${isDone ? "text-slate-900 dark:text-foreground" : "text-slate-800 dark:text-foreground/90"}`}>
                                                   {t.title}
                                                 </span>
-                                                {isDone && (
-                                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 shrink-0">
-                                                    <Check className="h-2.5 w-2.5" />
-                                                    <span>Done</span>
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                                <span className="px-1.5 py-0.2 rounded bg-muted/50 border border-border/60">{t.project || "General"}</span>
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-slate-50 dark:bg-muted/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-border">
+                                                  {t.project || "General"}
+                                                </Badge>
                                                 {t.priority && (
-                                                  <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
-                                                    t.priority === "HIGH" ? "text-rose-400 bg-rose-500/10" : "text-amber-300 bg-amber-500/10"
-                                                  }`}>
+                                                  <Badge variant={t.priority === "HIGH" ? "destructive" : "outline"} className="text-[9px] px-1.5 py-0.2 rounded-full font-bold">
                                                     {t.priority === "HIGH" ? "Important" : "Normal"}
-                                                  </span>
-                                                )}
-                                                {t.expectedOutput && t.expectedOutput !== t.title && (
-                                                  <span className="truncate max-w-[200px]">· Deliverable: {t.expectedOutput}</span>
+                                                  </Badge>
                                                 )}
                                               </div>
+                                              {t.expectedOutput && t.expectedOutput !== t.title && (
+                                                <p className="text-[10px] text-slate-500 dark:text-muted-foreground truncate max-w-md">
+                                                  Deliverable: {t.expectedOutput}
+                                                </p>
+                                              )}
                                             </div>
-                                            <span className={`text-[10px] font-mono font-bold shrink-0 px-2 py-0.5 rounded-md ${
-                                              isDone
-                                                ? "text-emerald-400 bg-emerald-500/15 border border-emerald-500/30"
-                                                : pct > 0
-                                                ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
-                                                : "text-muted-foreground bg-muted/40"
-                                            }`}>
-                                              {pct}%
-                                            </span>
+
+                                            {/* Progress Status Capsule */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                              <span
+                                                className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                                                  isDone
+                                                    ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30"
+                                                    : pct > 0
+                                                    ? "text-sky-700 bg-sky-50 dark:text-sky-400 dark:bg-sky-950/40 border-sky-200 dark:border-sky-500/30"
+                                                    : "text-slate-600 bg-slate-50 dark:text-muted-foreground dark:bg-muted/40 border border-slate-200 dark:border-border"
+                                                }`}
+                                              >
+                                                <span className={`h-1.5 w-1.5 rounded-full ${isDone ? "bg-emerald-500 animate-pulse" : pct > 0 ? "bg-sky-500 animate-pulse" : "bg-slate-400"}`} />
+                                                <span>{pct}%</span>
+                                              </span>
+                                            </div>
                                           </div>
 
-                                          {/* Task Progress Bar */}
-                                          <div className="flex items-center gap-2">
-                                            <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                          {/* Sleek Milestone Progress Meter */}
+                                          <div className="space-y-1">
+                                            <div className="h-1.5 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden border border-slate-200/60 dark:border-transparent">
                                               <div
                                                 className={`h-full rounded-full transition-all duration-500 ease-out ${
                                                   isDone
@@ -1292,10 +1362,17 @@ export function LeadTaskManager() {
                                                     ? "bg-gradient-to-r from-cyan-500 to-blue-500"
                                                     : pct > 0
                                                     ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                                                    : "bg-muted"
+                                                    : "bg-slate-200 dark:bg-muted"
                                                 }`}
                                                 style={{ width: `${pct}%` }}
                                               />
+                                            </div>
+                                            <div className="flex items-center justify-between text-[8px] font-mono text-slate-400 dark:text-muted-foreground px-0.5">
+                                              <span className={pct >= 0 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>0%</span>
+                                              <span className={pct >= 25 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>25%</span>
+                                              <span className={pct >= 50 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>50%</span>
+                                              <span className={pct >= 75 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>75%</span>
+                                              <span className={pct >= 100 ? "font-bold text-emerald-600 dark:text-emerald-400" : ""}>100% ✓</span>
                                             </div>
                                           </div>
                                         </div>
@@ -1311,49 +1388,55 @@ export function LeadTaskManager() {
                               <div className="space-y-2 text-xs">
                                 {tasksToDisplay.length > 0 ? (
                                   tasksToDisplay.map((t, i) => {
-                                    const isDone = t.completionPercentage === 100 || t.status === "COMPLETED";
-                                    const pct = t.completionPercentage || 0;
+                                    const pct = Number(t.progress !== undefined ? t.progress : (t.completionPercentage !== undefined ? t.completionPercentage : 0)) || 0;
+                                    const isDone = pct === 100 || t.status === "COMPLETED";
                                     return (
                                       <div
                                         key={t.id || i}
-                                        className="p-3 rounded-xl bg-background/90 border border-amber-500/15 space-y-2 hover:border-amber-500/30 transition-all shadow-sm"
+                                        className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-background/90 border border-amber-200 dark:border-amber-500/15 space-y-2.5 hover:border-amber-400 dark:hover:border-amber-500/30 transition-all shadow-sm"
                                       >
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="space-y-0.5 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-foreground font-medium truncate block">{t.title}</span>
-                                              {isDone && (
-                                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5">
-                                                  <Check className="h-2.5 w-2.5" />
-                                                  <span>Done</span>
-                                                </span>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                              <span className="px-1.5 py-0.2 rounded bg-muted/50 border border-border/60">{t.project || "General"}</span>
+                                        <div className="flex items-center justify-between gap-2.5">
+                                          <div className="space-y-1 min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <span className={`text-xs font-bold leading-snug truncate ${isDone ? "text-slate-900 dark:text-foreground" : "text-slate-800 dark:text-foreground/90"}`}>
+                                                {t.title}
+                                              </span>
+                                              <Badge variant="outline" className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-slate-50 dark:bg-muted/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-border">
+                                                {t.project || "General"}
+                                              </Badge>
                                               {t.priority && (
-                                                <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
-                                                  t.priority === "HIGH" ? "text-rose-400 bg-rose-500/10" : "text-amber-300 bg-amber-500/10"
-                                                }`}>
+                                                <Badge variant={t.priority === "HIGH" ? "destructive" : "outline"} className="text-[9px] px-1.5 py-0.2 rounded-full font-bold">
                                                   {t.priority === "HIGH" ? "Important" : "Normal"}
-                                                </span>
+                                                </Badge>
                                               )}
                                             </div>
+                                            {t.expectedOutput && t.expectedOutput !== t.title && (
+                                              <p className="text-[10px] text-slate-500 dark:text-muted-foreground truncate max-w-md">
+                                                Deliverable: {t.expectedOutput}
+                                              </p>
+                                            )}
                                           </div>
-                                          <span className={`text-[10px] font-mono font-bold shrink-0 px-2 py-0.5 rounded-md ${
-                                            isDone
-                                              ? "text-emerald-400 bg-emerald-500/15 border border-emerald-500/30"
-                                              : pct > 0
-                                              ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
-                                              : "text-muted-foreground bg-muted/40"
-                                          }`}>
-                                            {pct}%
-                                          </span>
+
+                                          {/* Progress Status Capsule */}
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <span
+                                              className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                                                isDone
+                                                  ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30"
+                                                  : pct > 0
+                                                  ? "text-sky-700 bg-sky-50 dark:text-sky-400 dark:bg-sky-950/40 border-sky-200 dark:border-sky-500/30"
+                                                  : "text-slate-600 bg-slate-50 dark:text-muted-foreground dark:bg-muted/40 border border-slate-200 dark:border-border"
+                                              }`}
+                                            >
+                                              <span className={`h-1.5 w-1.5 rounded-full ${isDone ? "bg-emerald-500 animate-pulse" : pct > 0 ? "bg-sky-500 animate-pulse" : "bg-slate-400"}`} />
+                                              <span>{pct}%</span>
+                                            </span>
+                                          </div>
                                         </div>
 
-                                        {/* Task Progress Bar */}
-                                        <div className="flex items-center gap-2">
-                                          <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                        {/* Sleek Milestone Progress Meter */}
+                                        <div className="space-y-1">
+                                          <div className="h-1.5 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden border border-slate-200/60 dark:border-transparent">
                                             <div
                                               className={`h-full rounded-full transition-all duration-500 ease-out ${
                                                 isDone
@@ -1362,36 +1445,43 @@ export function LeadTaskManager() {
                                                   ? "bg-gradient-to-r from-cyan-500 to-blue-500"
                                                   : pct > 0
                                                   ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                                                  : "bg-muted"
+                                                  : "bg-slate-200 dark:bg-muted"
                                               }`}
                                               style={{ width: `${pct}%` }}
                                             />
+                                          </div>
+                                          <div className="flex items-center justify-between text-[8px] font-mono text-slate-400 dark:text-muted-foreground px-0.5">
+                                            <span className={pct >= 0 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>0%</span>
+                                            <span className={pct >= 25 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>25%</span>
+                                            <span className={pct >= 50 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>50%</span>
+                                            <span className={pct >= 75 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>75%</span>
+                                            <span className={pct >= 100 ? "font-bold text-emerald-600 dark:text-emerald-400" : ""}>100% ✓</span>
                                           </div>
                                         </div>
                                       </div>
                                     );
                                   })
                                 ) : (
-                                  <div className="p-3 text-center text-muted-foreground text-[11px] bg-background/50 rounded-xl">
+                                  <div className="p-3 text-center text-slate-500 dark:text-muted-foreground text-[11px] bg-slate-50 dark:bg-background/50 rounded-xl border border-slate-200/60 dark:border-transparent">
                                     No specific tasks submitted yet.
                                   </div>
                                 )}
                               </div>
 
                               {member.sodEmployeeNote && (
-                                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
+                                <div className="p-2.5 rounded-xl bg-amber-100/80 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-900 dark:text-amber-200">
                                   <strong>Employee Note:</strong> &quot;{member.sodEmployeeNote}&quot;
                                 </div>
                               )}
 
                               {/* Approval Form */}
-                              <div className="pt-2 border-t border-amber-500/20 text-xs">
+                              <div className="pt-2 border-t border-amber-200 dark:border-amber-500/20 text-xs">
                                 <div className="flex flex-col sm:flex-row items-center gap-2">
                                   <Input
                                     placeholder="Add guidance note (e.g. Prioritize PR reviews first)..."
                                     value={activeSodNotes[member.id] || ""}
                                     onChange={(e) => setActiveSodNotes({ ...activeSodNotes, [member.id]: e.target.value })}
-                                    className="h-8 text-xs bg-background/90 border-amber-500/30 flex-1"
+                                    className="h-8 text-xs bg-white dark:bg-background/90 border-amber-300 dark:border-amber-500/30 flex-1 shadow-sm"
                                   />
                                   <Button
                                     size="sm"
@@ -1412,27 +1502,27 @@ export function LeadTaskManager() {
                         {/* 🌙 Bottom Panel: Evening Wrap-Up */}
                         {isNewDayForMember ? (
                           /* New day: clean waiting card — no old EOD data shown */
-                          <div className="p-4 rounded-2xl bg-purple-500/[0.03] border border-purple-500/20 flex items-center gap-3 shadow-inner">
-                            <span className="p-2 rounded-xl bg-purple-500/10 text-purple-400 shrink-0">
+                          <div className="p-4 rounded-2xl bg-purple-50/80 dark:bg-purple-500/[0.03] border border-purple-200 dark:border-purple-500/20 flex items-center gap-3 shadow-inner">
+                            <span className="p-2 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 shrink-0 border border-purple-200 dark:border-purple-500/20">
                               <Moon className="h-4 w-4" />
                             </span>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-purple-300">Evening Wrap-Up — Awaiting New Day EOD</p>
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-xs font-black text-purple-900 dark:text-purple-300">Evening Wrap-Up — Awaiting New Day EOD</p>
+                              <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
                                 EOD review will appear once {member.name} submits today&apos;s evening wrap-up.
                               </p>
                             </div>
                           </div>
                         ) : (
-                        <div className="p-4 rounded-2xl bg-purple-500/[0.04] border border-purple-500/25 space-y-3 shadow-inner">
+                        <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-500/[0.04] border border-purple-200 dark:border-purple-500/25 space-y-3 shadow-inner">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-purple-300 text-xs flex items-center gap-1.5">
-                              <span className="p-1 rounded-md bg-purple-500/15 text-purple-400">
+                            <span className="font-bold text-purple-900 dark:text-purple-300 text-xs flex items-center gap-1.5">
+                              <span className="p-1 rounded-md bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30">
                                 <Moon className="h-3.5 w-3.5" />
                               </span>
                               <span>{isEodVerified ? "Approved Evening Wrap-Up" : "Evening Wrap-Up & Execution"}</span>
                             </span>
-                            <span className="text-[10px] font-mono text-purple-300/80">
+                            <span className="text-[10px] font-mono font-medium text-purple-800 dark:text-purple-300/80">
                               {isEodVerified
                                 ? "Verified"
                                 : isEodSubmitted
@@ -1444,19 +1534,19 @@ export function LeadTaskManager() {
                           {isEodVerified ? (
                             /* When Approved: Summary card with inline toggleable task list */
                             <div className="space-y-3 py-1">
-                              <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs flex items-center justify-between gap-3">
+                              <div className="p-3.5 rounded-xl bg-purple-100/70 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 text-xs flex items-center justify-between gap-3 shadow-sm">
                                 <div className="space-y-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-purple-300 text-xs flex items-center gap-1">
-                                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                    <span className="font-bold text-purple-950 dark:text-purple-300 text-xs flex items-center gap-1">
+                                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
                                       <span>Rated {eodLeadRating}.0 / 5 Stars</span>
                                     </span>
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-200/80 dark:bg-purple-500/20 text-purple-900 dark:text-purple-300 border border-purple-300 dark:border-purple-500/30">
                                       Wrap-Up Verified
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    Verified by <strong className="text-foreground">{eodVerifiedBy}</strong> ({eodVerifiedAt})
+                                  <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
+                                    Verified by <strong className="text-slate-900 dark:text-foreground">{eodVerifiedBy}</strong> ({eodVerifiedAt})
                                   </p>
                                 </div>
 
@@ -1483,24 +1573,24 @@ export function LeadTaskManager() {
                                 </Button>
                               </div>
 
-                              <div className="p-3 rounded-xl bg-background/80 border border-purple-500/20 text-[11px] text-muted-foreground space-y-1">
+                              <div className="p-3 rounded-xl bg-white dark:bg-background/80 border border-purple-200 dark:border-purple-500/20 text-[11px] text-slate-600 dark:text-muted-foreground space-y-1 shadow-sm">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-purple-400 font-semibold shrink-0">Feedback:</span>
-                                  <span className="italic truncate">&quot;{eodLeadComment}&quot;</span>
+                                  <span className="text-purple-700 dark:text-purple-400 font-bold shrink-0">Feedback:</span>
+                                  <span className="italic truncate text-slate-700 dark:text-foreground/90">&quot;{eodLeadComment}&quot;</span>
                                 </div>
                                 {eodLeadActionItem && (
-                                  <p className="text-[10px] text-muted-foreground truncate">
-                                    <strong className="text-foreground/80">Action Item:</strong> {eodLeadActionItem}
+                                  <p className="text-[10px] text-slate-600 dark:text-muted-foreground truncate">
+                                    <strong className="text-slate-900 dark:text-foreground/80">Action Item:</strong> {eodLeadActionItem}
                                   </p>
                                 )}
                               </div>
 
                               {/* Inline Verified Wrap-Up Tasks List (No scrollbar, full display) */}
                               {expandedWrapupTasks[member.id] && (
-                                <div className="space-y-2 pt-2 border-t border-purple-500/20 animate-in fade-in slide-in-from-top-2">
-                                  <div className="flex items-center justify-between text-[11px] font-semibold text-purple-300 px-0.5">
+                                <div className="space-y-2 pt-2 border-t border-purple-200 dark:border-purple-500/20 animate-in fade-in slide-in-from-top-2">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-purple-900 dark:text-purple-300 px-0.5">
                                     <span>Executed Deliverables ({tasksToDisplay.length})</span>
-                                    <span className="font-mono text-[10px] text-muted-foreground">{memberProgress}% Completed</span>
+                                    <span className="font-mono text-[10px] text-slate-500 dark:text-muted-foreground">{memberProgress}% Completed</span>
                                   </div>
                                   <div className="space-y-2">
                                     {tasksToDisplay.map((t, i) => {
@@ -1509,49 +1599,50 @@ export function LeadTaskManager() {
                                       return (
                                         <div
                                           key={t.id || i}
-                                          className="p-3 rounded-xl bg-background/90 border border-purple-500/15 space-y-2 text-xs hover:border-purple-500/30 transition-all shadow-sm"
+                                          className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-background/90 border border-slate-200 dark:border-purple-500/15 space-y-2.5 hover:border-purple-400 dark:hover:border-purple-500/30 transition-all shadow-sm"
                                         >
-                                          <div className="flex items-center justify-between gap-2">
-                                            <div className="space-y-0.5 min-w-0">
-                                              <div className="flex items-center gap-2">
-                                                <span className={`font-medium truncate block ${isDone ? "text-foreground font-semibold" : "text-foreground/90"}`}>
+                                          <div className="flex items-center justify-between gap-2.5">
+                                            <div className="space-y-1 min-w-0 flex-1">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-xs font-bold leading-snug truncate ${isDone ? "text-slate-900 dark:text-foreground font-semibold" : "text-slate-800 dark:text-foreground/90"}`}>
                                                   {t.title}
                                                 </span>
-                                                {isDone && (
-                                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 shrink-0">
-                                                    <Check className="h-2.5 w-2.5" />
-                                                    <span>Done</span>
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                                <span className="px-1.5 py-0.2 rounded bg-muted/50 border border-border/60">{t.project || "General"}</span>
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-slate-50 dark:bg-muted/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-border">
+                                                  {t.project || "General"}
+                                                </Badge>
                                                 {t.priority && (
-                                                  <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
-                                                    t.priority === "HIGH" ? "text-rose-400 bg-rose-500/10" : "text-amber-300 bg-amber-500/10"
-                                                  }`}>
+                                                  <Badge variant={t.priority === "HIGH" ? "destructive" : "outline"} className="text-[9px] px-1.5 py-0.2 rounded-full font-bold">
                                                     {t.priority === "HIGH" ? "Important" : "Normal"}
-                                                  </span>
-                                                )}
-                                                {t.expectedOutput && t.expectedOutput !== t.title && (
-                                                  <span className="truncate max-w-[200px]">· Deliverable: {t.expectedOutput}</span>
+                                                  </Badge>
                                                 )}
                                               </div>
+                                              {t.expectedOutput && t.expectedOutput !== t.title && (
+                                                <p className="text-[10px] text-slate-500 dark:text-muted-foreground truncate max-w-md">
+                                                  Deliverable: {t.expectedOutput}
+                                                </p>
+                                              )}
                                             </div>
-                                            <span className={`text-[10px] font-mono font-bold shrink-0 px-2 py-0.5 rounded-md ${
-                                              isDone
-                                                ? "text-emerald-400 bg-emerald-500/15 border border-emerald-500/30"
-                                                : pct > 0
-                                                ? "text-purple-300 bg-purple-500/15 border border-purple-500/30"
-                                                : "text-muted-foreground bg-muted/40"
-                                            }`}>
-                                              {pct}%
-                                            </span>
+
+                                            {/* Progress Status Capsule */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                              <span
+                                                className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                                                  isDone
+                                                    ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30"
+                                                    : pct > 0
+                                                    ? "text-purple-700 bg-purple-50 dark:text-purple-300 dark:bg-purple-950/40 border-purple-200 dark:border-purple-500/30"
+                                                    : "text-slate-600 bg-slate-50 dark:text-muted-foreground dark:bg-muted/40 border border-slate-200 dark:border-border"
+                                                }`}
+                                              >
+                                                <span className={`h-1.5 w-1.5 rounded-full ${isDone ? "bg-emerald-500 animate-pulse" : pct > 0 ? "bg-purple-500 animate-pulse" : "bg-slate-400"}`} />
+                                                <span>{pct}%</span>
+                                              </span>
+                                            </div>
                                           </div>
 
-                                          {/* Task Progress Bar */}
-                                          <div className="flex items-center gap-2">
-                                            <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                          {/* Sleek Milestone Progress Meter */}
+                                          <div className="space-y-1">
+                                            <div className="h-1.5 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden border border-slate-200/60 dark:border-transparent">
                                               <div
                                                 className={`h-full rounded-full transition-all duration-500 ease-out ${
                                                   isDone
@@ -1560,10 +1651,17 @@ export function LeadTaskManager() {
                                                     ? "bg-gradient-to-r from-purple-500 to-indigo-500"
                                                     : pct > 0
                                                     ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                                                    : "bg-muted"
+                                                    : "bg-slate-200 dark:bg-muted"
                                                 }`}
                                                 style={{ width: `${pct}%` }}
                                               />
+                                            </div>
+                                            <div className="flex items-center justify-between text-[8px] font-mono text-slate-400 dark:text-muted-foreground px-0.5">
+                                              <span className={pct >= 0 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>0%</span>
+                                              <span className={pct >= 25 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>25%</span>
+                                              <span className={pct >= 50 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>50%</span>
+                                              <span className={pct >= 75 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>75%</span>
+                                              <span className={pct >= 100 ? "font-bold text-emerald-600 dark:text-emerald-400" : ""}>100% ✓</span>
                                             </div>
                                           </div>
                                         </div>
@@ -1579,9 +1677,9 @@ export function LeadTaskManager() {
                               <div className="space-y-2.5">
                                 {/* All Tasks Execution Breakdown (No scrollbar, full display) */}
                                 <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between text-[11px] font-semibold text-purple-300 px-0.5">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-purple-900 dark:text-purple-300 px-0.5">
                                     <span>Task Execution &amp; Deliverables ({tasksToDisplay.length})</span>
-                                    <span className="font-mono text-[10px] text-muted-foreground">{memberProgress}% Overall Progress</span>
+                                    <span className="font-mono text-[10px] text-slate-500 dark:text-muted-foreground">{memberProgress}% Overall Progress</span>
                                   </div>
                                   {tasksToDisplay.length > 0 ? (
                                     tasksToDisplay.map((t, i) => {
@@ -1590,49 +1688,50 @@ export function LeadTaskManager() {
                                       return (
                                         <div
                                           key={t.id || i}
-                                          className="p-2.5 rounded-xl bg-background/90 border border-purple-500/15 space-y-1.5 text-xs"
+                                          className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-background/90 border border-slate-200 dark:border-purple-500/15 space-y-2.5 hover:border-purple-400 dark:hover:border-purple-500/30 transition-all shadow-sm"
                                         >
-                                          <div className="flex items-center justify-between gap-2">
-                                            <div className="space-y-0.5 min-w-0">
-                                              <div className="flex items-center gap-2">
-                                                <span className={`font-medium truncate block ${isDone ? "text-foreground font-semibold" : "text-foreground/90"}`}>
+                                          <div className="flex items-center justify-between gap-2.5">
+                                            <div className="space-y-1 min-w-0 flex-1">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-xs font-bold leading-snug truncate ${isDone ? "text-slate-900 dark:text-foreground font-semibold" : "text-slate-800 dark:text-foreground/90"}`}>
                                                   {t.title}
                                                 </span>
-                                                {isDone && (
-                                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 shrink-0">
-                                                    <Check className="h-2.5 w-2.5" />
-                                                    <span>Done</span>
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                                <span className="px-1.5 py-0.2 rounded bg-muted/50 border border-border/60">{t.project || "General"}</span>
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-slate-50 dark:bg-muted/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-border">
+                                                  {t.project || "General"}
+                                                </Badge>
                                                 {t.priority && (
-                                                  <span className={`px-1 py-0.2 rounded text-[9px] font-bold ${
-                                                    t.priority === "HIGH" ? "text-rose-400 bg-rose-500/10" : "text-amber-300 bg-amber-500/10"
-                                                  }`}>
+                                                  <Badge variant={t.priority === "HIGH" ? "destructive" : "outline"} className="text-[9px] px-1.5 py-0.2 rounded-full font-bold">
                                                     {t.priority === "HIGH" ? "Important" : "Normal"}
-                                                  </span>
-                                                )}
-                                                {t.expectedOutput && t.expectedOutput !== t.title && (
-                                                  <span className="truncate max-w-[200px]">· Deliverable: {t.expectedOutput}</span>
+                                                  </Badge>
                                                 )}
                                               </div>
+                                              {t.expectedOutput && t.expectedOutput !== t.title && (
+                                                <p className="text-[10px] text-slate-500 dark:text-muted-foreground truncate max-w-md">
+                                                  Deliverable: {t.expectedOutput}
+                                                </p>
+                                              )}
                                             </div>
-                                            <span className={`text-[10px] font-mono font-bold shrink-0 px-2 py-0.5 rounded-md ${
-                                              isDone
-                                                ? "text-emerald-400 bg-emerald-500/15 border border-emerald-500/30"
-                                                : pct > 0
-                                                ? "text-purple-300 bg-purple-500/15 border border-purple-500/30"
-                                                : "text-muted-foreground bg-muted/40"
-                                            }`}>
-                                              {pct}%
-                                            </span>
+
+                                            {/* Progress Status Capsule */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                              <span
+                                                className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                                                  isDone
+                                                    ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30"
+                                                    : pct > 0
+                                                    ? "text-purple-700 bg-purple-50 dark:text-purple-300 dark:bg-purple-950/40 border-purple-200 dark:border-purple-500/30"
+                                                    : "text-slate-600 bg-slate-50 dark:text-muted-foreground dark:bg-muted/40 border border-slate-200 dark:border-border"
+                                                }`}
+                                              >
+                                                <span className={`h-1.5 w-1.5 rounded-full ${isDone ? "bg-emerald-500 animate-pulse" : pct > 0 ? "bg-purple-500 animate-pulse" : "bg-slate-400"}`} />
+                                                <span>{pct}%</span>
+                                              </span>
+                                            </div>
                                           </div>
 
-                                          {/* Task Progress Bar */}
-                                          <div className="flex items-center gap-2">
-                                            <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                          {/* Sleek Milestone Progress Meter */}
+                                          <div className="space-y-1">
+                                            <div className="h-1.5 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden border border-slate-200/60 dark:border-transparent">
                                               <div
                                                 className={`h-full rounded-full transition-all duration-500 ease-out ${
                                                   isDone
@@ -1641,27 +1740,34 @@ export function LeadTaskManager() {
                                                     ? "bg-gradient-to-r from-purple-500 to-indigo-500"
                                                     : pct > 0
                                                     ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                                                    : "bg-muted"
+                                                    : "bg-slate-200 dark:bg-muted"
                                                 }`}
                                                 style={{ width: `${pct}%` }}
                                               />
+                                            </div>
+                                            <div className="flex items-center justify-between text-[8px] font-mono text-slate-400 dark:text-muted-foreground px-0.5">
+                                              <span className={pct >= 0 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>0%</span>
+                                              <span className={pct >= 25 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>25%</span>
+                                              <span className={pct >= 50 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>50%</span>
+                                              <span className={pct >= 75 ? "font-bold text-slate-600 dark:text-slate-400" : ""}>75%</span>
+                                              <span className={pct >= 100 ? "font-bold text-emerald-600 dark:text-emerald-400" : ""}>100% ✓</span>
                                             </div>
                                           </div>
                                         </div>
                                       );
                                     })
                                   ) : (
-                                    <div className="p-3 text-center text-muted-foreground text-[11px] bg-background/50 rounded-xl">
+                                    <div className="p-3 text-center text-slate-500 dark:text-muted-foreground text-[11px] bg-slate-50 dark:bg-background/50 rounded-xl border border-slate-200/60 dark:border-transparent">
                                       No tasks submitted.
                                     </div>
                                   )}
                                 </div>
                               </div>
 
-                              <div className="pt-2 border-t border-purple-500/20 text-xs">
+                              <div className="pt-2 border-t border-purple-200 dark:border-purple-500/20 text-xs">
                                 <div className="space-y-2.5">
                                   <div className="flex items-center justify-between">
-                                    <span className="font-bold text-foreground text-[11px]">Lead Rating:</span>
+                                    <span className="font-bold text-slate-900 dark:text-foreground text-[11px]">Lead Rating:</span>
                                     <div className="flex items-center gap-1">
                                       {[1, 2, 3, 4, 5].map((star) => (
                                         <button
@@ -1674,12 +1780,12 @@ export function LeadTaskManager() {
                                             className={`h-4 w-4 ${
                                               star <= (activeRatings[member.id] || 5)
                                                 ? "text-amber-400 fill-amber-400"
-                                                : "text-muted-foreground/30"
+                                                : "text-slate-300 dark:text-muted-foreground/30"
                                             }`}
                                           />
                                         </button>
                                       ))}
-                                      <span className="text-[11px] font-bold text-amber-400 ml-1 font-mono">
+                                      <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 ml-1 font-mono">
                                         ({activeRatings[member.id] || 5}.0★)
                                       </span>
                                     </div>
@@ -1690,14 +1796,14 @@ export function LeadTaskManager() {
                                       value={activeComments[member.id] || ""}
                                       onChange={(e) => setActiveComments({ ...activeComments, [member.id]: e.target.value })}
                                       placeholder={`Write evening feedback for ${member.name}...`}
-                                      className="h-8 text-xs bg-background/90 border-purple-500/30 w-full"
+                                      className="h-8 text-xs bg-white dark:bg-background/90 border-purple-300 dark:border-purple-500/30 w-full shadow-sm"
                                     />
                                     <div className="flex items-center gap-2">
                                       <Input
                                         value={activeActionItems[member.id] || ""}
                                         onChange={(e) => setActiveActionItems({ ...activeActionItems, [member.id]: e.target.value })}
                                         placeholder="Tomorrow action item (optional)..."
-                                        className="h-8 text-xs bg-background/90 border-purple-500/30 flex-1"
+                                        className="h-8 text-xs bg-white dark:bg-background/90 border-purple-300 dark:border-purple-500/30 flex-1 shadow-sm"
                                       />
                                       <Button
                                         size="sm"
@@ -1715,13 +1821,13 @@ export function LeadTaskManager() {
                             </>
                           ) : (
                             /* When NOT yet submitted by Employee: Clean Awaiting Submission Card */
-                            <div className="p-4 rounded-2xl bg-purple-500/[0.03] border border-purple-500/20 flex items-center gap-3 shadow-inner">
-                              <span className="p-2 rounded-xl bg-purple-500/10 text-purple-400 shrink-0">
+                            <div className="p-4 rounded-2xl bg-purple-50/80 dark:bg-purple-500/[0.03] border border-purple-200 dark:border-purple-500/20 flex items-center gap-3 shadow-inner">
+                              <span className="p-2 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 shrink-0 border border-purple-200 dark:border-purple-500/20">
                                 <Moon className="h-4 w-4" />
                               </span>
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-purple-300">Evening Wrap-Up — Awaiting EOD Submission</p>
-                                <p className="text-[11px] text-muted-foreground">
+                                <p className="text-xs font-black text-purple-900 dark:text-purple-300">Evening Wrap-Up — Awaiting EOD Submission</p>
+                                <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
                                   Evening wrap-up and final execution review will appear here once submitted by {member.name}.
                                 </p>
                               </div>
@@ -1745,7 +1851,7 @@ export function LeadTaskManager() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Form */}
           <div className="lg:col-span-5 lg:sticky lg:top-4">
-            <form onSubmit={handleAssignWork} className="p-5 sm:p-6 rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/25 via-card to-card space-y-4 shadow-sm">
+            <form onSubmit={handleAssignWork} className="p-5 sm:p-6 rounded-3xl border border-indigo-200 dark:border-indigo-500/30 bg-gradient-to-br from-indigo-50/80 via-white to-white dark:from-indigo-950/25 dark:via-card dark:to-card space-y-4 shadow-sm">
               <div className="flex items-center justify-between pb-2 border-b border-border/60">
                 <div className="flex items-center gap-2.5">
                   <div className="h-8 w-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
@@ -1767,7 +1873,7 @@ export function LeadTaskManager() {
                   <select
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value)}
-                    className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full h-10 rounded-xl border border-input bg-white dark:bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     {dynamicTeamMembers.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -1795,14 +1901,12 @@ export function LeadTaskManager() {
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
-                      className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full h-10 rounded-xl border border-input bg-white dark:bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     >
-                      <option value="Frontend & UI">Frontend & UI</option>
-                      <option value="Platform Architecture">Platform Architecture</option>
-                      <option value="Security & Auth">Security & Auth</option>
-                      <option value="QA & Testing">QA & Testing</option>
                       <option value="Operations">Operations</option>
+                      <option value="Planning">Planning</option>
                       <option value="Documentation">Documentation</option>
+                      <option value="General">General</option>
                     </select>
                   </div>
 
@@ -1811,7 +1915,7 @@ export function LeadTaskManager() {
                     <select
                       value={newPriority}
                       onChange={(e) => setNewPriority(e.target.value as any)}
-                      className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full h-10 rounded-xl border border-input bg-white dark:bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     >
                       <option value="HIGH">High Priority</option>
                       <option value="MEDIUM">Normal Priority</option>
@@ -1869,7 +1973,7 @@ export function LeadTaskManager() {
             </div>
 
             {assignedTasksLog.length === 0 ? (
-              <div className="p-10 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
+              <div className="p-10 text-center bg-slate-50/60 dark:bg-card/40 rounded-2xl border border-slate-200 dark:border-border/60 text-xs text-muted-foreground space-y-2">
                 <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto" />
                 <span className="font-semibold text-foreground block">No assigned tasks logged yet</span>
                 <span>Use the form on the left to assign sprint deliverables to your team.</span>
@@ -1883,8 +1987,8 @@ export function LeadTaskManager() {
                       key={task.id}
                       className={`p-4 rounded-2xl border transition-all space-y-3 shadow-sm ${
                         task.acknowledged
-                          ? "bg-card/85 border-emerald-500/30"
-                          : "bg-card/85 border-amber-500/35"
+                          ? "bg-white dark:bg-card/85 border-emerald-200 dark:border-emerald-500/30"
+                          : "bg-white dark:bg-card/85 border-amber-200 dark:border-amber-500/35"
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -1947,12 +2051,12 @@ export function LeadTaskManager() {
 
                       {/* Employee Acknowledgement Note Quote */}
                       {task.acknowledged && task.acknowledgementNote && (
-                        <div className="p-2.5 rounded-xl bg-emerald-500/[0.07] border border-emerald-500/25 text-xs text-foreground/90 space-y-0.5">
-                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                        <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-500/[0.07] border border-emerald-200 dark:border-emerald-500/25 text-xs text-foreground/90 space-y-0.5">
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" />
                             <span>Acknowledgement Note from {task.targetEmployeeName}:</span>
                           </span>
-                          <p className="text-[11px] italic text-muted-foreground pl-4">
+                          <p className="text-[11px] italic text-slate-600 dark:text-muted-foreground pl-4">
                             &quot;{task.acknowledgementNote}&quot;
                           </p>
                         </div>
@@ -1988,7 +2092,7 @@ export function LeadTaskManager() {
       {activeTab === "MY_TASKS" && (
         <div className="space-y-3">
           {showAddLeadTask && (
-            <form onSubmit={handleAddLeadTask} className="p-4 rounded-xl bg-card border border-emerald-500/40 space-y-3 animate-in fade-in">
+            <form onSubmit={handleAddLeadTask} className="p-4 rounded-xl bg-white dark:bg-card border border-emerald-200 dark:border-emerald-500/40 space-y-3 animate-in fade-in shadow-sm">
               <h4 className="text-xs font-bold text-foreground">Add Personal Task</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2 space-y-1">
@@ -2005,12 +2109,12 @@ export function LeadTaskManager() {
                   <select
                     value={leadTaskCategory}
                     onChange={(e) => setLeadTaskCategory(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none"
+                    className="w-full h-9 rounded-md border border-input bg-white dark:bg-background px-2.5 text-xs text-foreground focus:outline-none"
                   >
-                    <option value="Code Review">Code Review</option>
-                    <option value="1-on-1 Sync">1-on-1 Sync</option>
-                    <option value="Approvals">Approvals</option>
+                    <option value="Operations">Operations</option>
                     <option value="Planning">Planning</option>
+                    <option value="Documentation">Documentation</option>
+                    <option value="General">General</option>
                   </select>
                 </div>
               </div>
@@ -2073,8 +2177,8 @@ export function LeadTaskManager() {
                   key={t.id}
                   className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
                     isDone
-                      ? "bg-card/40 border-border/40 opacity-70"
-                      : "bg-card border-border hover:border-border/80 shadow-sm"
+                      ? "bg-slate-50/60 dark:bg-card/40 border-slate-200/60 dark:border-border/40 opacity-70"
+                      : "bg-white dark:bg-card border-slate-200 dark:border-border hover:border-slate-300 dark:hover:border-border/80 shadow-sm"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">

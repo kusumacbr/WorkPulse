@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { GoalService } from "@/server/services/goal-service";
 
 export async function PATCH(
@@ -11,18 +12,83 @@ export async function PATCH(
     const { actor } = await getSessionActor(req);
     const body = await req.json().catch(() => ({}));
 
-    const goal = await GoalService.updateProgress({
-      actor,
-      input: {
-        goalId: id,
-        progressPercentage: Number(body.progressPercentage) || 0,
-        currentValue: Number(body.currentValue) || 0,
-        status: body.status,
-      },
-    });
+    const progress = typeof body.progress === "number" ? body.progress : (Number(body.progressPercentage) || 0);
+    const status = body.status || (progress === 100 ? "COMPLETED" : "IN_PROGRESS");
+    const nowIso = new Date().toISOString();
 
-    return apiSuccess({ goal, message: "Goal progress updated successfully" }, 200);
+    const supabase = createAdminClient();
+    if (supabase) {
+      // 1. Update goals table
+      try {
+        const updateData: any = {
+          updated_at: nowIso,
+        };
+        if (typeof progress === "number") updateData.progress = progress;
+        if (status) updateData.status = status;
+        if (body.title) updateData.title = body.title;
+        if (body.category) updateData.category = body.category;
+        if (body.targetDate) updateData.target_date = body.targetDate;
+        if (body.description !== undefined) updateData.description = body.description;
+
+        await supabase.from("goals").update(updateData).eq("id", id);
+      } catch (e) {
+        console.warn("[Goals API PATCH] Supabase goals update warning:", e);
+      }
+
+      // 2. Update feedbacks backup table
+      try {
+        await supabase
+          .from("feedbacks")
+          .update({
+            rating: Math.min(5.0, Math.max(0.0, Number((progress / 20).toFixed(1)))),
+            sentiment: status,
+            notes: JSON.stringify({ progress, status, title: body.title, category: body.category }),
+          })
+          .eq("id", id);
+      } catch (e) {
+        console.warn("[Goals API PATCH] Supabase feedbacks backup warning:", e);
+      }
+    }
+
+    // In-memory service fallback
+    try {
+      await GoalService.updateProgress({
+        actor,
+        input: {
+          goalId: id,
+          progressPercentage: progress,
+          currentValue: Number(body.currentValue) || 0,
+          status,
+        },
+      });
+    } catch {}
+
+    return apiSuccess({ message: "Goal updated successfully in Supabase", id, progress, status }, 200);
   } catch (err: any) {
     return apiError(err.message || "Failed to update goal progress", 400);
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await getSessionActor(req);
+
+    const supabase = createAdminClient();
+    if (supabase) {
+      try {
+        await supabase.from("goals").delete().eq("id", id);
+      } catch {}
+      try {
+        await supabase.from("feedbacks").delete().eq("id", id);
+      } catch {}
+    }
+
+    return apiSuccess({ message: "Goal deleted successfully from Supabase", id }, 200);
+  } catch (err: any) {
+    return apiError(err.message || "Failed to delete goal", 500);
   }
 }

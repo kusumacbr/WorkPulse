@@ -680,6 +680,10 @@ export interface SharedLeadHelpRequest {
   acknowledgedAt?: string;
   resolvedAt?: string;
   leadResponse?: string;
+  resolvedByEmployee?: boolean;
+  resolvedByEmployeeAt?: string;
+  resolvedByLead?: boolean;
+  resolvedByLeadAt?: string;
 }
 
 export interface SharedTeamPresence {
@@ -864,6 +868,7 @@ let activeSyncPromise: Promise<void> | null = null;
 let lastSyncTimestamp = 0;
 let isHydrating = false;
 let supabaseHydrated = false; // True once Supabase data has been fetched — prevents hardcoded defaults from overriding
+let notifyTimer: any = null;
 
 export function subscribeToSharedStore(listener: () => void) {
   listeners.add(listener);
@@ -873,19 +878,22 @@ export function subscribeToSharedStore(listener: () => void) {
 }
 
 function notify() {
-  saveToStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
-  saveToStorage(STORAGE_KEYS.FEEDBACKS, globalFeedbacks);
-  saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
-  saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
-  saveToStorage(STORAGE_KEYS.PROFILE_QUERIES, globalProfileQueries);
-  saveToStorage(STORAGE_KEYS.HELP_REQUESTS, globalHelpRequests);
-  saveToStorage(STORAGE_KEYS.TEAM_PRESENCE, globalTeamPresence);
-  listeners.forEach((l) => l());
-  if (typeof window !== "undefined") {
-    try {
-      window.dispatchEvent(new CustomEvent("workpulse_sync"));
-    } catch {}
-  }
+  if (notifyTimer) clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(() => {
+    saveToStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
+    saveToStorage(STORAGE_KEYS.FEEDBACKS, globalFeedbacks);
+    saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+    saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+    saveToStorage(STORAGE_KEYS.PROFILE_QUERIES, globalProfileQueries);
+    saveToStorage(STORAGE_KEYS.HELP_REQUESTS, globalHelpRequests);
+    saveToStorage(STORAGE_KEYS.TEAM_PRESENCE, globalTeamPresence);
+    listeners.forEach((l) => l());
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
+  }, 10);
 }
 
 async function syncEmployeeToSupabase(emp: OrgEmployee): Promise<void> {
@@ -989,6 +997,43 @@ async function syncLeaveRequestToSupabase(req: SharedLeaveRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "upsert", table: "leave_requests", record: payload }),
+    }).catch(() => {});
+  } catch {
+    // Graceful offline fallback
+  }
+}
+
+async function syncWfhRequestToSupabase(req: SharedWfhRequest) {
+  if (typeof window === "undefined") return;
+  try {
+    const payload = {
+      id: req.id,
+      employee_id: req.employeeId,
+      employee_name: req.employeeName,
+      department_name: req.departmentName,
+      department_id: req.departmentId,
+      designation: req.designation,
+      start_date: req.startDate,
+      end_date: req.endDate,
+      days_count: req.daysCount,
+      reason: req.reason,
+      availability_hours: req.availabilityHours,
+      contact_method: req.contactMethod,
+      planned_deliverables: req.plannedDeliverables,
+      status: req.status,
+      tl_approver_name: req.tlApproverName,
+      tl_approved_at: req.tlApprovedAt ? new Date().toISOString() : null,
+      tl_comment: req.tlComment,
+      hr_approver_name: req.hrApproverName,
+      hr_approved_at: req.hrApprovedAt ? new Date().toISOString() : null,
+      hr_comment: req.hrComment,
+      rejection_reason: req.rejectionReason,
+    };
+
+    fetch("/api/v1/supabase/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "upsert", table: "wfh_requests", record: payload }),
     }).catch(() => {});
   } catch {
     // Graceful offline fallback
@@ -1455,9 +1500,11 @@ export const WorkpulseSharedStore = {
             ? "admin-david"
             : "lead-alex");
 
+        const matchingLead = supaEmployees.find((s) => s.id === teamLeadId || (s.email && s.email.toLowerCase() === teamLeadId?.toLowerCase()));
         const teamLeadName =
           se.teamLeadName ||
           se.manager_name ||
+          matchingLead?.name ||
           (teamLeadId === "lead-marcus"
             ? "Marcus Vance"
             : teamLeadId === "lead-vikram"
@@ -1492,15 +1539,29 @@ export const WorkpulseSharedStore = {
         };
       });
 
-    // Populate each department cleanly with mapped employees
+    // Populate each department cleanly with mapped employees and latest teamLead
     globalDepartments = globalDepartments.map((baseDept) => {
       const deptEmployees = allMapped.filter(
         (emp) =>
           emp.departmentId === baseDept.id ||
           emp.departmentName.toLowerCase() === baseDept.name.toLowerCase()
       );
+      const leadFromSupa = allMapped.find(
+        (emp) => emp.id === baseDept.teamLead.id || emp.email.toLowerCase() === baseDept.teamLead.email.toLowerCase()
+      );
+      const updatedTeamLead = leadFromSupa
+        ? {
+            id: leadFromSupa.id,
+            name: leadFromSupa.name,
+            email: leadFromSupa.email,
+            designation: leadFromSupa.designation,
+            avatar: leadFromSupa.avatar,
+          }
+        : baseDept.teamLead;
+
       return {
         ...baseDept,
+        teamLead: updatedTeamLead,
         employees: deptEmployees,
       };
     });
@@ -1517,15 +1578,22 @@ export const WorkpulseSharedStore = {
     const empWorkMode = emp.workMode || emp.work_mode || "OFFICE";
     const empStatus = emp.status || "ACTIVE";
     const empLeaveBalance = emp.remainingLeaveBalance ?? emp.leave_balance ?? 12.0;
+    const empAvatar = empName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
 
     let found = false;
     globalDepartments = globalDepartments.map((dept) => {
+      const isLead = dept.teamLead.id === empId || dept.teamLead.email.toLowerCase() === empEmail.toLowerCase();
+      const updatedLead = isLead
+        ? { ...dept.teamLead, name: empName, email: empEmail, designation: empDesignation, avatar: empAvatar }
+        : dept.teamLead;
+
       if (dept.name.toLowerCase() === empDeptName.toLowerCase() || dept.id === emp.departmentId || dept.id === emp.department_id) {
         const existingEmp = dept.employees.find((e) => e.id === empId || e.email.toLowerCase() === empEmail.toLowerCase());
         if (existingEmp) {
           found = true;
           return {
             ...dept,
+            teamLead: updatedLead,
             employees: dept.employees.map((e) =>
               e.id === existingEmp.id
                 ? {
@@ -1536,7 +1604,10 @@ export const WorkpulseSharedStore = {
                     workMode: empWorkMode,
                     status: empStatus,
                     remainingLeaveBalance: empLeaveBalance,
+                    avatar: empAvatar,
                   }
+                : isLead
+                ? { ...e, teamLeadName: empName }
                 : e
             ),
           };
@@ -1544,6 +1615,7 @@ export const WorkpulseSharedStore = {
           found = true;
           return {
             ...dept,
+            teamLead: updatedLead,
             employees: [
               {
                 id: empId,
@@ -1554,7 +1626,7 @@ export const WorkpulseSharedStore = {
                 departmentName: dept.name,
                 teamLeadId: dept.teamLead.id,
                 teamLeadName: dept.teamLead.name,
-                avatar: empName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
+                avatar: empAvatar,
                 workMode: empWorkMode,
                 status: empStatus,
                 sodStatus: "SUBMITTED",
@@ -1568,7 +1640,13 @@ export const WorkpulseSharedStore = {
           };
         }
       }
-      return dept;
+      return isLead
+        ? {
+            ...dept,
+            teamLead: updatedLead,
+            employees: dept.employees.map((e) => ({ ...e, teamLeadName: empName })),
+          }
+        : dept;
     });
 
     if (!found && globalDepartments.length > 0) {
@@ -1583,7 +1661,7 @@ export const WorkpulseSharedStore = {
           departmentName: targetDept.name,
           teamLeadId: targetDept.teamLead.id,
           teamLeadName: targetDept.teamLead.name,
-          avatar: empName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),
+          avatar: empAvatar,
           workMode: empWorkMode,
           status: empStatus,
           sodStatus: "SUBMITTED",
@@ -1869,10 +1947,18 @@ export const WorkpulseSharedStore = {
     const targetDept =
       globalDepartments.find((d) => d.id === targetDeptId) || currentDept;
 
+    const newName = updates.name ?? existing.name;
+    const oldName = existing.name;
+    const isNameChanged = updates.name !== undefined && updates.name !== oldName;
+
+    const newAvatar = isNameChanged
+      ? newName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+      : (updates.avatar ?? existing.avatar);
+
     const updated: OrgEmployee = {
       ...existing,
       ...updates,
-      name: updates.name ?? existing.name,
+      name: newName,
       email: updates.email ?? existing.email,
       designation: updates.designation ?? existing.designation,
       workMode: updates.workMode ?? existing.workMode,
@@ -1891,6 +1977,7 @@ export const WorkpulseSharedStore = {
       departmentName: targetDept.name,
       teamLeadId: targetDept.teamLead.id,
       teamLeadName: targetDept.teamLead.name,
+      avatar: newAvatar,
     };
 
     updatedEmployee = updated;
@@ -1939,29 +2026,55 @@ export const WorkpulseSharedStore = {
       });
     }
 
-    // Cascade update to department Team Leads if applicable
+    // Cascade update to department Team Leads and ALL reportees across the entire organization
     globalDepartments = globalDepartments.map((d) => {
-      if (d.teamLead.id.toLowerCase() === targetId || d.teamLead.email.toLowerCase() === targetId) {
-        return {
-          ...d,
-          teamLead: {
+      const isThisLead = d.teamLead.id.toLowerCase() === targetId || d.teamLead.email.toLowerCase() === targetId;
+      const updatedLead = isThisLead
+        ? {
             ...d.teamLead,
             name: updated.name,
             designation: updated.designation,
             email: updated.email,
-          },
-          // Update teamLeadName for all direct reports in this department
-          employees: d.employees.map((emp) =>
-            emp.id.toLowerCase() === targetId ? emp : { ...emp, teamLeadName: updated.name }
-          ),
-        };
-      }
-      return d;
+            avatar: newAvatar,
+          }
+        : d.teamLead;
+
+      const updatedEmployees = d.employees.map((emp) => {
+        if (emp.id.toLowerCase() === targetId) return updated;
+        let empModified = false;
+        let leadName = emp.teamLeadName;
+        if (isThisLead || emp.teamLeadId?.toLowerCase() === targetId || (oldName && emp.teamLeadName?.toLowerCase() === oldName.toLowerCase())) {
+          leadName = updated.name;
+          empModified = true;
+        }
+        let sodVerified = emp.sodVerifiedBy;
+        if (oldName && sodVerified?.toLowerCase() === oldName.toLowerCase()) {
+          sodVerified = updated.name;
+          empModified = true;
+        }
+        let eodVerified = emp.eodVerifiedBy;
+        if (oldName && eodVerified?.toLowerCase() === oldName.toLowerCase()) {
+          eodVerified = updated.name;
+          empModified = true;
+        }
+        let tasks = emp.plannedTasks;
+        if (oldName && tasks?.some((t) => t.assignedBy?.toLowerCase() === oldName.toLowerCase())) {
+          tasks = tasks.map((t) => t.assignedBy?.toLowerCase() === oldName.toLowerCase() ? { ...t, assignedBy: updated.name } : t);
+          empModified = true;
+        }
+        return empModified ? { ...emp, teamLeadName: leadName, sodVerifiedBy: sodVerified, eodVerifiedBy: eodVerified, plannedTasks: tasks } : emp;
+      });
+
+      return {
+        ...d,
+        teamLead: updatedLead,
+        employees: updatedEmployees,
+      };
     });
 
     // Cascade update to global feedbacks
     globalFeedbacks = globalFeedbacks.map((f) => {
-      if (f.employeeId.toLowerCase() === targetId) {
+      if (f.employeeId.toLowerCase() === targetId || (oldName && f.employeeName?.toLowerCase() === oldName.toLowerCase())) {
         return {
           ...f,
           employeeName: updated.name,
@@ -1973,29 +2086,129 @@ export const WorkpulseSharedStore = {
 
     // Cascade update to global leave requests
     globalLeaveRequests = globalLeaveRequests.map((r) => {
-      if (r.employeeId.toLowerCase() === targetId) {
-        return {
-          ...r,
-          employeeName: updated.name,
-          departmentName: updated.departmentName,
-          designation: updated.designation,
-          remainingBalance: updated.remainingLeaveBalance,
-        };
+      let rModified = false;
+      let empName = r.employeeName;
+      let deptName = r.departmentName;
+      let desig = r.designation;
+      let remBal = r.remainingBalance;
+      let backupPerson = r.backupPersonName;
+      let tlApprover = r.tlApproverName;
+      let hrApprover = r.hrApproverName;
+
+      if (r.employeeId.toLowerCase() === targetId || (oldName && r.employeeName?.toLowerCase() === oldName.toLowerCase())) {
+        empName = updated.name;
+        deptName = updated.departmentName;
+        desig = updated.designation;
+        remBal = updated.remainingLeaveBalance;
+        rModified = true;
       }
-      return r;
+      if (oldName && backupPerson?.toLowerCase() === oldName.toLowerCase()) {
+        backupPerson = updated.name;
+        rModified = true;
+      }
+      if (oldName && tlApprover && tlApprover.includes(oldName)) {
+        tlApprover = tlApprover.replace(oldName, updated.name);
+        rModified = true;
+      }
+      if (oldName && hrApprover && hrApprover.includes(oldName)) {
+        hrApprover = hrApprover.replace(oldName, updated.name);
+        rModified = true;
+      }
+
+      return rModified
+        ? {
+            ...r,
+            employeeName: empName,
+            departmentName: deptName,
+            designation: desig,
+            remainingBalance: remBal,
+            backupPersonName: backupPerson,
+            tlApproverName: tlApprover,
+            hrApproverName: hrApprover,
+          }
+        : r;
     });
 
     // Cascade update to global WFH requests
     globalWfhRequests = globalWfhRequests.map((r) => {
-      if (r.employeeId.toLowerCase() === targetId) {
+      let rModified = false;
+      let empName = r.employeeName;
+      let deptName = r.departmentName;
+      let desig = r.designation;
+      let tlApprover = r.tlApproverName;
+      let hrApprover = r.hrApproverName;
+
+      if (r.employeeId.toLowerCase() === targetId || (oldName && r.employeeName?.toLowerCase() === oldName.toLowerCase())) {
+        empName = updated.name;
+        deptName = updated.departmentName;
+        desig = updated.designation;
+        rModified = true;
+      }
+      if (oldName && tlApprover && tlApprover.includes(oldName)) {
+        tlApprover = tlApprover.replace(oldName, updated.name);
+        rModified = true;
+      }
+      if (oldName && hrApprover && hrApprover.includes(oldName)) {
+        hrApprover = hrApprover.replace(oldName, updated.name);
+        rModified = true;
+      }
+
+      return rModified
+        ? {
+            ...r,
+            employeeName: empName,
+            departmentName: deptName,
+            designation: desig,
+            tlApproverName: tlApprover,
+            hrApproverName: hrApprover,
+          }
+        : r;
+    });
+
+    // Cascade update to global Profile Queries
+    globalProfileQueries = globalProfileQueries.map((q) => {
+      if (q.employeeId.toLowerCase() === targetId || (oldName && q.employeeName?.toLowerCase() === oldName.toLowerCase())) {
         return {
-          ...r,
+          ...q,
           employeeName: updated.name,
           departmentName: updated.departmentName,
-          designation: updated.designation,
         };
       }
-      return r;
+      return q;
+    });
+
+    // Cascade update to global Help Requests
+    globalHelpRequests = globalHelpRequests.map((h) => {
+      let hModified = false;
+      let empName = h.employeeName;
+      let leadName = h.leadName;
+      if (h.employeeId.toLowerCase() === targetId || (oldName && h.employeeName?.toLowerCase() === oldName.toLowerCase())) {
+        empName = updated.name;
+        hModified = true;
+      }
+      if (oldName && leadName?.toLowerCase() === oldName.toLowerCase()) {
+        leadName = updated.name;
+        hModified = true;
+      }
+      return hModified ? { ...h, employeeName: empName, leadName } : h;
+    });
+
+    // Cascade update to global Team Presence
+    globalTeamPresence = globalTeamPresence.map((p) => {
+      let pModified = false;
+      let pName = p.name;
+      let pAvatar = p.avatar;
+      let pVerifiedBy = p.verifiedBy;
+      if (p.id.toLowerCase() === targetId || (oldName && p.name?.toLowerCase() === oldName.toLowerCase())) {
+        pName = updated.name;
+        pAvatar = newAvatar;
+        pModified = true;
+      }
+      if (oldName && pVerifiedBy?.toLowerCase() === oldName.toLowerCase()) {
+        pVerifiedBy = updated.name;
+        pModified = true;
+      }
+      return pModified ? { ...p, name: pName, avatar: pAvatar, verifiedBy: pVerifiedBy } : p;
     });
 
     notify();
@@ -2054,16 +2267,36 @@ export const WorkpulseSharedStore = {
       }
     }
 
-    // Filter out from all departments
-    globalDepartments = globalDepartments.map((d) => ({
-      ...d,
-      employees: d.employees.filter((e) => e.id.toLowerCase() !== targetId && e.email.toLowerCase() !== targetId),
-    }));
+    // Filter out from all departments and reassign team leads if deleted
+    globalDepartments = globalDepartments.map((d) => {
+      const isLead = d.teamLead && (d.teamLead.id.toLowerCase() === targetId || d.teamLead.email.toLowerCase() === targetId);
+      const fallbackLead = {
+        id: "admin-david",
+        name: "David Director",
+        email: "director.test@xorstack.com",
+        designation: "VP of Engineering & SuperAdmin",
+        avatar: "DD",
+      };
+      return {
+        ...d,
+        teamLead: isLead ? fallbackLead : d.teamLead,
+        employees: d.employees
+          .filter((e) => e.id.toLowerCase() !== targetId && e.email.toLowerCase() !== targetId)
+          .map((e) =>
+            e.teamLeadId?.toLowerCase() === targetId
+              ? { ...e, teamLeadId: "admin-david", teamLeadName: "David Director" }
+              : e
+          ),
+      };
+    });
 
-    // Cascade remove from feedbacks, leave, and wfh requests
+    // Cascade remove from feedbacks, leave, wfh requests, profile queries, help requests, team presence
     globalFeedbacks = globalFeedbacks.filter((f) => f.employeeId.toLowerCase() !== targetId);
     globalLeaveRequests = globalLeaveRequests.filter((r) => r.employeeId.toLowerCase() !== targetId);
     globalWfhRequests = globalWfhRequests.filter((r) => r.employeeId.toLowerCase() !== targetId);
+    globalProfileQueries = globalProfileQueries.filter((q) => q.employeeId.toLowerCase() !== targetId && q.employeeEmail?.toLowerCase() !== targetId);
+    globalHelpRequests = globalHelpRequests.filter((h) => h.employeeId.toLowerCase() !== targetId && h.employeeEmail?.toLowerCase() !== targetId);
+    globalTeamPresence = globalTeamPresence.filter((p) => p.id.toLowerCase() !== targetId);
 
     notify();
     try {
@@ -2145,16 +2378,35 @@ export const WorkpulseSharedStore = {
   ) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const formattedTasks = tasks.map((t, idx) => ({
-      id: t.id || `task-sod-${Date.now()}-${idx}`,
-      title: t.title,
-      project: t.project || "General",
-      priority: t.priority || "MEDIUM",
-      estimatedMinutes: t.estimatedMinutes || 60,
-      completionPercentage: t.completionPercentage || 0,
-      status: t.status || "NOT_STARTED",
-      expectedOutput: t.expectedOutput || t.title,
-    }));
+    const seenIds = new Set<string>();
+    const seenKeys = new Set<string>();
+    const formattedTasks: any[] = [];
+
+    for (const t of (tasks || [])) {
+      if (!t || !t.title) continue;
+      const id = String(t.id || "").trim();
+      const title = String(t.title || "").trim();
+      const proj = String(t.project || "General").trim();
+      const key = `${title.toLowerCase()}__${proj.toLowerCase()}`;
+
+      if (id && seenIds.has(id)) continue;
+      if (key && seenKeys.has(key)) continue;
+
+      if (id) seenIds.add(id);
+      if (key) seenKeys.add(key);
+
+      const prog = Number(t.completionPercentage !== undefined ? t.completionPercentage : (t as any).progress) || 0;
+      formattedTasks.push({
+        id: id || `task-sod-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title,
+        project: proj,
+        priority: t.priority || "MEDIUM",
+        estimatedMinutes: t.estimatedMinutes || 60,
+        completionPercentage: prog,
+        status: t.status || (prog === 100 ? "COMPLETED" : prog > 0 ? "IN_PROGRESS" : "NOT_STARTED"),
+        expectedOutput: t.expectedOutput || title,
+      });
+    }
 
     const targetId = String(employeeId).trim().toLowerCase();
     let updatedEmp: OrgEmployee | undefined;
@@ -2214,6 +2466,17 @@ export const WorkpulseSharedStore = {
         localStorage.removeItem(`workpulse_evening_wrapup_submitted_${employeeId}`);
         localStorage.removeItem(`workpulse_eod_timestamp_${employeeId}`);
         
+        // Save official SOD submitted tasks snapshot
+        localStorage.setItem(`workpulse_sod_submitted_tasks_${employeeId}`, JSON.stringify(formattedTasks));
+        if (updatedEmp?.email) {
+          localStorage.setItem(`workpulse_sod_submitted_tasks_${updatedEmp.email.toLowerCase()}`, JSON.stringify(formattedTasks));
+        }
+        if (targetId.includes("sarah") || targetId.includes("employee.test")) {
+          localStorage.setItem("workpulse_sod_submitted_tasks_emp-sarah", JSON.stringify(formattedTasks));
+          localStorage.setItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com", JSON.stringify(formattedTasks));
+          localStorage.setItem("workpulse_sod_submitted_tasks", JSON.stringify(formattedTasks));
+        }
+
         localStorage.setItem("workpulse_simple_tasks", JSON.stringify(formattedTasks.map(t => ({
           id: t.id,
           title: t.title,
@@ -2417,7 +2680,9 @@ export const WorkpulseSharedStore = {
   assignTaskToEmployee: (
     employeeId: string,
     task: {
+      id?: string;
       title: string;
+      category?: string;
       project?: string;
       priority?: "HIGH" | "MEDIUM" | "LOW";
       estimatedMinutes?: number;
@@ -2431,12 +2696,13 @@ export const WorkpulseSharedStore = {
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const dateStr = now.toLocaleDateString([], { month: "short", day: "numeric" });
     const assignedTimestamp = task.assignedAt || `${dateStr} at ${timeStr}`;
+    const taskCategory = task.category || task.project || "General";
 
     const newTask = {
-      id: `task-assigned-${Date.now()}`,
+      id: task.id || `atask-${Date.now()}`,
       title: task.title,
-      project: task.project || "Frontend & UI",
-      category: task.project || "Frontend & UI",
+      project: taskCategory,
+      category: taskCategory,
       priority: task.priority || "MEDIUM",
       estimatedMinutes: task.estimatedMinutes || 60,
       completionPercentage: 0,
@@ -2474,7 +2740,7 @@ export const WorkpulseSharedStore = {
         const simpleNew = {
           id: newTask.id,
           title: newTask.title,
-          category: newTask.project,
+          category: taskCategory,
           priority: newTask.priority,
           status: "NOT_STARTED",
           progress: 0,
@@ -2493,8 +2759,15 @@ export const WorkpulseSharedStore = {
         ].filter(Boolean) as string[];
 
         empKeys.forEach((key) => {
-          const currentSaved = JSON.parse(window.localStorage.getItem(key) || "[]");
-          window.localStorage.setItem(key, JSON.stringify([simpleNew, ...currentSaved]));
+          let currentSaved: any[] = [];
+          try {
+            const raw = window.localStorage.getItem(key);
+            if (raw) currentSaved = JSON.parse(raw);
+          } catch {}
+          const filtered = (Array.isArray(currentSaved) ? currentSaved : []).filter(
+            (t: any) => t.id !== simpleNew.id && String(t.title || "").toLowerCase() !== simpleNew.title.toLowerCase()
+          );
+          window.localStorage.setItem(key, JSON.stringify([simpleNew, ...filtered]));
         });
 
         // 2. Global assigned tasks log for leads
@@ -2572,11 +2845,29 @@ export const WorkpulseSharedStore = {
 
     if (typeof window !== "undefined" && window.localStorage) {
       try {
-        // Update employee storage keys
+        // Find the employee's email for email-based key coverage
+        let empEmail = "";
+        for (const dept of globalDepartments) {
+          for (const emp of dept.employees) {
+            if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+              empEmail = emp.email.toLowerCase();
+              break;
+            }
+          }
+          if (empEmail) break;
+        }
+
+        // Update employee storage keys — all possible key variants
         const keysToUpdate = [
           `workpulse_simple_tasks_${targetId}`,
           "workpulse_simple_tasks",
-        ];
+          empEmail ? `workpulse_simple_tasks_${empEmail}` : null,
+          `workpulse_sod_submitted_tasks_${targetId}`,
+          empEmail ? `workpulse_sod_submitted_tasks_${empEmail}` : null,
+          targetId === "emp-sarah" || empEmail === "employee.test@xorstack.com" ? "workpulse_simple_tasks_emp-sarah" : null,
+          targetId === "emp-sarah" || empEmail === "employee.test@xorstack.com" ? "workpulse_sod_submitted_tasks_emp-sarah" : null,
+          targetId === "emp-sarah" || empEmail === "employee.test@xorstack.com" ? "workpulse_sod_submitted_tasks" : null,
+        ].filter(Boolean) as string[];
         keysToUpdate.forEach((key) => {
           const raw = window.localStorage.getItem(key);
           if (raw) {
@@ -2871,18 +3162,32 @@ export const WorkpulseSharedStore = {
     return updatedEmp;
   },
 
-  // Reset workday for a fresh next day (resets SOD & EOD, preserves partially completed rollover tasks)
+  // Reset workday for a fresh next day (resets SOD & EOD, preserves partially completed rollover tasks with exact percentage)
   startNewWorkday: (employeeId: string) => {
     const targetId = String(employeeId).trim().toLowerCase();
     let updatedEmp: OrgEmployee | undefined;
+    let carriedOverTasks: any[] = [];
 
     globalDepartments = globalDepartments.map((dept) => ({
       ...dept,
       employees: dept.employees.map((emp) => {
         if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
-          const carriedOverTasks = (emp.plannedTasks || []).filter(
-            (t) => (t.completionPercentage || 0) < 100 && t.status !== "COMPLETED"
-          );
+          // Keep only tasks that are NOT completed (< 100% and status !== COMPLETED)
+          carriedOverTasks = (emp.plannedTasks || [])
+            .filter((t: any) => {
+              const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+              return p < 100 && t.status !== "COMPLETED";
+            })
+            .map((t: any) => {
+              const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+              return {
+                ...t,
+                progress: p,
+                completionPercentage: p,
+                status: p > 0 ? ("IN_PROGRESS" as const) : ("NOT_STARTED" as const),
+              };
+            });
+
           updatedEmp = {
             ...emp,
             sodStatus: "PENDING",
@@ -2908,14 +3213,60 @@ export const WorkpulseSharedStore = {
 
     if (typeof window !== "undefined") {
       try {
+        if (carriedOverTasks.length === 0) {
+          const raw =
+            localStorage.getItem(`workpulse_simple_tasks_${employeeId}`) ||
+            (updatedEmp?.email ? localStorage.getItem(`workpulse_simple_tasks_${updatedEmp.email.toLowerCase()}`) : null) ||
+            localStorage.getItem(`workpulse_sod_submitted_tasks_${employeeId}`) ||
+            localStorage.getItem("workpulse_simple_tasks");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              carriedOverTasks = parsed
+                .filter((t: any) => {
+                  const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+                  return p < 100 && t.status !== "COMPLETED";
+                })
+                .map((t: any) => {
+                  const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+                  return {
+                    ...t,
+                    progress: p,
+                    completionPercentage: p,
+                    status: p > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+                  };
+                });
+            }
+          }
+        }
+
         localStorage.removeItem(`workpulse_morning_plan_submitted_${employeeId}`);
         localStorage.removeItem(`workpulse_evening_wrapup_submitted_${employeeId}`);
         localStorage.removeItem(`workpulse_eod_timestamp_${employeeId}`);
+        localStorage.removeItem(`workpulse_sod_submitted_tasks_${employeeId}`);
+        localStorage.removeItem(`workpulse_eod_submitted_tasks_${employeeId}`);
+
+        // Update active tasks with only carried-over pending tasks with exact percentage
+        const simpleRollover = carriedOverTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          category: t.category || t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: (t.progress || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+          progress: t.progress || 0,
+          completionPercentage: t.progress || 0,
+          dueDate: "Today",
+        }));
+
+        localStorage.setItem(`workpulse_simple_tasks_${employeeId}`, JSON.stringify(simpleRollover));
         if (updatedEmp?.email) {
           const emailKey = updatedEmp.email.toLowerCase();
           localStorage.removeItem(`workpulse_morning_plan_submitted_${emailKey}`);
           localStorage.removeItem(`workpulse_evening_wrapup_submitted_${emailKey}`);
           localStorage.removeItem(`workpulse_eod_timestamp_${emailKey}`);
+          localStorage.removeItem(`workpulse_sod_submitted_tasks_${emailKey}`);
+          localStorage.removeItem(`workpulse_eod_submitted_tasks_${emailKey}`);
+          localStorage.setItem(`workpulse_simple_tasks_${emailKey}`, JSON.stringify(simpleRollover));
         }
         if (targetId.includes("sarah") || targetId.includes("employee.test")) {
           localStorage.removeItem("workpulse_morning_plan_submitted_emp-sarah");
@@ -2924,6 +3275,12 @@ export const WorkpulseSharedStore = {
           localStorage.removeItem("workpulse_morning_plan_submitted_employee.test@xorstack.com");
           localStorage.removeItem("workpulse_evening_wrapup_submitted_employee.test@xorstack.com");
           localStorage.removeItem("workpulse_eod_timestamp_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_sod_submitted_tasks_emp-sarah");
+          localStorage.removeItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_sod_submitted_tasks");
+          localStorage.removeItem("workpulse_eod_submitted_tasks_emp-sarah");
+          localStorage.removeItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com");
+          localStorage.setItem("workpulse_simple_tasks", JSON.stringify(simpleRollover));
         }
 
         const savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
@@ -2947,6 +3304,7 @@ export const WorkpulseSharedStore = {
         }
         localStorage.setItem("workpulse_lead_daily_feedback", JSON.stringify(savedFeedback));
         window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "new_workday" } }));
+        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId, tasks: simpleRollover } }));
         window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
@@ -2986,17 +3344,22 @@ export const WorkpulseSharedStore = {
         localStorage.removeItem(`workpulse_morning_plan_timestamp_${employeeId}`);
         localStorage.removeItem(`workpulse_simple_tasks_${employeeId}`);
         localStorage.removeItem("workpulse_simple_tasks");
+        localStorage.removeItem(`workpulse_sod_submitted_tasks_${employeeId}`);
         if (updatedEmp?.email) {
           const emailKey = updatedEmp.email.toLowerCase();
           localStorage.removeItem(`workpulse_morning_plan_submitted_${emailKey}`);
           localStorage.removeItem(`workpulse_morning_plan_timestamp_${emailKey}`);
           localStorage.removeItem(`workpulse_simple_tasks_${emailKey}`);
+          localStorage.removeItem(`workpulse_sod_submitted_tasks_${emailKey}`);
         }
         if (targetId.includes("sarah") || targetId.includes("employee.test")) {
           localStorage.removeItem("workpulse_morning_plan_submitted_emp-sarah");
           localStorage.removeItem("workpulse_morning_plan_submitted_employee.test@xorstack.com");
           localStorage.removeItem("workpulse_morning_plan_timestamp_emp-sarah");
           localStorage.removeItem("workpulse_morning_plan_timestamp_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_sod_submitted_tasks_emp-sarah");
+          localStorage.removeItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com");
+          localStorage.removeItem("workpulse_sod_submitted_tasks");
         }
         fetch("/api/v1/workdays/sod", {
           method: "DELETE",
@@ -3195,7 +3558,20 @@ export const WorkpulseSharedStore = {
   setLeaveRequestsFromSupabase: (requests: SharedLeaveRequest[]) => {
     if (Array.isArray(requests)) {
       const deletedIds = getDeletedLeaveIds();
-      globalLeaveRequests = requests.filter((r) => !deletedIds.has(r.id));
+      // Keep any optimistic local requests that haven't synced to Supabase yet
+      const optimisticPending = globalLeaveRequests.filter(
+        (localReq) =>
+          !deletedIds.has(localReq.id) &&
+          !requests.some(
+            (r) =>
+              r.id === localReq.id ||
+              (r.employeeId === localReq.employeeId &&
+                r.startDate === localReq.startDate &&
+                r.endDate === localReq.endDate &&
+                r.leaveType === localReq.leaveType)
+          )
+      );
+      globalLeaveRequests = [...optimisticPending, ...requests].filter((r) => !deletedIds.has(r.id));
       saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
       notify();
     }
@@ -3215,6 +3591,7 @@ export const WorkpulseSharedStore = {
       }
       return req;
     });
+    saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
     if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
     try {
@@ -3236,6 +3613,7 @@ export const WorkpulseSharedStore = {
       }
       return req;
     });
+    saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
     if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
     try {
@@ -3294,6 +3672,7 @@ export const WorkpulseSharedStore = {
       }
     }
 
+    saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
     if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
     try {
@@ -3315,11 +3694,13 @@ export const WorkpulseSharedStore = {
       }
       return req;
     });
+    saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
     if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
   },
 
   addLeaveRequest: (req: {
+    id?: string;
     employeeId?: string;
     employeeName?: string;
     departmentId?: string;
@@ -3335,7 +3716,7 @@ export const WorkpulseSharedStore = {
   }) => {
     const daysCount = req.daysCount ?? 1.0;
     const newReq: SharedLeaveRequest = {
-      id: `leave-req-v2-${Date.now()}`,
+      id: req.id || `leave-req-v2-${Date.now()}`,
       employeeId: req.employeeId || "emp-sarah",
       employeeName: req.employeeName || "Sarah Dev",
       departmentId: req.departmentId || "dept-development",
@@ -3353,7 +3734,11 @@ export const WorkpulseSharedStore = {
       createdAt: new Date().toISOString(),
     };
     globalLeaveRequests = [newReq, ...globalLeaveRequests];
+    saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
+    try {
+      realtimeEventBus.emit("leave:created", { id: newReq.id });
+    } catch {}
     syncLeaveRequestToSupabase(newReq);
     return newReq;
   },
@@ -3425,14 +3810,15 @@ export const WorkpulseSharedStore = {
     } catch {}
   },
 
-  addWfhRequest: async (req: {
+  addWfhRequest: (req: {
+    id?: string;
     employeeId?: string;
     employeeName?: string;
     departmentId?: string;
     departmentName?: string;
     designation?: string;
     startDate: string;
-    endDate: string;
+    endDate?: string;
     daysCount?: number;
     reason: string;
     availabilityHours?: string;
@@ -3440,14 +3826,14 @@ export const WorkpulseSharedStore = {
     plannedDeliverables?: string;
   }) => {
     const newReq: SharedWfhRequest = {
-      id: `wfh-req-v2-${Date.now()}`,
+      id: req.id || `wfh-req-v2-${Date.now()}`,
       employeeId: req.employeeId || "emp-sarah",
       employeeName: req.employeeName || "Sarah Dev",
       departmentId: req.departmentId || "dept-development",
       departmentName: req.departmentName || "Development",
       designation: req.designation || "Senior Backend Engineer",
       startDate: req.startDate,
-      endDate: req.endDate,
+      endDate: req.endDate || req.startDate,
       daysCount: req.daysCount ?? 1.0,
       reason: req.reason,
       availabilityHours: req.availabilityHours || "10:00 AM – 07:00 PM",
@@ -3456,44 +3842,38 @@ export const WorkpulseSharedStore = {
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
     };
-    
-    // Strict Supabase write
-    try {
-      const res = await fetch("/api/v1/leave/wfh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newReq)
-      });
-      if (!res.ok) throw new Error("Failed to create WFH in Supabase");
-    } catch (err) {
-      console.error("Failed to create WFH request", err);
-      return newReq;
-    }
-    
+
     globalWfhRequests = [newReq, ...globalWfhRequests];
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
     try {
       realtimeEventBus.emit("wfh:created", { id: newReq.id });
     } catch {}
+
+    syncWfhRequestToSupabase(newReq);
     return newReq;
   },
 
-  deleteWfhRequest: async (requestId: string) => {
-    try {
-      const res = await fetch(`/api/v1/leave/wfh/${requestId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete WFH from Supabase");
-    } catch (err) {
-      console.error(err);
-      return;
-    }
-    
+  deleteWfhRequest: (requestId: string) => {
     globalWfhRequests = globalWfhRequests.filter((req) => req.id !== requestId);
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
     try {
       realtimeEventBus.emit("wfh:deleted", { id: requestId });
     } catch {}
+
+    if (typeof window !== "undefined") {
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          table: "wfh_requests",
+          id: requestId,
+        }),
+      }).catch(() => {});
+      fetch(`/api/v1/leave/wfh/${requestId}`, { method: "DELETE" }).catch(() => {});
+    }
   },
 
   // WFH Requests
@@ -3502,15 +3882,26 @@ export const WorkpulseSharedStore = {
   },
   setWfhRequestsFromSupabase: (requests: SharedWfhRequest[]) => {
     if (Array.isArray(requests)) {
-      globalWfhRequests = requests;
+      // Preserve optimistic local requests that haven't synced to Supabase yet
+      const optimisticPending = globalWfhRequests.filter(
+        (localReq) =>
+          !requests.some(
+            (r) =>
+              r.id === localReq.id ||
+              (r.employeeId === localReq.employeeId &&
+                r.startDate === localReq.startDate &&
+                r.endDate === localReq.endDate)
+          )
+      );
+      globalWfhRequests = [...optimisticPending, ...requests];
       saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
       notify();
     }
   },
-  tlApproveWfh: async (requestId: string, comment?: string, leadName?: string) => {
-    const req = globalWfhRequests.find(r => r.id === requestId);
+  tlApproveWfh: (requestId: string, comment?: string, leadName?: string) => {
+    const req = globalWfhRequests.find((r) => r.id === requestId);
     if (!req) return;
-    
+
     const updatedReq: SharedWfhRequest = {
       ...req,
       status: "FORWARDED_TO_HR",
@@ -3518,49 +3909,53 @@ export const WorkpulseSharedStore = {
       tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
       tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
     };
-    
-    try {
-      const res = await fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tlComment: updatedReq.tlComment, tlApproverName: updatedReq.tlApproverName })
-      });
-      if (!res.ok) throw new Error("Failed to approve in Supabase");
-    } catch (err) { console.error(err); return; }
 
-    globalWfhRequests = globalWfhRequests.map((r) => r.id === requestId ? updatedReq : r);
+    globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
-    try { realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_1", comment }); } catch {}
+    syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_1", comment });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tlComment: updatedReq.tlComment, tlApproverName: updatedReq.tlApproverName }),
+      }).catch(() => {});
+    }
   },
-  tlRejectWfh: async (requestId: string, reason: string) => {
-    const req = globalWfhRequests.find(r => r.id === requestId);
+  tlRejectWfh: (requestId: string, reason: string) => {
+    const req = globalWfhRequests.find((r) => r.id === requestId);
     if (!req) return;
-    
+
     const updatedReq: SharedWfhRequest = {
       ...req,
       status: "REJECTED",
       rejectionReason: reason || "Rejected by Team Lead",
     };
-    
-    try {
-      const res = await fetch(`/api/v1/leave/wfh/${requestId}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason })
-      });
-      if (!res.ok) throw new Error("Failed to reject in Supabase");
-    } catch (err) { console.error(err); return; }
 
-    globalWfhRequests = globalWfhRequests.map((r) => r.id === requestId ? updatedReq : r);
+    globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
-    try { realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_1", reason }); } catch {}
+    syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_1", reason });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      fetch(`/api/v1/leave/wfh/${requestId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason }),
+      }).catch(() => {});
+    }
   },
-  hrApproveWfh: async (requestId: string, comment?: string) => {
-    const req = globalWfhRequests.find(r => r.id === requestId);
+  hrApproveWfh: (requestId: string, comment?: string) => {
+    const req = globalWfhRequests.find((r) => r.id === requestId);
     if (!req) return;
-    
+
     const updatedReq: SharedWfhRequest = {
       ...req,
       status: "APPROVED",
@@ -3568,44 +3963,48 @@ export const WorkpulseSharedStore = {
       hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
       hrComment: comment || "Final HR Approval granted for remote workday.",
     };
-    
-    try {
-      const res = await fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hrComment: updatedReq.hrComment, hrApproverName: updatedReq.hrApproverName })
-      });
-      if (!res.ok) throw new Error("Failed to approve in Supabase");
-    } catch (err) { console.error(err); return; }
 
-    globalWfhRequests = globalWfhRequests.map((r) => r.id === requestId ? updatedReq : r);
+    globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
-    try { realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_2", comment }); } catch {}
+    syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_2", comment });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hrComment: updatedReq.hrComment, hrApproverName: updatedReq.hrApproverName }),
+      }).catch(() => {});
+    }
   },
-  hrRejectWfh: async (requestId: string, reason: string) => {
-    const req = globalWfhRequests.find(r => r.id === requestId);
+  hrRejectWfh: (requestId: string, reason: string) => {
+    const req = globalWfhRequests.find((r) => r.id === requestId);
     if (!req) return;
-    
+
     const updatedReq: SharedWfhRequest = {
       ...req,
       status: "REJECTED",
       rejectionReason: reason || "Rejected by HR",
     };
-    
-    try {
-      const res = await fetch(`/api/v1/leave/wfh/${requestId}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason })
-      });
-      if (!res.ok) throw new Error("Failed to reject in Supabase");
-    } catch (err) { console.error(err); return; }
 
-    globalWfhRequests = globalWfhRequests.map((r) => r.id === requestId ? updatedReq! : r);
+    globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
-    try { realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_2", reason }); } catch {}
+    syncWfhRequestToSupabase(updatedReq);
+    try {
+      realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_2", reason });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      fetch(`/api/v1/leave/wfh/${requestId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason }),
+      }).catch(() => {});
+    }
   },
 
   // Profile Change Queries
@@ -3725,8 +4124,10 @@ export const WorkpulseSharedStore = {
       ...req,
       status: "PENDING",
       createdAt: timeStr,
+      resolvedByEmployee: false,
+      resolvedByLead: false,
     };
-    globalHelpRequests = [newHelp, ...globalHelpRequests.filter((h) => h.employeeId !== req.employeeId || h.status === "RESOLVED")];
+    globalHelpRequests = [newHelp, ...globalHelpRequests.filter((h) => h.employeeId !== req.employeeId || h.status === "RESOLVED" || (h.resolvedByEmployee && h.resolvedByLead))];
     notify();
     try {
       realtimeEventBus.emit("workday:help_requested", newHelp);
@@ -3751,21 +4152,28 @@ export const WorkpulseSharedStore = {
       realtimeEventBus.emit("workday:help_acknowledged", { id, responseNote });
     } catch {}
   },
-  resolveHelpRequest: (id: string) => {
+  resolveHelpRequest: (id: string, actor: "employee" | "lead" | "both" = "both") => {
     const now = new Date();
     const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    globalHelpRequests = globalHelpRequests.map((h) =>
-      h.id === id
-        ? {
-            ...h,
-            status: "RESOLVED",
-            resolvedAt: timeStr,
-          }
-        : h
-    );
+    globalHelpRequests = globalHelpRequests.map((h) => {
+      if (h.id !== id) return h;
+      const resolvedByEmployee = actor === "employee" || actor === "both" ? true : !!h.resolvedByEmployee;
+      const resolvedByLead = actor === "lead" || actor === "both" ? true : !!h.resolvedByLead;
+      const bothResolved = resolvedByEmployee && resolvedByLead;
+
+      return {
+        ...h,
+        resolvedByEmployee,
+        resolvedByEmployeeAt: (actor === "employee" || actor === "both") ? (h.resolvedByEmployeeAt || timeStr) : h.resolvedByEmployeeAt,
+        resolvedByLead,
+        resolvedByLeadAt: (actor === "lead" || actor === "both") ? (h.resolvedByLeadAt || timeStr) : h.resolvedByLeadAt,
+        status: bothResolved ? ("RESOLVED" as const) : h.status,
+        resolvedAt: bothResolved ? (h.resolvedAt || timeStr) : h.resolvedAt,
+      };
+    });
     notify();
     try {
-      realtimeEventBus.emit("workday:help_resolved", { id });
+      realtimeEventBus.emit("workday:help_resolved", { id, actor });
     } catch {}
   },
   cancelHelpRequest: (id: string) => {

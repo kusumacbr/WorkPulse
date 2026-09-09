@@ -69,13 +69,17 @@ export default function DashboardPage() {
     setMounted(true);
     WorkpulseSharedStore.hydrateFromStorage();
 
+    let syncTimer: any = null;
     const handleSync = () => {
-      setSyncVersion((v) => v + 1);
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        setSyncVersion((v) => v + 1);
+      }, 30);
     };
 
     const handleStorageEvent = () => {
       WorkpulseSharedStore.hydrateFromStorage();
-      setSyncVersion((v) => v + 1);
+      handleSync();
     };
 
     const unsubscribeStore = subscribeToSharedStore(handleSync);
@@ -139,6 +143,7 @@ export default function DashboardPage() {
     }
 
     return () => {
+      if (syncTimer) clearTimeout(syncTimer);
       unsubscribeStore();
       events.forEach((evt) => {
         try {
@@ -631,20 +636,6 @@ export default function DashboardPage() {
                     ? "Team Lead Analytics Workspace"
                     : "Member Execution Workspace"}
                 </Badge>
-
-                {isHR ? (
-                  <span className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-1 rounded-full border border-border/60">
-                    {departments.length || 6} Departments · {orgTotalStaff} Employees
-                  </span>
-                ) : isLead ? (
-                  <span className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-1 rounded-full border border-border/60">
-                    Development Team · {cleanTeamMembers.length} Direct Reports
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-1 rounded-full border border-border/60">
-                    Individual Contributor · Active Shift
-                  </span>
-                )}
               </div>
 
               <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">
@@ -653,14 +644,6 @@ export default function DashboardPage() {
                   {user.userName}
                 </span>
               </h1>
-
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                {isHR
-                  ? "Track company attendance, team progress, and pending leave requests in real time."
-                  : isLead
-                  ? "Check in on your team's presence, daily task plans, and pending leave requests."
-                  : "Track your work hours, daily tasks, goals, and available leave balance."}
-              </p>
             </div>
 
             {/* Action Shortcuts */}
@@ -683,7 +666,7 @@ export default function DashboardPage() {
                 <Link href="/my-work">
                   <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md">
                     <ListTodo className="h-4 w-4" />
-                    <span>Manage Tasks</span>
+                    <span>Tasks</span>
                   </Button>
                 </Link>
               )}
@@ -757,7 +740,6 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-foreground">Today&apos;s Overview</h4>
-                      <p className="text-[11px] text-muted-foreground">Attendance, Tasks, Goals &amp; Leave</p>
                     </div>
                   </div>
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -798,7 +780,6 @@ export default function DashboardPage() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-[11px] text-muted-foreground">Your active tasks and daily priorities</p>
                     </div>
                   </div>
                   <Link href="/my-work" className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1">
@@ -819,8 +800,8 @@ export default function DashboardPage() {
                           Pending SOD
                         </Badge>
                       </h5>
-                      <p className="text-xs text-muted-foreground max-w-md">
-                        You haven&apos;t started or submitted today&apos;s morning plan yet. Plan your daily deliverables and submit your Start-of-Day (SOD) plan to track progress and sync with your team.
+                      <p className="text-xs text-muted-foreground">
+                        No active tasks found. Submit your morning plan to start tracking.
                       </p>
                     </div>
                   </div>
@@ -869,7 +850,6 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-foreground">Time-Off Balance</h4>
-                      <p className="text-[11px] text-muted-foreground">Available leave and remote days</p>
                     </div>
                   </div>
                 </div>
@@ -923,7 +903,6 @@ export default function DashboardPage() {
                 <WorkforceDistributionDonut
                   data={teamWorkforceSlices}
                   title="Team Presence Today"
-                  subtitle="In-Office vs Remote vs On Leave"
                   size={180}
                   holeSize={58}
                 />
@@ -938,7 +917,6 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-foreground">Team Daily Completion Rate</h4>
-                      <p className="text-[11px] text-muted-foreground">Percentage of daily planned tasks completed across the team</p>
                     </div>
                   </div>
                   <Badge variant="emerald" className="text-[10px] font-bold">
@@ -966,7 +944,6 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-foreground">Team Members Status</h4>
-                    <p className="text-[11px] text-muted-foreground">Work mode, morning plan submission &amp; daily progress</p>
                   </div>
                 </div>
                 <Link href="/my-work" className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1">
@@ -1024,7 +1001,6 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-foreground">Pending Team Leave &amp; WFH Requests</h3>
-                    <p className="text-[11px] text-muted-foreground">Requests waiting for your initial review</p>
                   </div>
                 </div>
                 <Link href="/leave" className="text-xs font-bold text-rose-600 dark:text-rose-500 hover:underline flex items-center gap-1">
@@ -1077,7 +1053,6 @@ export default function DashboardPage() {
                 <WorkforceDistributionDonut
                   data={orgWorkforceSlices}
                   title="Workforce Distribution Today"
-                  subtitle="In Office vs Remote (WFH) vs On Leave"
                   size={180}
                   holeSize={58}
                 />
@@ -1092,7 +1067,6 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-foreground">30-Day Company Attendance</h4>
-                      <p className="text-[11px] text-muted-foreground">Overall attendance percentage across all teams</p>
                     </div>
                   </div>
                   <Badge variant="emerald" className="text-[10px] font-bold">
@@ -1116,7 +1090,7 @@ export default function DashboardPage() {
               <DepartmentVelocityBarChart
                 departments={departmentMetrics}
                 title="Departments Overview"
-                subtitle="Team sizes, department leads, and today's attendance"
+                subtitle=""
               />
             </div>
 
@@ -1129,7 +1103,6 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-foreground">Pending Stage-2 HR Authorizations</h3>
-                    <p className="text-[11px] text-muted-foreground">Final approvals needed for payroll &amp; records</p>
                   </div>
                 </div>
                 <Link href="/leave" className="text-xs font-bold text-rose-600 dark:text-rose-500 hover:underline flex items-center gap-1">

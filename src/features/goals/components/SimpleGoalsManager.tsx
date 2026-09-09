@@ -177,7 +177,17 @@ const GOAL_CATEGORY_CONFIG: Record<string, GoalCategoryStyle> = {
 
 export function SimpleGoalsManager() {
   const currentUser = useCurrentUser();
-  const employeeId = currentUser?.userEmail || "emp-sarah";
+  const userEmail = currentUser?.userEmail || "employee.test@xorstack.com";
+  
+  const EMAIL_TO_EMP_ID: Record<string, string> = {
+    "employee.test@xorstack.com": "emp-sarah",
+    "rohit.test@xorstack.com": "emp-rohit",
+    "api.test@xorstack.com": "emp-api",
+    "test.test@xorstack.com": "emp-test",
+    "lead.test@xorstack.com": "emp-sarah",
+  };
+  const empId = EMAIL_TO_EMP_ID[userEmail] || userEmail;
+
   const [goals, setGoals] = useState<SimpleGoalItem[]>([]);
   const [activeTab, setActiveTab] = useState<GoalTab>("ALL");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -187,55 +197,73 @@ export function SimpleGoalsManager() {
   const [newTargetDate, setNewTargetDate] = useState("This Month");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Load goals from Supabase API on mount
+  // Load goals from Supabase API & localStorage on mount
   useEffect(() => {
     const loadGoals = async () => {
+      // 1. Try Supabase API
       try {
-        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(employeeId)}`);
+        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(empId)}`);
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.data?.goals)) {
+          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
             setGoals(data.data.goals);
             if (typeof window !== "undefined") {
               localStorage.setItem("workpulse_simple_goals", JSON.stringify(data.data.goals));
+              localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(data.data.goals));
+              localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(data.data.goals));
             }
             return;
           }
         }
       } catch {}
-      // Fallback to localStorage
+
+      // 2. Fallback to localStorage
       try {
-        const saved = localStorage.getItem("workpulse_simple_goals");
-        if (saved !== null) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
+        const savedEmp = localStorage.getItem(`workpulse_simple_goals_${empId}`);
+        const savedEmail = localStorage.getItem(`workpulse_simple_goals_${userEmail}`);
+        const savedDefault = localStorage.getItem("workpulse_simple_goals");
+        const raw = savedEmp || savedEmail || savedDefault;
+        if (raw !== null) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
             setGoals(parsed);
             return;
           }
         }
       } catch {}
-      // If nothing loaded, initialize empty
-      setGoals([]);
+
+      // 3. Fallback to default friendly goals
+      setGoals(DEFAULT_FRIENDLY_GOALS);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("workpulse_simple_goals", JSON.stringify(DEFAULT_FRIENDLY_GOALS));
+          localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(DEFAULT_FRIENDLY_GOALS));
+          localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(DEFAULT_FRIENDLY_GOALS));
+        } catch {}
+      }
     };
     loadGoals();
-  }, [employeeId]);
+  }, [empId, userEmail]);
 
   // Listen to cross-component sync events
   useEffect(() => {
     const handleSync = async () => {
       try {
-        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(employeeId)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals)) {
-            setGoals(data.data.goals);
+        const savedEmp = localStorage.getItem(`workpulse_simple_goals_${empId}`);
+        const savedEmail = localStorage.getItem(`workpulse_simple_goals_${userEmail}`);
+        const savedDefault = localStorage.getItem("workpulse_simple_goals");
+        const raw = savedEmp || savedEmail || savedDefault;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            setGoals(parsed);
           }
         }
       } catch {}
     };
     window.addEventListener("workpulse_sync", handleSync);
     return () => window.removeEventListener("workpulse_sync", handleSync);
-  }, [employeeId]);
+  }, [empId, userEmail]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -244,10 +272,11 @@ export function SimpleGoalsManager() {
 
   const saveGoals = async (updated: SimpleGoalItem[]) => {
     setGoals(updated);
-    // Sync to localStorage for backward compat
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("workpulse_simple_goals", JSON.stringify(updated));
+        localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(updated));
+        localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
@@ -256,8 +285,15 @@ export function SimpleGoalsManager() {
       await fetch(`/api/v1/goals/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, goals: updated }),
+        body: JSON.stringify({ employeeId: empId, goals: updated }),
       });
+      if (empId !== userEmail) {
+        await fetch(`/api/v1/goals/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeId: userEmail, goals: updated }),
+        });
+      }
     } catch {}
   };
 

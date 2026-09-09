@@ -16,12 +16,21 @@ async function request<T>(
 ): Promise<ApiResponse<T>> {
   const url = endpoint.startsWith("/") ? endpoint : `/api/v1/${endpoint}`;
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
+
+    if (typeof window !== "undefined") {
+      const sessionEmail = sessionStorage.getItem("workpulse_session_email");
+      if (sessionEmail && !headers["x-user-email"]) {
+        headers["x-user-email"] = sessionEmail;
+      }
+    }
+
     const res = await fetch(url, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     });
 
     const json = await res.json().catch(() => ({}));
@@ -107,6 +116,7 @@ export const WorkpulseApi = {
       body: JSON.stringify(data),
     }),
     applyLeave: (data: {
+      id?: string;
       leaveType: string;
       startDate: string;
       endDate: string;
@@ -131,6 +141,7 @@ export const WorkpulseApi = {
       }),
     listWfh: () => request<{ requests: any[] }>(`/api/v1/leave/wfh`),
     applyWfh: (data: {
+      id?: string;
       date?: string;
       startDate?: string;
       endDate?: string;
@@ -143,6 +154,7 @@ export const WorkpulseApi = {
       request<{ request: any; message: string }>(`/api/v1/leave/wfh`, {
         method: "POST",
         body: JSON.stringify({
+          id: data.id,
           startDate: data.startDate || data.date || new Date().toISOString().split("T")[0],
           endDate: data.endDate || data.startDate || data.date || new Date().toISOString().split("T")[0],
           reason: data.reason,

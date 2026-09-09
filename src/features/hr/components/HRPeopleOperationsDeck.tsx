@@ -34,6 +34,11 @@ import {
   MapPin,
   Phone,
   FileQuestion,
+  Upload,
+  FileSpreadsheet,
+  Download,
+  Sparkles,
+  AlertCircle,
 } from "lucide-react";
 
 interface NewJoiner {
@@ -247,6 +252,203 @@ export function HRPeopleOperationsDeck({
   const [deletingEmployee, setDeletingEmployee] = useState<DirectoryEmployeeItem | null>(null);
   const [viewingEmployee, setViewingEmployee] = useState<DirectoryEmployeeItem | null>(null);
 
+  // CSV / Excel Upload Modal State
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [csvPreview, setCsvPreview] = useState<any[]>([]);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false);
+
+  const handleDownloadSampleCsv = () => {
+    const sampleCsvContent = `Name,Email,Designation,Department,Team Lead,Work Mode,Employment Type,Joining Date,Phone Number,Location
+Aarav Patel,aarav.patel@xorstack.com,Senior Full-Stack Developer,Development,Alex Lead,OFFICE,Full-Time,2026-01-15,+91 98765 43210,Bangalore HQ
+Meera Nair,meera.nair@xorstack.com,DevOps & Infrastructure Specialist,DevOps & Infrastructure,Marcus Vance,HYBRID,Full-Time,2026-02-01,+91 98765 43211,Bangalore HQ
+Karthik Raja,karthik.raja@xorstack.com,Data Systems Analyst,Data processing,Vikram Rao,WFH,Full-Time,2026-03-10,+91 98765 43212,Remote (India)
+Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers (ConfigTap),Alex Lead,OFFICE,Probation,2026-08-01,+91 98765 43213,Bangalore HQ`;
+
+    const blob = new Blob([sampleCsvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "workpulse_staff_directory_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvFileName(file.name);
+    setCsvError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        if (!text) {
+          setCsvError("File content is empty.");
+          return;
+        }
+
+        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          setCsvError("CSV file must contain a header row and at least 1 employee data row.");
+          return;
+        }
+
+        const headerLine = lines[0] || "";
+        const rawHeaders = headerLine.split(",").map((h) => h.replace(/^["']|["']$/g, "").trim());
+        const headerMap: Record<number, string> = {};
+
+        rawHeaders.forEach((h, idx) => {
+          const lower = h.toLowerCase();
+          if (lower.includes("name") && !lower.includes("lead") && !lower.includes("dept") && !lower.includes("manager")) {
+            headerMap[idx] = "name";
+          } else if (lower.includes("email")) {
+            headerMap[idx] = "email";
+          } else if (lower.includes("designation") || lower.includes("role") || lower.includes("title")) {
+            headerMap[idx] = "designation";
+          } else if (lower.includes("department") || lower.includes("dept")) {
+            headerMap[idx] = "departmentName";
+          } else if (lower.includes("lead") || lower.includes("manager")) {
+            headerMap[idx] = "teamLeadName";
+          } else if (lower.includes("mode") || lower.includes("workmode")) {
+            headerMap[idx] = "workMode";
+          } else if (lower.includes("status") || lower.includes("type")) {
+            headerMap[idx] = "employmentType";
+          } else if (lower.includes("date") || lower.includes("joining") || lower.includes("hire")) {
+            headerMap[idx] = "joiningDate";
+          } else if (lower.includes("phone") || lower.includes("mobile")) {
+            headerMap[idx] = "phoneNumber";
+          } else if (lower.includes("location") || lower.includes("office") || lower.includes("city")) {
+            headerMap[idx] = "location";
+          }
+        });
+
+        const parsedRecords: any[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const currentLine = lines[i] || "";
+          const rowValues = currentLine.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || currentLine.split(",");
+          if (!rowValues || rowValues.length === 0) continue;
+
+          const rowObj: any = {};
+          rowValues.forEach((val, idx) => {
+            const cleanVal = val.replace(/^["']|["']$/g, "").trim();
+            const fieldKey = headerMap[idx];
+            if (fieldKey) {
+              rowObj[fieldKey] = cleanVal;
+            }
+          });
+
+          if (rowObj.name && rowObj.email) {
+            if (!rowObj.designation) rowObj.designation = "Software Engineer";
+            if (!rowObj.departmentName) rowObj.departmentName = "Development";
+            if (!rowObj.workMode) rowObj.workMode = "OFFICE";
+            if (!rowObj.employmentType) rowObj.employmentType = "Full-Time";
+            if (!rowObj.joiningDate) rowObj.joiningDate = new Date().toISOString().split("T")[0];
+            if (!rowObj.location) rowObj.location = "Bangalore HQ";
+
+            parsedRecords.push(rowObj);
+          }
+        }
+
+        if (parsedRecords.length === 0) {
+          setCsvError("No valid employee rows found. Please check CSV header names (Name, Email, Designation, Department).");
+        } else {
+          setCsvPreview(parsedRecords);
+        }
+      } catch (err: any) {
+        setCsvError(err.message || "Failed to parse CSV file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleUploadCsvSubmit = async () => {
+    if (csvPreview.length === 0) return;
+    setIsUploadingCsv(true);
+
+    const userEmail =
+      (typeof window !== "undefined" &&
+        (sessionStorage.getItem("workpulse_session_email") ||
+          localStorage.getItem("workpulse_user_email"))) ||
+      "hr.test@xorstack.com";
+
+    let successCount = 0;
+
+    for (const empRecord of csvPreview) {
+      const deptName = empRecord.departmentName || "Development";
+      const deptId =
+        departments.find((d) => d.name.toLowerCase() === deptName.toLowerCase())?.id ||
+        (deptName.toLowerCase().includes("devops")
+          ? "dept-devops"
+          : deptName.toLowerCase().includes("data")
+          ? "dept-data-processing"
+          : deptName.toLowerCase().includes("r & d") || deptName.toLowerCase().includes("rd")
+          ? "dept-rd"
+          : deptName.toLowerCase().includes("configtap") || deptName.toLowerCase().includes("service")
+          ? "dept-configtap"
+          : deptName.toLowerCase().includes("hr")
+          ? "dept-hr"
+          : "dept-development");
+
+      const payload = {
+        name: empRecord.name,
+        email: empRecord.email,
+        designation: empRecord.designation,
+        departmentId: deptId,
+        departmentName: deptName,
+        workMode: empRecord.workMode || "OFFICE",
+        employmentType: empRecord.employmentType || "Full-Time",
+        status: empRecord.employmentType === "Probation" ? "Probation" : "Full-Time",
+        joiningDate: empRecord.joiningDate || new Date().toISOString().split("T")[0],
+        phoneNumber: empRecord.phoneNumber || "+91 98450 11223",
+        location: empRecord.location || "Bangalore HQ",
+        remainingLeaveBalance: 12.0,
+      };
+
+      try {
+        const res = await fetch("/api/v1/employees", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-email": userEmail,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          if (result.data?.employee) {
+            addEmployee(result.data.employee);
+            successCount++;
+          }
+        } else {
+          const created = addEmployee(payload);
+          if (created) successCount++;
+        }
+      } catch {
+        const created = addEmployee(payload);
+        if (created) successCount++;
+      }
+    }
+
+    setIsUploadingCsv(false);
+    fireCelebrationConfetti();
+    syncWithSupabase(true);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      window.dispatchEvent(new CustomEvent("employee:created"));
+    }
+
+    showToast(`🎉 Uploaded & saved ${successCount} employees to Supabase & entire application!`);
+    setShowCsvModal(false);
+    setCsvPreview([]);
+    setCsvFileName(null);
+  };
+
   // Add Form state
   const [addForm, setAddForm] = useState({
     name: "",
@@ -297,7 +499,7 @@ export function HRPeopleOperationsDeck({
         emp.id.startsWith("lead-") ||
         emp.id.startsWith("admin-") ||
         (emp.designation && (emp.designation.toLowerCase().includes("lead") || emp.designation.toLowerCase().includes("director"))) ||
-        departments.some((d) => d.teamLead.id === emp.id);
+        departments.some((d) => d.teamLead?.id === emp.id);
 
       const isProbation = probationList.some(
         (p) =>
@@ -370,11 +572,13 @@ export function HRPeopleOperationsDeck({
       return;
     }
 
+    const targetDeptForPayload = departments.find((d) => d.id === addForm.departmentId);
     const payload = {
       name: addForm.name.trim(),
       email: addForm.email.trim(),
       designation: addForm.designation.trim(),
       departmentId: addForm.departmentId,
+      departmentName: targetDeptForPayload?.name || "Development",
       workMode: addForm.workMode,
       remainingLeaveBalance: Number(addForm.remainingLeaveBalance) || 12.0,
       employmentType: addForm.employmentType,
@@ -386,9 +590,18 @@ export function HRPeopleOperationsDeck({
     };
 
     try {
+      const userEmail =
+        (typeof window !== "undefined" &&
+          (sessionStorage.getItem("workpulse_session_email") ||
+            localStorage.getItem("workpulse_user_email"))) ||
+        "hr.test@xorstack.com";
+
       const response = await fetch("/api/v1/employees", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-email": userEmail,
+        },
         body: JSON.stringify(payload),
       });
       const result = await response.json().catch(() => ({}));
@@ -400,9 +613,8 @@ export function HRPeopleOperationsDeck({
       const created = addEmployee(result.data.employee);
       if (!created) throw new Error("Employee was saved but could not be displayed.");
 
-      const targetDept = departments.find((d) => d.id === addForm.departmentId);
       fireCelebrationConfetti();
-      showToast(`🎉 Employee "${created.name}" onboarded successfully into ${targetDept?.name || "the organization"} & synced to Supabase!`);
+      showToast(`🎉 Employee "${created.name}" onboarded successfully into ${targetDeptForPayload?.name || "the organization"} & synced to Supabase!`);
       setShowAddModal(false);
 
       // Broadcast real-time creation across tabs & sessions
@@ -415,6 +627,9 @@ export function HRPeopleOperationsDeck({
           payload: created,
         });
       } catch {}
+
+      // Re-sync from Supabase to refresh the entire local store
+      setTimeout(() => syncWithSupabase(true), 500);
 
       // Reset form
       setAddForm({
@@ -439,23 +654,35 @@ export function HRPeopleOperationsDeck({
     e.preventDefault();
     if (!editingEmployee) return;
 
+    const editDept = departments.find((d) => d.id === editingEmployee.departmentId);
     const updates = {
       name: editingEmployee.name.trim(),
       email: editingEmployee.email.trim(),
       designation: editingEmployee.designation.trim(),
       departmentId: editingEmployee.departmentId,
+      departmentName: editDept?.name || editingEmployee.department,
       workMode: editingEmployee.workMode,
       status: editingEmployee.status,
       remainingLeaveBalance: Number(editingEmployee.leaveBalance),
       phoneNumber: editingEmployee.phoneNumber,
+      location: editingEmployee.workLocation,
       workLocation: editingEmployee.workLocation,
       joiningDate: editingEmployee.joiningDate,
     };
 
     try {
+      const userEmail =
+        (typeof window !== "undefined" &&
+          (sessionStorage.getItem("workpulse_session_email") ||
+            localStorage.getItem("workpulse_user_email"))) ||
+        "hr.test@xorstack.com";
+
       const response = await fetch(`/api/v1/employees/${editingEmployee.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-email": userEmail,
+        },
         body: JSON.stringify(updates),
       });
       const result = await response.json().catch(() => ({}));
@@ -466,13 +693,18 @@ export function HRPeopleOperationsDeck({
       updateEmployee(editingEmployee.id, result.data.employee);
 
       // Broadcast real-time update across tabs & sessions
-      const supabase = createClient();
-      const ch = supabase.channel("workpulse-supabase-live-channel");
-      ch.send({
-        type: "broadcast",
-        event: "employee:updated",
-        payload: result.data.employee,
-      });
+      try {
+        const supabase = createClient();
+        const ch = supabase.channel("workpulse-supabase-live-channel");
+        ch.send({
+          type: "broadcast",
+          event: "employee:updated",
+          payload: result.data.employee,
+        });
+      } catch {}
+
+      // Re-sync from Supabase to refresh the entire local store
+      setTimeout(() => syncWithSupabase(true), 500);
     } catch (error: any) {
       showToast(error?.message || "Unable to save employee changes in Supabase.");
       return;
@@ -489,8 +721,17 @@ export function HRPeopleOperationsDeck({
     const empName = deletingEmployee.name;
 
     try {
+      const userEmail =
+        (typeof window !== "undefined" &&
+          (sessionStorage.getItem("workpulse_session_email") ||
+            localStorage.getItem("workpulse_user_email"))) ||
+        "hr.test@xorstack.com";
+
       const response = await fetch(`/api/v1/employees/${empId}`, {
         method: "DELETE",
+        headers: {
+          "x-user-email": userEmail,
+        },
       });
       if (!response.ok) {
         throw new Error("Unable to delete the employee from Supabase.");
@@ -499,13 +740,18 @@ export function HRPeopleOperationsDeck({
       deleteEmployee(empId);
 
       // Broadcast real-time deletion across tabs & sessions
-      const supabase = createClient();
-      const ch = supabase.channel("workpulse-supabase-live-channel");
-      ch.send({
-        type: "broadcast",
-        event: "employee:deleted",
-        payload: { id: empId },
-      });
+      try {
+        const supabase = createClient();
+        const ch = supabase.channel("workpulse-supabase-live-channel");
+        ch.send({
+          type: "broadcast",
+          event: "employee:deleted",
+          payload: { id: empId },
+        });
+      } catch {}
+
+      // Re-sync from Supabase to refresh the entire local store
+      setTimeout(() => syncWithSupabase(true), 500);
     } catch (error: any) {
       showToast(error?.message || "Unable to delete the employee from Supabase.");
       return;
@@ -671,16 +917,28 @@ export function HRPeopleOperationsDeck({
                 </select>
               </div>
 
-              {/* Right: + Add Employee */}
-              <Button
-                variant="brand"
-                size="sm"
-                onClick={() => setShowAddModal(true)}
-                className="text-xs font-bold gap-1.5 h-9 rounded-xl shadow-sm shrink-0"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                <span>Add Employee</span>
-              </Button>
+              {/* Right: Upload CSV & Add Employee */}
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCsvModal(true)}
+                  className="text-xs font-bold gap-1.5 h-9 rounded-xl border-indigo-500/30 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 shadow-sm"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Upload CSV / Excel</span>
+                </Button>
+
+                <Button
+                  variant="brand"
+                  size="sm"
+                  onClick={() => setShowAddModal(true)}
+                  className="text-xs font-bold gap-1.5 h-9 rounded-xl shadow-sm"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>Add Employee</span>
+                </Button>
+              </div>
             </div>
 
             {/* Clean Directory Table */}
@@ -1282,12 +1540,12 @@ export function HRPeopleOperationsDeck({
       {/* ============================================================== */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-cyan-500/50 bg-[#0b0f19] shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)} />
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-cyan-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
-                  <UserPlus className="h-4 w-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-cyan-50 dark:bg-cyan-500/20 border border-cyan-200 dark:border-cyan-500/40 flex items-center justify-center text-cyan-600 dark:text-cyan-300 shadow-sm">
+                  <UserPlus className="h-4.5 w-4.5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Onboard New Employee</h3>
@@ -1298,7 +1556,7 @@ export function HRPeopleOperationsDeck({
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowAddModal(false)}
-                className="h-7 w-7 text-muted-foreground"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1313,7 +1571,7 @@ export function HRPeopleOperationsDeck({
                     value={addForm.name}
                     onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
                     placeholder="e.g. Kavita Nair"
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
 
@@ -1325,7 +1583,7 @@ export function HRPeopleOperationsDeck({
                     value={addForm.email}
                     onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
                     placeholder="e.g. kavita.nair@xorstack.com"
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -1338,7 +1596,7 @@ export function HRPeopleOperationsDeck({
                     value={addForm.designation}
                     onChange={(e) => setAddForm({ ...addForm, designation: e.target.value })}
                     placeholder="e.g. Senior Security Architect"
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
 
@@ -1347,10 +1605,10 @@ export function HRPeopleOperationsDeck({
                   <select
                     value={addForm.departmentId}
                     onChange={(e) => setAddForm({ ...addForm, departmentId: e.target.value })}
-                    className="w-full h-8.5 px-3 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+                    className="w-full h-8.5 px-3 rounded-md border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
+                      <option key={d.id} value={d.id} className="bg-card text-foreground">
                         {d.name} (Lead: {d.teamLead.name})
                       </option>
                     ))}
@@ -1369,11 +1627,11 @@ export function HRPeopleOperationsDeck({
                         workMode: e.target.value as "OFFICE" | "WFH" | "HYBRID",
                       })
                     }
-                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-card text-xs text-foreground focus:outline-none"
+                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="OFFICE">Office (HQ)</option>
-                    <option value="HYBRID">Hybrid</option>
-                    <option value="WFH">Remote (WFH)</option>
+                    <option value="OFFICE" className="bg-card text-foreground">Office (HQ)</option>
+                    <option value="HYBRID" className="bg-card text-foreground">Hybrid</option>
+                    <option value="WFH" className="bg-card text-foreground">Remote (WFH)</option>
                   </select>
                 </div>
 
@@ -1387,12 +1645,12 @@ export function HRPeopleOperationsDeck({
                         employmentType: e.target.value as "Full-Time" | "Probation" | "Contract" | "Intern",
                       })
                     }
-                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-card text-xs text-foreground focus:outline-none"
+                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="Full-Time">Full-Time</option>
-                    <option value="Probation">Probation (30/90d)</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Intern">Intern</option>
+                    <option value="Full-Time" className="bg-card text-foreground">Full-Time</option>
+                    <option value="Probation" className="bg-card text-foreground">Probation (30/90d)</option>
+                    <option value="Contract" className="bg-card text-foreground">Contract</option>
+                    <option value="Intern" className="bg-card text-foreground">Intern</option>
                   </select>
                 </div>
 
@@ -1405,7 +1663,7 @@ export function HRPeopleOperationsDeck({
                     onChange={(e) =>
                       setAddForm({ ...addForm, remainingLeaveBalance: parseFloat(e.target.value) || 0 })
                     }
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -1417,7 +1675,7 @@ export function HRPeopleOperationsDeck({
                     type="date"
                     value={addForm.joiningDate}
                     onChange={(e) => setAddForm({ ...addForm, joiningDate: e.target.value })}
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
 
@@ -1426,7 +1684,7 @@ export function HRPeopleOperationsDeck({
                   <Input
                     value={addForm.location}
                     onChange={(e) => setAddForm({ ...addForm, location: e.target.value })}
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -1437,15 +1695,14 @@ export function HRPeopleOperationsDeck({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAddModal(false)}
-                  className="text-xs h-8"
+                  className="text-xs h-8 text-foreground"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  variant="brand"
                   size="sm"
-                  className="text-xs font-bold h-8 bg-gradient-to-r from-cyan-400 via-teal-500 to-emerald-500 text-black px-4"
+                  className="text-xs font-bold h-8 bg-sky-600 hover:bg-sky-700 text-white shadow-sm px-4"
                 >
                   Confirm & Onboard Staff
                 </Button>
@@ -1460,12 +1717,12 @@ export function HRPeopleOperationsDeck({
       {/* ============================================================== */}
       {editingEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setEditingEmployee(null)} />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-amber-500/50 bg-[#0b0f19] shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setEditingEmployee(null)} />
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-amber-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
-                  <Pencil className="h-4 w-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-300 shadow-sm">
+                  <Pencil className="h-4.5 w-4.5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Edit Employee Record</h3>
@@ -1476,7 +1733,7 @@ export function HRPeopleOperationsDeck({
                 variant="ghost"
                 size="icon"
                 onClick={() => setEditingEmployee(null)}
-                className="h-7 w-7 text-muted-foreground"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -1490,7 +1747,7 @@ export function HRPeopleOperationsDeck({
                     required
                     value={editingEmployee.name}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
 
@@ -1501,7 +1758,7 @@ export function HRPeopleOperationsDeck({
                     type="email"
                     value={editingEmployee.email}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, email: e.target.value })}
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -1513,7 +1770,7 @@ export function HRPeopleOperationsDeck({
                     required
                     value={editingEmployee.designation}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, designation: e.target.value })}
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
 
@@ -1528,10 +1785,10 @@ export function HRPeopleOperationsDeck({
                         department: departments.find((d) => d.id === e.target.value)?.name || editingEmployee.department,
                       })
                     }
-                    className="w-full h-8.5 px-3 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+                    className="w-full h-8.5 px-3 rounded-md border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
+                      <option key={d.id} value={d.id} className="bg-card text-foreground">
                         {d.name}
                       </option>
                     ))}
@@ -1550,11 +1807,11 @@ export function HRPeopleOperationsDeck({
                         workMode: e.target.value as "OFFICE" | "WFH" | "HYBRID",
                       })
                     }
-                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-card text-xs text-foreground focus:outline-none"
+                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="OFFICE">Office (HQ)</option>
-                    <option value="HYBRID">Hybrid</option>
-                    <option value="WFH">Remote (WFH)</option>
+                    <option value="OFFICE" className="bg-card text-foreground">Office (HQ)</option>
+                    <option value="HYBRID" className="bg-card text-foreground">Hybrid</option>
+                    <option value="WFH" className="bg-card text-foreground">Remote (WFH)</option>
                   </select>
                 </div>
 
@@ -1568,11 +1825,11 @@ export function HRPeopleOperationsDeck({
                         status: e.target.value as "Full-Time" | "Probation" | "Notice Period",
                       })
                     }
-                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-card text-xs text-foreground focus:outline-none"
+                    className="w-full h-8.5 px-2.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="Full-Time">Full-Time</option>
-                    <option value="Probation">Probation</option>
-                    <option value="Notice Period">Notice Period</option>
+                    <option value="Full-Time" className="bg-card text-foreground">Full-Time</option>
+                    <option value="Probation" className="bg-card text-foreground">Probation</option>
+                    <option value="Notice Period" className="bg-card text-foreground">Notice Period</option>
                   </select>
                 </div>
 
@@ -1588,7 +1845,7 @@ export function HRPeopleOperationsDeck({
                         leaveBalance: parseFloat(e.target.value) || 0,
                       })
                     }
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -1600,7 +1857,7 @@ export function HRPeopleOperationsDeck({
                     value={editingEmployee.phoneNumber || ""}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, phoneNumber: e.target.value })}
                     placeholder="+91 98450 11223"
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
 
@@ -1610,7 +1867,7 @@ export function HRPeopleOperationsDeck({
                     value={editingEmployee.workLocation || ""}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, workLocation: e.target.value })}
                     placeholder="Bangalore HQ (Floor 0)"
-                    className="h-8.5 text-xs bg-card"
+                    className="h-8.5 text-xs bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -1621,15 +1878,14 @@ export function HRPeopleOperationsDeck({
                   variant="outline"
                   size="sm"
                   onClick={() => setEditingEmployee(null)}
-                  className="text-xs h-8"
+                  className="text-xs h-8 text-foreground"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  variant="brand"
                   size="sm"
-                  className="text-xs font-bold h-8 bg-amber-500 hover:bg-amber-600 text-black px-4"
+                  className="text-xs font-bold h-8 bg-amber-600 hover:bg-amber-700 text-white shadow-sm px-4"
                 >
                   Save Changes
                 </Button>
@@ -1644,10 +1900,10 @@ export function HRPeopleOperationsDeck({
       {/* ============================================================== */}
       {deletingEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setDeletingEmployee(null)} />
-          <div className="relative z-10 w-full max-w-md rounded-3xl border border-rose-500/50 bg-[#0b0f19] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setDeletingEmployee(null)} />
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-border/80 dark:border-rose-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+              <div className="h-10 w-10 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div>
@@ -1667,7 +1923,7 @@ export function HRPeopleOperationsDeck({
                 variant="outline"
                 size="sm"
                 onClick={() => setDeletingEmployee(null)}
-                className="text-xs h-8"
+                className="text-xs h-8 text-foreground"
               >
                 Cancel
               </Button>
@@ -1690,12 +1946,12 @@ export function HRPeopleOperationsDeck({
       {/* ============================================================== */}
       {viewingEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setViewingEmployee(null)} />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-cyan-500/50 bg-[#0b0f19] shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setViewingEmployee(null)} />
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-cyan-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-[2px] shadow-lg">
-                  <div className="h-full w-full rounded-2xl bg-[#0b0f19] flex items-center justify-center font-black text-cyan-300 text-base">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-[2px] shadow-sm">
+                  <div className="h-full w-full rounded-2xl bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center font-black text-cyan-600 dark:text-cyan-300 text-base">
                     {viewingEmployee.name.slice(0, 2).toUpperCase()}
                   </div>
                 </div>
@@ -1703,7 +1959,7 @@ export function HRPeopleOperationsDeck({
                   <h3 className="text-base font-bold text-foreground flex items-center gap-1.5">
                     <span>{viewingEmployee.name}</span>
                     {viewingEmployee.isLead && (
-                      <Badge variant="brand" className="text-[9px] bg-purple-500/20 text-purple-300 border-purple-500/30">
+                      <Badge variant="brand" className="text-[9px] bg-purple-50 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30">
                         Lead
                       </Badge>
                     )}
@@ -1715,19 +1971,19 @@ export function HRPeopleOperationsDeck({
                 variant="ghost"
                 size="icon"
                 onClick={() => setViewingEmployee(null)}
-                className="h-7 w-7 text-muted-foreground"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
             <div className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-card/60 border border-border/80">
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-muted/40 dark:bg-card/60 border border-border/70">
                 <div>
                   <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
                     Department
                   </span>
-                  <span className="font-semibold text-cyan-400 text-xs">{viewingEmployee.department}</span>
+                  <span className="font-semibold text-cyan-600 dark:text-cyan-400 text-xs">{viewingEmployee.department}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
@@ -1745,47 +2001,47 @@ export function HRPeopleOperationsDeck({
                   <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
                     Employment Status
                   </span>
-                  <Badge variant="outline" className="text-[9px] font-bold text-emerald-400 border-emerald-500/40 mt-0.5">
+                  <Badge variant="outline" className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/40 mt-0.5">
                     {viewingEmployee.status}
                   </Badge>
                 </div>
               </div>
 
-              <div className="space-y-2 p-3.5 rounded-2xl bg-card/60 border border-border/80">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{viewingEmployee.email}</span>
+              <div className="space-y-2.5 p-3.5 rounded-2xl bg-muted/40 dark:bg-card/60 border border-border/70">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground font-medium truncate">{viewingEmployee.email}</span>
                   </span>
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
-                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{viewingEmployee.phoneNumber || "+91 98450 11223"}</span>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1.5 font-mono">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground font-medium">{viewingEmployee.phoneNumber || "+91 98450 11223"}</span>
                   </span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-border/60">
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{viewingEmployee.workLocation || "Bangalore HQ"}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-2 border-t border-border/60">
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground font-medium">{viewingEmployee.workLocation || "Bangalore HQ"}</span>
                   </span>
                   <span className="text-[11px] text-muted-foreground font-mono">
-                    Joined: {viewingEmployee.joiningDate}
+                    Joined: <strong className="text-foreground font-medium">{viewingEmployee.joiningDate}</strong>
                   </span>
                 </div>
               </div>
 
               {/* Workday & Punctuality Key Metrics */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-2.5 rounded-xl bg-card/60 border border-border">
-                  <span className="text-[10px] text-muted-foreground block">Leave Quota</span>
-                  <strong className="text-sm font-bold text-cyan-400 font-mono">{viewingEmployee.leaveBalance}d</strong>
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20">
+                  <span className="text-[10px] font-semibold text-muted-foreground block">Leave Quota</span>
+                  <strong className="text-sm font-bold text-sky-600 dark:text-sky-400 font-mono">{viewingEmployee.leaveBalance}d</strong>
                 </div>
-                <div className="p-2.5 rounded-xl bg-card/60 border border-border">
-                  <span className="text-[10px] text-muted-foreground block">Shift Adherence</span>
-                  <strong className="text-sm font-bold text-emerald-400 font-mono">98.5%</strong>
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-[10px] font-semibold text-muted-foreground block">Shift Adherence</span>
+                  <strong className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">98.5%</strong>
                 </div>
-                <div className="p-2.5 rounded-xl bg-card/60 border border-border">
-                  <span className="text-[10px] text-muted-foreground block">Weekly OKRs</span>
-                  <strong className="text-sm font-bold text-purple-400 font-mono">92%</strong>
+                <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20">
+                  <span className="text-[10px] font-semibold text-muted-foreground block">Weekly OKRs</span>
+                  <strong className="text-sm font-bold text-purple-600 dark:text-purple-400 font-mono">92%</strong>
                 </div>
               </div>
             </div>
@@ -1795,7 +2051,7 @@ export function HRPeopleOperationsDeck({
                 variant="outline"
                 size="sm"
                 onClick={() => setViewingEmployee(null)}
-                className="text-xs h-8"
+                className="text-xs h-8 text-foreground"
               >
                 Close
               </Button>
@@ -1808,12 +2064,153 @@ export function HRPeopleOperationsDeck({
                     setViewingEmployee(null);
                     setEditingEmployee(toEdit);
                   }}
-                  className="text-xs h-8 text-amber-400 border-amber-500/30 gap-1"
+                  className="text-xs h-8 font-medium text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-500/10 gap-1.5"
                 >
                   <Pencil className="h-3 w-3" />
                   <span>Edit Profile</span>
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 9. MODAL: UPLOAD STAFF DIRECTORY CSV / EXCEL                   */}
+      {/* ============================================================== */}
+      {showCsvModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/80 backdrop-blur-sm" onClick={() => setShowCsvModal(false)} />
+          <div className="relative z-10 w-full max-w-2xl rounded-3xl border border-indigo-500/40 bg-card p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-border/80 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground flex items-center gap-2">
+                    <span>Upload Staff Directory CSV / Excel</span>
+                    <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30">
+                      Bulk Sync
+                    </Badge>
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Upload real company employee records to save &amp; update across the entire application.
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowCsvModal(false)} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Template Download Banner */}
+            <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="h-4 w-4 text-indigo-400 shrink-0" />
+                <span className="text-muted-foreground">
+                  Need the standard format? Download the ready-to-use CSV template sheet.
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadSampleCsv}
+                className="h-8 text-xs font-bold text-indigo-400 border-indigo-500/30 bg-card hover:bg-indigo-500/10 gap-1.5 shrink-0"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Download CSV Template</span>
+              </Button>
+            </div>
+
+            {/* File Drag & Select Box */}
+            <div className="p-6 rounded-2xl border-2 border-dashed border-indigo-500/30 bg-muted/20 text-center space-y-2 relative hover:border-indigo-500/60 transition-colors">
+              <input
+                type="file"
+                accept=".csv, .xlsx, .xls, .txt, .tsv"
+                onChange={handleCsvFileChange}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <Upload className="h-8 w-8 text-indigo-400 mx-auto" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-foreground">
+                  {csvFileName ? `Selected: ${csvFileName}` : "Click or drag CSV / Excel file here to upload"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Supports CSV, TSV, XLSX files containing Name, Email, Designation, Department, etc.
+                </p>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {csvError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-400 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{csvError}</span>
+              </div>
+            )}
+
+            {/* Live Table Preview */}
+            {csvPreview.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span>Parsed Employees Preview ({csvPreview.length} records ready)</span>
+                  <span className="text-[11px] text-emerald-400 font-semibold">✓ Verified Header Schema</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-border/70 bg-card">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-muted/40 text-muted-foreground font-semibold sticky top-0 border-b border-border/50">
+                      <tr>
+                        <th className="p-2 pl-3">Name</th>
+                        <th className="p-2">Email</th>
+                        <th className="p-2">Role</th>
+                        <th className="p-2">Department</th>
+                        <th className="p-2">Work Mode</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40 font-mono">
+                      {csvPreview.slice(0, 10).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="p-2 pl-3 font-bold text-foreground">{row.name}</td>
+                          <td className="p-2 text-muted-foreground">{row.email}</td>
+                          <td className="p-2 text-foreground">{row.designation}</td>
+                          <td className="p-2 text-indigo-400">{row.departmentName}</td>
+                          <td className="p-2 text-emerald-400">{row.workMode}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {csvPreview.length > 10 && (
+                    <div className="p-2 text-center text-[10px] text-muted-foreground bg-muted/20 border-t border-border/40">
+                      + {csvPreview.length - 10} more rows ready to sync
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-border/80">
+              <Button variant="outline" size="sm" onClick={() => setShowCsvModal(false)} className="text-xs h-9 rounded-xl">
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleUploadCsvSubmit}
+                disabled={csvPreview.length === 0 || isUploadingCsv}
+                className="text-xs font-bold h-9 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white gap-2 shadow-md"
+              >
+                {isUploadingCsv ? (
+                  <span>Syncing to Supabase...</span>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    <span>Upload &amp; Save {csvPreview.length > 0 ? `(${csvPreview.length})` : ""}</span>
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>

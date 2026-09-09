@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
       .from("daily_tasks")
       .select("*")
       .eq("employee_id", employeeId)
-      .eq("date", date);
+      .or(`date.eq.${date},assigned_by.not.is.null`)
+      .order("created_at", { ascending: false });
 
     if (status) {
       query = query.eq("status", status);
@@ -33,20 +34,58 @@ export async function GET(req: NextRequest) {
       return apiError("Database query failed", 500);
     }
 
-    // Map DB fields back to the frontend expected format
-    const tasks = (dbTasks || []).map((t: any) => ({
-      id: t.id,
-      title: t.title,
-      category: t.category,
-      project: t.category, // map category to project
-      priority: t.priority,
-      status: t.status,
-      progress: t.progress,
-      assignedBy: t.assigned_by,
-      assignedAt: t.assigned_at,
-      acknowledged: t.acknowledged,
-      acknowledgementNote: t.acknowledgement_note,
-    }));
+    // Map DB fields and deduplicate by id and title
+    const seenIds = new Set<string>();
+    const seenTitles = new Map<string, number>();
+    const tasks: any[] = [];
+
+    for (const t of (dbTasks || [])) {
+      const id = String(t.id || "").trim();
+      const rawTitle = String(t.title || "").trim();
+      if (!rawTitle) continue;
+      const titleKey = rawTitle.toLowerCase();
+
+      if (id && seenIds.has(id)) continue;
+
+      const progress = Number(t.progress !== undefined ? t.progress : (t.completion_percentage !== undefined ? t.completion_percentage : 0)) || 0;
+
+      const taskItem = {
+        id: t.id,
+        title: rawTitle,
+        category: t.category || "General",
+        project: t.category || "General",
+        priority: t.priority || "MEDIUM",
+        status: t.status || (progress === 100 ? "COMPLETED" : progress > 0 ? "IN_PROGRESS" : "NOT_STARTED"),
+        progress,
+        completionPercentage: progress,
+        assignedBy: t.assigned_by,
+        assignedAt: t.assigned_at,
+        acknowledged: Boolean(t.acknowledged),
+        acknowledgementNote: t.acknowledgement_note,
+      };
+
+      if (seenTitles.has(titleKey)) {
+        const existingIdx = seenTitles.get(titleKey)!;
+        const existing = tasks[existingIdx];
+        if (existing) {
+          // If the new item is assigned by lead, or acknowledged, or has higher progress, upgrade it
+          if ((taskItem.assignedBy && !existing.assignedBy) || (taskItem.acknowledged && !existing.acknowledged) || progress > existing.progress) {
+            tasks[existingIdx] = {
+              ...existing,
+              ...taskItem,
+              assignedBy: taskItem.assignedBy || existing.assignedBy,
+              acknowledged: Boolean(taskItem.acknowledged || existing.acknowledged),
+              acknowledgementNote: taskItem.acknowledgementNote || existing.acknowledgementNote,
+            };
+          }
+        }
+        continue;
+      }
+
+      if (id) seenIds.add(id);
+      seenTitles.set(titleKey, tasks.length);
+      tasks.push(taskItem);
+    }
 
     return apiSuccess({ tasks, total: tasks.length });
   } catch (err) {
@@ -67,26 +106,36 @@ export async function POST(req: NextRequest) {
     const targetEmpId = body.employeeId || actor.employeeId;
     const emp = state.allEmployees.find((e: any) => e.id === targetEmpId);
 
+    const taskId = body.id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const progress = Number(body.progress !== undefined ? body.progress : (body.completionPercentage || 0)) || 0;
+
     const newTask = {
-      id: `task-${Date.now()}`,
+      id: taskId,
       title: body.title,
       description: body.description || "",
-      project: body.project || "Core Application",
+      project: body.project || body.category || "General",
+      category: body.category || body.project || "General",
       priority: body.priority || "MEDIUM",
       taskType: body.taskType || "PLANNED",
       estimatedMinutes: body.estimatedMinutes || 60,
       dueDate: body.dueDate || null,
       weeklyGoalId: body.weeklyGoalId || null,
       externalUrl: body.externalUrl || null,
-      status: "NOT_STARTED" as const,
-      completionPercentage: 0,
+      status: (body.status || (progress === 100 ? "COMPLETED" : progress > 0 ? "IN_PROGRESS" : "NOT_STARTED")) as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
+      completionPercentage: progress,
+      progress,
       actualMinutes: 0,
-      expectedOutput: body.expectedOutput || "",
+      expectedOutput: body.expectedOutput || body.title,
       isConfidential: Boolean(body.isConfidential),
     };
 
     if (emp) {
-      emp.plannedTasks.push(newTask as any);
+      const existingIdx = emp.plannedTasks.findIndex((t: any) => t.id === taskId || t.title.toLowerCase() === newTask.title.toLowerCase());
+      if (existingIdx !== -1) {
+        emp.plannedTasks[existingIdx] = { ...emp.plannedTasks[existingIdx], ...newTask };
+      } else {
+        emp.plannedTasks = [newTask as any, ...emp.plannedTasks];
+      }
     }
 
     try {
@@ -94,7 +143,7 @@ export async function POST(req: NextRequest) {
       if (supabaseAdmin) {
         const today = new Date().toISOString().split("T")[0]!;
 
-        await supabaseAdmin.from("daily_tasks").insert({
+        await supabaseAdmin.from("daily_tasks").upsert({
           id: newTask.id,
           employee_id: targetEmpId,
           date: today,
@@ -105,15 +154,20 @@ export async function POST(req: NextRequest) {
           progress: newTask.completionPercentage,
         });
 
-        // Keep fallback sync to workdays for legacy code just in case
+        // Sync to workdays
         const { data: existingWd } = await supabaseAdmin
           .from("workdays")
           .select("planned_tasks")
           .match({ employee_id: targetEmpId, date: today })
           .maybeSingle();
           
-        const currentTasks: any[] = existingWd?.planned_tasks || [];
-        currentTasks.push(newTask);
+        let currentTasks: any[] = existingWd?.planned_tasks || [];
+        const existingIdx = currentTasks.findIndex((t: any) => t.id === taskId || t.title?.toLowerCase() === newTask.title.toLowerCase());
+        if (existingIdx !== -1) {
+          currentTasks[existingIdx] = newTask;
+        } else {
+          currentTasks.push(newTask);
+        }
 
         await supabaseAdmin.from("workdays").upsert({
           id: `wd-${targetEmpId}-${today}`,

@@ -64,36 +64,39 @@ export function LeaveRequestModal({
 
       const backupEmp = allEmployees.find((e) => e.id === values.backupEmployeeId);
       const backupName = backupEmp ? `${backupEmp.name} (${backupEmp.designation})` : "Rohit Sharma (Frontend)";
+      const reqId = `leave-req-v2-${Date.now()}`;
+      const daysCount = values.isHalfDay ? 0.5 : 1.0;
 
-      // Persist to backend REST API (creates single authoritative entry in store & Supabase)
-      try {
-        await WorkpulseApi.leave.applyLeave({
-          leaveType: values.leaveType,
-          startDate: values.startDate,
-          endDate: values.endDate,
-          daysCount: values.isHalfDay ? 0.5 : 1.0,
-          reason: values.reason,
-          handoverNotes: values.handoverNotes || undefined,
-          backupPersonName: backupName,
-        });
-      } catch (err) {
-        console.warn("Backend leave submission fallback to local store:", err);
-        // Fallback to local store if offline
-        addLeaveRequest({
-          employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
-          employeeName: currentEmp?.name || user.userName || "Sarah Dev",
-          departmentId: currentEmp?.departmentId || "dept-development",
-          departmentName: currentEmp?.departmentName || "Development",
-          designation: currentEmp?.designation || "Senior Backend Engineer",
-          leaveType: values.leaveType,
-          startDate: values.startDate,
-          endDate: values.endDate,
-          daysCount: values.isHalfDay ? 0.5 : 1.0,
-          reason: values.reason,
-          handoverNotes: values.handoverNotes || undefined,
-          backupPersonName: backupName,
-        });
-      }
+      // 1. Instant optimistic update to local store so parent renders in <1ms
+      addLeaveRequest({
+        id: reqId,
+        employeeId: currentEmp?.id || user.userEmail || "emp-sarah",
+        employeeName: currentEmp?.name || user.userName || "Sarah Dev",
+        departmentId: currentEmp?.departmentId || "dept-development",
+        departmentName: currentEmp?.departmentName || "Development",
+        designation: currentEmp?.designation || "Senior Backend Engineer",
+        leaveType: values.leaveType,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        daysCount,
+        reason: values.reason,
+        handoverNotes: values.handoverNotes || undefined,
+        backupPersonName: backupName,
+      });
+
+      // 2. Persist to backend REST API & Supabase asynchronously
+      WorkpulseApi.leave.applyLeave({
+        id: reqId,
+        leaveType: values.leaveType,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        daysCount,
+        reason: values.reason,
+        handoverNotes: values.handoverNotes || undefined,
+        backupPersonName: backupName,
+      }).catch((err) => {
+        console.warn("Backend leave background sync status:", err);
+      });
 
       setSubmitSuccess(true);
       if (onSuccess) onSuccess(values);

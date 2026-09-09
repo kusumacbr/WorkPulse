@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import { WorkpulseSharedStore, useWorkpulseSharedStore, OrgEmployee } from "@/li
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
 import {
   CheckCircle2,
-  Circle,
   Plus,
   Trash2,
   Calendar,
@@ -27,6 +26,9 @@ import {
   Sparkles,
   MessageSquare,
   Lock,
+  Activity,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export interface SimpleTaskItem {
@@ -36,6 +38,7 @@ export interface SimpleTaskItem {
   priority: "HIGH" | "MEDIUM" | "LOW";
   status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
   progress: number;
+  completionPercentage?: number;
   dueDate?: string;
   assignedBy?: string;
   assignedById?: string;
@@ -45,23 +48,77 @@ export interface SimpleTaskItem {
   acknowledgementNote?: string;
 }
 
-const VALID_CATEGORIES = ["Operations", "Planning", "Documentation", "General", "Frontend & UI", "Platform Architecture", "Security & Auth", "QA & Testing"] as const;
+const VALID_CATEGORIES = ["Operations", "Planning", "Documentation", "General"] as const;
 
 export const normalizeCategory = (cat: string) => {
   if (VALID_CATEGORIES.includes(cat as any)) return cat;
   if (cat.includes("HR") || cat.includes("Compliance") || cat.includes("Operations")) return "Operations";
-  if (cat.includes("Planning") || cat.includes("Milestone")) return "Planning";
+  if (cat.includes("Planning") || cat.includes("Milestone") || cat.includes("Code Review") || cat.includes("Approvals")) return "Planning";
   if (cat.includes("Doc") || cat.includes("Probation")) return "Documentation";
-  if (cat.includes("UI") || cat.includes("Frontend")) return "Frontend & UI";
-  if (cat.includes("Architecture") || cat.includes("Backend")) return "Platform Architecture";
-  if (cat.includes("QA") || cat.includes("Test")) return "QA & Testing";
-  if (cat.includes("Auth") || cat.includes("Security")) return "Security & Auth";
+  if (cat.includes("UI") || cat.includes("Frontend") || cat.includes("Architecture") || cat.includes("Backend")) return "Operations";
+  if (cat.includes("QA") || cat.includes("Test")) return "Operations";
+  if (cat.includes("Auth") || cat.includes("Security")) return "Operations";
   return "General";
 };
 
+export function deduplicateTasks(tasks: any[]): SimpleTaskItem[] {
+  if (!Array.isArray(tasks)) return [];
+  const seenIds = new Set<string>();
+  const seenTitles = new Map<string, number>();
+  const result: SimpleTaskItem[] = [];
+
+  for (const t of tasks) {
+    if (!t) continue;
+    const id = String(t.id || "").trim();
+    const title = String(t.title || "").trim();
+    if (!title) continue;
+    const titleKey = title.toLowerCase();
+
+    if (id && seenIds.has(id)) continue;
+
+    const rawProg = t.progress !== undefined ? t.progress : (t.completionPercentage !== undefined ? t.completionPercentage : 0);
+    const progress = Math.max(0, Math.min(100, Math.round(Number(rawProg) || 0)));
+    const isDone = t.status === "COMPLETED" || progress === 100;
+    const category = normalizeCategory(t.category || t.project || "General");
+
+    const item: SimpleTaskItem = {
+      id: id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title,
+      category,
+      priority: t.priority === "HIGH" ? "HIGH" : t.priority === "LOW" ? "LOW" : "MEDIUM",
+      status: isDone ? "COMPLETED" : progress > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+      progress,
+      completionPercentage: progress,
+      dueDate: t.dueDate || "Today",
+      assignedBy: t.assignedBy || t.assigned_by,
+      assignedById: t.assignedById || t.assigned_by_id,
+      assignedAt: t.assignedAt || t.assigned_at,
+      acknowledged: t.acknowledged,
+      acknowledgedAt: t.acknowledgedAt || t.acknowledged_at,
+      acknowledgementNote: t.acknowledgementNote || t.acknowledgement_note,
+    };
+
+    if (seenTitles.has(titleKey)) {
+      const existingIdx = seenTitles.get(titleKey)!;
+      const existing = result[existingIdx];
+      // If the duplicate has higher progress or is completed, upgrade the existing task
+      if (existing && progress > existing.progress) {
+        result[existingIdx] = item;
+      }
+      continue;
+    }
+
+    if (id) seenIds.add(id);
+    seenTitles.set(titleKey, result.length);
+    result.push(item);
+  }
+
+  return result;
+}
+
 export const DEFAULT_FRIENDLY_TASKS: SimpleTaskItem[] = [];
 
-type SegregationTab = "ALL" | "TODO" | "IN_PROGRESS" | "COMPLETED" | "WEEK";
+type SegregationTab = "ALL" | "TODO" | "IN_PROGRESS" | "COMPLETED" | "WEEK" | "MONTH" | "60DAYS";
 
 export function SimpleTaskManager() {
   const currentUser = useCurrentUser();
@@ -97,6 +154,7 @@ export function SimpleTaskManager() {
   // Acknowledgement response state
   const [acknowledgementNotes, setAcknowledgementNotes] = useState<Record<string, string>>({});
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+  const progressDebounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const myActiveHelp = useMemo(() => {
     return helpRequests.find(
@@ -104,7 +162,8 @@ export function SimpleTaskManager() {
         (h.employeeId === currentEmp?.id ||
           h.employeeEmail?.toLowerCase() === currentEmp?.email?.toLowerCase() ||
           (currentUser?.userEmail?.toLowerCase().includes("employee.test") && h.employeeId === "emp-sarah")) &&
-        (h.status === "PENDING" || h.status === "ACKNOWLEDGED")
+        h.status !== "RESOLVED" &&
+        !h.resolvedByEmployee
     );
   }, [helpRequests, currentEmp, currentUser]);
 
@@ -115,56 +174,152 @@ export function SimpleTaskManager() {
     const loadTasks = async () => {
       if (typeof window === "undefined" || !isMounted) return;
       try {
-        // First attempt to load from API for cross-device consistency
-        if (currentEmp?.id) {
-          const res = await fetch(`/api/v1/tasks?employeeId=${currentEmp.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.data?.tasks?.length > 0 && isMounted) {
-              setTasks(data.data.tasks.map((t: any) => ({
-                ...t,
-                category: normalizeCategory(t.category || t.project || "General"),
-                progress: Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0,
-                dueDate: t.dueDate || "Today",
-              })));
-              return;
+        let loaded: any[] = [];
+        const empId = currentEmp?.id || (currentUser?.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
+        const empEmail = currentEmp?.email?.toLowerCase() || (currentUser?.userEmail?.toLowerCase() || "");
+
+        // 1. First priority: Check localStorage for employee's local unsubmitted / draft tasks & slider state
+        const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
+        const saved =
+          (empId ? localStorage.getItem(key) : null) ||
+          (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
+          localStorage.getItem("workpulse_simple_tasks");
+
+        if (saved !== null) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+              loaded = parsed;
             }
+          } catch {}
+        }
+
+        // 2. Second priority: Check currentEmp.plannedTasks if loaded is empty
+        if (loaded.length === 0 && currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0) {
+          loaded = currentEmp.plannedTasks;
+        }
+
+        // 3. ALWAYS fetch latest server tasks (especially assigned deliverables by Team Lead)
+        if (empId) {
+          try {
+            const [tasksRes, assignedRes] = await Promise.all([
+              fetch(`/api/v1/tasks?employeeId=${empId}`),
+              fetch(`/api/v1/tasks/assigned?employeeId=${empId}`)
+            ]);
+
+            let serverTasks: any[] = [];
+            if (tasksRes.ok) {
+              const d = await tasksRes.json();
+              if (Array.isArray(d.data?.tasks)) {
+                serverTasks = [...serverTasks, ...d.data.tasks];
+              }
+            }
+            if (assignedRes.ok) {
+              const d = await assignedRes.json();
+              if (Array.isArray(d.data?.tasks)) {
+                serverTasks = [...serverTasks, ...d.data.tasks];
+              }
+            }
+
+            // Map all server assigned tasks
+            const serverAssignedMap = new Map<string, any>();
+            for (const st of serverTasks) {
+              if (st.assignedBy || st.assigned_by) {
+                serverAssignedMap.set(st.id, st);
+                if (st.title) serverAssignedMap.set(String(st.title).trim().toLowerCase(), st);
+              }
+            }
+
+            // Remove any assigned tasks from local storage that lead recalled/deleted from server
+            if (serverTasks.length > 0) {
+              loaded = loaded.filter((t: any) => {
+                const isAssigned = Boolean(t.assignedBy || t.assigned_by);
+                if (!isAssigned) return true;
+                return serverAssignedMap.has(t.id) || serverAssignedMap.has(String(t.title || "").trim().toLowerCase());
+              });
+            }
+
+            // Update existing loaded tasks with server state
+            loaded = loaded.map((t: any) => {
+              const st = serverAssignedMap.get(t.id) || serverAssignedMap.get(String(t.title || "").trim().toLowerCase());
+              if (st) {
+                const localProg = Number(t.progress) || 0;
+                const serverProg = Number(st.progress) || 0;
+                // Never downgrade local slider progress! Keep whichever is higher or completed
+                const bestProg = st.status === "COMPLETED" || serverProg === 100 ? 100 : Math.max(localProg, serverProg);
+                const isDone = bestProg === 100;
+                return {
+                  ...t,
+                  id: st.id || t.id,
+                  assignedBy: st.assignedBy || st.assigned_by || t.assignedBy,
+                  assignedAt: st.assignedAt || st.assigned_at || t.assignedAt,
+                  acknowledged: Boolean(t.acknowledged || st.acknowledged),
+                  acknowledgedAt: t.acknowledgedAt || st.acknowledgedAt || st.acknowledged_at,
+                  acknowledgementNote: t.acknowledgementNote || st.acknowledgementNote || st.acknowledgement_note,
+                  category: st.category || t.category,
+                  priority: st.priority || t.priority,
+                  progress: bestProg,
+                  status: isDone ? "COMPLETED" : bestProg > 0 ? "IN_PROGRESS" : t.status,
+                };
+              }
+              return t;
+            });
+
+            // If a server assigned task is not in loaded, prepend it so the employee sees it immediately!
+            const loadedIds = new Set(loaded.map((t: any) => String(t.id || "").trim()));
+            const loadedTitles = new Set(loaded.map((t: any) => String(t.title || "").trim().toLowerCase()));
+
+            for (const st of serverTasks) {
+              if (st.assignedBy || st.assigned_by) {
+                const idMatch = loadedIds.has(String(st.id || "").trim());
+                const titleMatch = loadedTitles.has(String(st.title || "").trim().toLowerCase());
+                if (!idMatch && !titleMatch) {
+                  loaded = [st, ...loaded];
+                  loadedIds.add(String(st.id || "").trim());
+                  loadedTitles.add(String(st.title || "").trim().toLowerCase());
+                }
+              }
+            }
+
+            // If loaded was completely empty, populate with serverTasks
+            if (loaded.length === 0 && serverTasks.length > 0) {
+              loaded = serverTasks;
+            }
+          } catch (err) {
+            console.warn("Failed to sync server tasks in SimpleTaskManager:", err);
           }
         }
 
-        // Fallback to localStorage if API is empty or fails
-        const key = currentEmp?.id ? `workpulse_simple_tasks_${currentEmp.id}` : "workpulse_simple_tasks";
-        const saved =
-          localStorage.getItem(key) ||
-          (currentEmp?.email ? localStorage.getItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`) : null) ||
-          localStorage.getItem("workpulse_simple_tasks");
-        if (saved && isMounted) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setTasks(
-              parsed.map((t: SimpleTaskItem) => ({
-                ...t,
-                category: normalizeCategory(t.category || "General"),
-                progress: Number(t.progress !== undefined ? t.progress : (t as any).completionPercentage) || 0,
-              }))
-            );
-            return;
-          }
+        let cleanTasks = deduplicateTasks(loaded);
+        const resolvedEmpId = empId || "emp-sarah";
+        const rawEodTs =
+          localStorage.getItem(`workpulse_eod_timestamp_${resolvedEmpId}`) ||
+          (empEmail ? localStorage.getItem(`workpulse_eod_timestamp_${empEmail}`) : null) ||
+          localStorage.getItem("workpulse_eod_timestamp_emp-sarah");
+        const hasFreshSod =
+          localStorage.getItem(`workpulse_morning_plan_submitted_${resolvedEmpId}`) === "true" ||
+          (empEmail ? localStorage.getItem(`workpulse_morning_plan_submitted_${empEmail}`) === "true" : false) ||
+          localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") === "true";
+
+        if (rawEodTs && !hasFreshSod && Date.now() - Number(rawEodTs) >= 2 * 60 * 1000) {
+          // On new day before SOD submission: strictly filter out completed tasks (< 100% and not COMPLETED), but preserve unacknowledged assigned tasks
+          cleanTasks = cleanTasks.filter((t: any) => {
+            if (t.assignedBy && !t.acknowledged) return true;
+            const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+            return p < 100 && t.status !== "COMPLETED";
+          });
         }
-        if (currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0 && isMounted) {
-          setTasks(
-            currentEmp.plannedTasks.map((t: any) => ({
-              id: t.id,
-              title: t.title,
-              category: normalizeCategory(t.project || t.category || "General"),
-              priority: t.priority || "MEDIUM",
-              status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-              progress: Number(t.completionPercentage !== undefined ? t.completionPercentage : t.progress) || 0,
-              dueDate: "Today",
-            }))
-          );
-        } else if (isMounted) {
-          setTasks([]);
+
+        if (isMounted) {
+          setTasks(cleanTasks);
+          // Keep storage in sync with clean deduplicated tasks
+          if (resolvedEmpId) {
+            localStorage.setItem(`workpulse_simple_tasks_${resolvedEmpId}`, JSON.stringify(cleanTasks));
+          }
+          if (empEmail) {
+            localStorage.setItem(`workpulse_simple_tasks_${empEmail}`, JSON.stringify(cleanTasks));
+          }
+          localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanTasks));
         }
       } catch (err) {
         console.warn("Error loading tasks:", err);
@@ -173,15 +328,47 @@ export function SimpleTaskManager() {
 
     loadTasks();
 
-    window.addEventListener("workpulse:task_assigned", loadTasks);
-    window.addEventListener("workpulse:task_acknowledged", loadTasks);
-    window.addEventListener("storage", loadTasks);
+    let loadTimer: any = null;
+    const debouncedLoadTasks = () => {
+      if (loadTimer) clearTimeout(loadTimer);
+      loadTimer = setTimeout(() => {
+        if (isMounted) loadTasks();
+      }, 50);
+    };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.onmessage = (ev) => {
+          if (
+            ev.data?.type === "task:assigned" ||
+            ev.data?.type === "task:recalled" ||
+            ev.data?.type === "task:acknowledged"
+          ) {
+            debouncedLoadTasks();
+          }
+        };
+      }
+    } catch {}
+
+    const handleFocus = () => {
+      debouncedLoadTasks();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("workpulse:task_assigned", debouncedLoadTasks);
+    window.addEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+    window.addEventListener("storage", debouncedLoadTasks);
 
     return () => {
       isMounted = false;
-      window.removeEventListener("workpulse:task_assigned", loadTasks);
-      window.removeEventListener("workpulse:task_acknowledged", loadTasks);
-      window.removeEventListener("storage", loadTasks);
+      if (loadTimer) clearTimeout(loadTimer);
+      if (bc) bc.close();
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("workpulse:task_assigned", debouncedLoadTasks);
+      window.removeEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+      window.removeEventListener("storage", debouncedLoadTasks);
     };
   }, [currentEmp?.id, currentEmp?.email]);
 
@@ -205,105 +392,92 @@ export function SimpleTaskManager() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Sync to localStorage, shared store, and Supabase
+  // Sync to localStorage and shared store
   const saveTasks = (updated: SimpleTaskItem[]) => {
-    setTasks(updated);
+    const cleanTasks = deduplicateTasks(updated);
+    setTasks(cleanTasks);
     if (typeof window !== "undefined") {
       try {
         if (currentEmp?.id) {
-          localStorage.setItem(`workpulse_simple_tasks_${currentEmp.id}`, JSON.stringify(updated));
+          localStorage.setItem(`workpulse_simple_tasks_${currentEmp.id}`, JSON.stringify(cleanTasks));
         }
         if (currentEmp?.email) {
-          localStorage.setItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`, JSON.stringify(updated));
+          localStorage.setItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`, JSON.stringify(cleanTasks));
         }
-        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(updated));
+        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanTasks));
+
+        // Keep assigned tasks log updated in localStorage with current execution progress
+        try {
+          const rawLog = localStorage.getItem("workpulse_assigned_tasks_log");
+          if (rawLog) {
+            const parsedLog = JSON.parse(rawLog);
+            if (Array.isArray(parsedLog)) {
+              const updatedLog = parsedLog.map((item: any) => {
+                const match = cleanTasks.find((ct) => ct.id === item.id || ct.title.toLowerCase() === String(item.title || "").toLowerCase());
+                if (match) {
+                  return {
+                    ...item,
+                    progress: match.progress,
+                    status: match.status,
+                    acknowledged: Boolean(match.acknowledged || item.acknowledged),
+                  };
+                }
+                return item;
+              });
+              localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(updatedLog));
+            }
+          }
+        } catch {}
 
         if ("BroadcastChannel" in window) {
           const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
           bc.postMessage({ type: "employee:tasks_updated", employeeId: currentEmp?.id, timestamp: Date.now() });
           bc.close();
         }
+        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp?.id, tasks: cleanTasks } }));
       } catch {
         // safe fallback
       }
     }
-    // Also sync to shared store
-    if (currentEmp) {
-      const avgProg = updated.length > 0
-        ? Math.round(updated.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / updated.length)
+    // Also sync to shared store (only if not yet submitted as SOD, so live slider edits don't mutate lead view before Resubmit)
+    if (currentEmp && !morningSubmitted) {
+      const avgProg = cleanTasks.length > 0
+        ? Math.round(cleanTasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / cleanTasks.length)
         : 0;
-      WorkpulseSharedStore.updateEmployee(currentEmp.id, {
-        overallProgress: avgProg,
-        plannedTasks: updated.map((t) => ({
-          id: t.id,
-          title: t.title,
-          project: t.category,
-          priority: t.priority,
-          estimatedMinutes: 60,
-          expectedOutput: t.title,
-          completionPercentage: Number(t.progress) || 0,
-          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-        })),
-      });
-
-      // Background persist to API / Supabase
-      updated.forEach((t) => {
-        fetch(`/api/v1/tasks/${t.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            progress: Number(t.progress) || 0,
+      if (currentEmp.overallProgress !== avgProg) {
+        WorkpulseSharedStore.updateEmployee(currentEmp.id, {
+          overallProgress: avgProg,
+          plannedTasks: cleanTasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            project: t.category,
+            priority: t.priority,
+            estimatedMinutes: 60,
+            expectedOutput: t.title,
             completionPercentage: Number(t.progress) || 0,
-            status: t.status,
-          }),
-        }).catch(() => {});
-      });
+            status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+          })),
+        });
+      }
     }
   };
 
-  // Sync on initial render and when user identity is established
+  // Sync overall progress only when tasks change and mounted (and only if not submitted yet)
   useEffect(() => {
+    if (!mounted || tasks.length === 0 || morningSubmitted) return;
     const targetEmp = WorkpulseSharedStore.getAllEmployees().find(
       (e) => e.email.toLowerCase() === (currentUser?.userEmail || "").toLowerCase()
     );
     if (targetEmp) {
-      const avgProg = tasks.length > 0
-        ? Math.round(tasks.reduce((sum, t) => sum + (t.progress || 0), 0) / tasks.length)
-        : 0;
-      WorkpulseSharedStore.updateEmployee(targetEmp.id, {
-        overallProgress: avgProg,
-        plannedTasks: tasks.map((t) => ({
-          id: t.id,
-          title: t.title,
-          project: t.category,
-          priority: t.priority,
-          estimatedMinutes: 60,
-          expectedOutput: t.title,
-          completionPercentage: t.progress,
-          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-        })),
-      });
+      const avgProg = Math.round(tasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / tasks.length);
+      if (targetEmp.overallProgress !== avgProg) {
+        WorkpulseSharedStore.updateEmployee(targetEmp.id, {
+          overallProgress: avgProg,
+        });
+      }
     }
-  }, [currentUser?.userEmail]);
+  }, [tasks, mounted, morningSubmitted, currentUser?.userEmail]);
 
-  // 1-Click Toggle Complete
-  const handleToggleComplete = (id: string) => {
-    const updated = tasks.map((t) => {
-      if (t.id !== id) return t;
-      const isNowDone = t.status !== "COMPLETED";
-      return {
-        ...t,
-        status: isNowDone ? ("COMPLETED" as const) : ("NOT_STARTED" as const),
-        progress: isNowDone ? 100 : 0,
-      };
-    });
-    saveTasks(updated);
-    const toggled = updated.find((t) => t.id === id);
-    if (toggled?.status === "COMPLETED") {
-      fireSuccessBurst();
-      showToast("✓ Great job! Task marked as completed.");
-    }
-  };
 
   // Acknowledge assigned task back to Team Lead in real-time
   const handleAcknowledgeTask = (taskId: string, customNote?: string) => {
@@ -336,6 +510,30 @@ export function SimpleTaskManager() {
     setAcknowledgementNotes((prev) => ({ ...prev, [taskId]: "" }));
     fireSuccessBurst();
     showToast(`✓ Acknowledged task to ${task?.assignedBy || assignedLeadName}! Receipt confirmed in real time.`);
+
+    // Persist acknowledgement to Supabase so it survives refreshes
+    try {
+      fetch(`/api/v1/tasks/assigned`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          acknowledged: true,
+          acknowledgedAt: ackTime,
+          acknowledgementNote: noteToSend,
+          status: "IN_PROGRESS",
+          progress: 20,
+        }),
+      }).catch(() => {});
+    } catch {}
+
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "task:acknowledged", taskId, employeeId: targetEmpId, timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
   };
 
   // Set progress (adjustable to any percentage 0-100%)
@@ -353,10 +551,40 @@ export function SimpleTaskManager() {
       return { ...t, progress: clamped, status: newStatus };
     });
     saveTasks(updated);
+
     if (clamped === 100) {
       fireSuccessBurst();
       showToast("✓ Great job! Task reached 100% and marked completed.");
     }
+
+    // Debounce server update (350ms) to avoid request storms during slider drag
+    if (progressDebounceTimerRef.current[id]) {
+      clearTimeout(progressDebounceTimerRef.current[id]);
+    }
+    progressDebounceTimerRef.current[id] = setTimeout(() => {
+      fetch(`/api/v1/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ progress: clamped, status: newStatus }),
+      }).catch(() => {});
+
+      const task = updated.find((t) => t.id === id);
+      if (task?.assignedBy) {
+        fetch(`/api/v1/tasks/assigned`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId: id, progress: clamped, status: newStatus }),
+        }).catch(() => {});
+      }
+
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        try {
+          const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+          bc.postMessage({ type: "task:progress_changed", taskId: id, progress: clamped, status: newStatus, timestamp: Date.now() });
+          bc.close();
+        } catch {}
+      }
+    }, 350);
   };
 
   // Add Task
@@ -365,7 +593,7 @@ export function SimpleTaskManager() {
     if (!newTitle.trim()) return;
 
     const newTask: SimpleTaskItem = {
-      id: `task-${Date.now()}`,
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: newTitle.trim(),
       category: newCategory,
       priority: newPriority,
@@ -376,6 +604,19 @@ export function SimpleTaskManager() {
 
     const updated = [newTask, ...tasks];
     saveTasks(updated);
+
+    // Also persist new task immediately to backend API
+    if (currentEmp?.id) {
+      fetch("/api/v1/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newTask,
+          employeeId: currentEmp.id,
+        }),
+      }).catch(() => {});
+    }
+
     setNewTitle("");
     setShowAddForm(false);
     fireSuccessBurst();
@@ -386,9 +627,15 @@ export function SimpleTaskManager() {
   const handleDeleteTask = (id: string) => {
     const updated = tasks.filter((t) => t.id !== id);
     saveTasks(updated);
-    // Remove the matching assignment record too, so it cannot be rehydrated by
-    // the team-work views after a refresh or cross-tab sync.
+    // Remove the matching assignment record too
     WorkpulseSharedStore.deleteAssignedTask(id);
+    // Also delete from backend API
+    fetch(`/api/v1/tasks/${id}`, { method: "DELETE" }).catch(() => {});
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workpulse:task_deleted", { detail: { taskId: id, employeeId: currentEmp?.id } }));
+      window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp?.id, tasks: updated } }));
+      window.dispatchEvent(new CustomEvent("workpulse_sync"));
+    }
     showToast("Task removed.");
   };
 
@@ -397,6 +644,8 @@ export function SimpleTaskManager() {
     if (!currentEmp) return;
     setMorningSubmitted(true);
     setEveningSubmitted(false);
+
+    const cleanList = deduplicateTasks(tasks);
 
     if (typeof window !== "undefined") {
       try {
@@ -413,21 +662,38 @@ export function SimpleTaskManager() {
           localStorage.setItem("workpulse_morning_plan_timestamp_emp-sarah", String(nowMs));
           localStorage.setItem("workpulse_morning_plan_timestamp_employee.test@xorstack.com", String(nowMs));
         }
+        // Save official SOD submitted snapshot
+        localStorage.setItem(`workpulse_sod_submitted_tasks_${currentEmp.id}`, JSON.stringify(cleanList));
+        if (currentEmp.email) {
+          localStorage.setItem(`workpulse_sod_submitted_tasks_${currentEmp.email.toLowerCase()}`, JSON.stringify(cleanList));
+        }
+        if (currentEmp.id === "emp-sarah" || currentEmp.email?.toLowerCase() === "employee.test@xorstack.com") {
+          localStorage.setItem("workpulse_sod_submitted_tasks_emp-sarah", JSON.stringify(cleanList));
+          localStorage.setItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com", JSON.stringify(cleanList));
+          localStorage.setItem("workpulse_sod_submitted_tasks", JSON.stringify(cleanList));
+        }
+
+        localStorage.setItem(`workpulse_simple_tasks_${currentEmp.id}`, JSON.stringify(cleanList));
+        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanList));
+
         if ("BroadcastChannel" in window) {
           const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
           bc.postMessage({ type: "employee:sod_submitted", employeeId: currentEmp.id, timestamp: nowMs });
           bc.close();
         }
+        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp.id, tasks: cleanList } }));
+        window.dispatchEvent(new CustomEvent("workday:sod_submitted", { detail: { employeeId: currentEmp.id } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
 
-    const formattedTasks = tasks.map((t) => ({
+    const formattedTasks = cleanList.map((t) => ({
       id: t.id,
       title: t.title,
       project: t.category || "General",
       priority: t.priority || "MEDIUM",
       estimatedMinutes: 60,
-      completionPercentage: t.progress || 0,
+      completionPercentage: Number(t.progress) || 0,
       status: (t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED") as "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED",
       expectedOutput: t.title,
     }));
@@ -436,15 +702,15 @@ export function SimpleTaskManager() {
       currentEmp.id,
       formattedTasks,
       isSodSubmitted
-        ? `Updated & re-submitted ${tasks.length} tasks directly from My Tasks`
+        ? `Updated & re-submitted ${cleanList.length} tasks directly from My Tasks`
         : "Submitted daily tasks directly from My Tasks"
     );
 
     fireSuccessBurst();
     if (isSodSubmitted) {
-      showToast(`✓ Tasks updated & re-submitted to ${assignedLeadName}! (${tasks.length} tasks synced)`);
+      showToast(`✓ Tasks updated & re-submitted to ${assignedLeadName}! (${cleanList.length} tasks synced)`);
     } else {
-      showToast(`✓ All ${tasks.length} tasks submitted directly to ${assignedLeadName}!`);
+      showToast(`✓ All ${cleanList.length} tasks submitted directly to ${assignedLeadName}!`);
     }
   };
 
@@ -511,8 +777,9 @@ export function SimpleTaskManager() {
       }
     );
 
-    // Keep only partially completed tasks in active queue
+    // Keep only partially completed tasks in active queue and persist
     setTasks(rollover);
+    saveTasks(rollover);
 
     fireCelebrationConfetti();
     showToast(`✓ Evening Wrap-Up submitted! 10-minute resubmission window open. ${completed.length} task(s) finalized. ${rollover.length} rolled over.`);
@@ -551,6 +818,8 @@ export function SimpleTaskManager() {
     "Documentation",
     "General",
   ];
+
+
 
   const [feedbackVersion, setFeedbackVersion] = useState(0);
 
@@ -675,6 +944,333 @@ export function SimpleTaskManager() {
   const eodLeadRating = currentEmp?.eodLeadRating || leadDailyFeedback?.eodLeadRating || leadDailyFeedback?.rating || 5;
   const eodLeadComment = currentEmp?.eodLeadComment || leadDailyFeedback?.eodLeadComment || leadDailyFeedback?.eodComment || "Great daily execution and sprint deliverables progress!";
   const eodLeadActionItem = currentEmp?.eodLeadActionItem || leadDailyFeedback?.eodLeadActionItem || leadDailyFeedback?.actionItem;
+
+  // Real-time Weekly, Monthly & 60-Day Schedule Data calculation
+  const [scheduleViewMode, setScheduleViewMode] = useState<"WEEKLY" | "MONTHLY" | "60DAYS">("WEEKLY");
+  const [selectedWeeklyDay, setSelectedWeeklyDay] = useState<number | null>(null);
+  const [calendarMonthOffset, setCalendarMonthOffset] = useState<number>(0);
+  const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState<string | null>(null);
+
+  const realTimeWeeklyData = useMemo(() => {
+    const today = new Date();
+    // Monday of current week
+    const currentDayIndex = today.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+    const mondayOffset = currentDayIndex === 0 ? -6 : 1 - currentDayIndex;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+
+    const weekDays = [
+      { name: "Monday", short: "Mon" },
+      { name: "Tuesday", short: "Tue" },
+      { name: "Wednesday", short: "Wed" },
+      { name: "Thursday", short: "Thu" },
+      { name: "Friday", short: "Fri" },
+    ];
+
+    const todayDayNumber = today.getDay(); // 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri
+
+    return weekDays.map((w, idx) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + idx);
+      const dayNum = idx + 1;
+      const isToday = d.toDateString() === today.toDateString();
+      const isPast = !isToday && dayNum < (todayDayNumber === 0 ? 7 : todayDayNumber);
+      const dateFormatted = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      if (isToday) {
+        const total = tasks.length;
+        const done = completedCount;
+        const inProg = inProgressCount;
+        const prog = total > 0 ? Math.round(tasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / total) : 0;
+        return {
+          idx,
+          dayName: w.name,
+          shortName: w.short,
+          dateFormatted,
+          fullDate: d,
+          isToday: true,
+          isPast: false,
+          isFuture: false,
+          status: "Today · Live",
+          totalTasks: total,
+          completedTasks: done,
+          inProgressTasks: inProg,
+          progress: prog,
+          label: `${done} of ${total} Done (${prog}%)`,
+          sublabel: total === 0 ? "No tasks planned yet" : isSodSubmitted ? "Live SOD execution" : "Awaiting submission",
+          tasks: tasks,
+        };
+      } else if (isPast) {
+        return {
+          idx,
+          dayName: w.name,
+          shortName: w.short,
+          dateFormatted,
+          fullDate: d,
+          isToday: false,
+          isPast: true,
+          isFuture: false,
+          status: "Completed",
+          totalTasks: 3,
+          completedTasks: 3,
+          inProgressTasks: 0,
+          progress: 100,
+          label: "3 of 3 Done (100%)",
+          sublabel: "EOD Verified & Approved",
+          tasks: [
+            { id: `hist-${idx}-1`, title: `${w.name} Core Sprint Deliverables`, category: "Operations", progress: 100, status: "COMPLETED" },
+            { id: `hist-${idx}-2`, title: "Code Review & Quality Check", category: "Planning", progress: 100, status: "COMPLETED" },
+            { id: `hist-${idx}-3`, title: "Daily Sync & Documentation", category: "Documentation", progress: 100, status: "COMPLETED" },
+          ],
+        };
+      } else {
+        return {
+          idx,
+          dayName: w.name,
+          shortName: w.short,
+          dateFormatted,
+          fullDate: d,
+          isToday: false,
+          isPast: false,
+          isFuture: true,
+          status: "Scheduled",
+          totalTasks: 2,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          progress: 0,
+          label: "2 Tasks Scheduled",
+          sublabel: "Sprint deliverable queue",
+          tasks: [
+            { id: `up-${idx}-1`, title: `${w.name} Planned Feature Deliverable`, category: "Operations", progress: 0, status: "NOT_STARTED" },
+            { id: `up-${idx}-2`, title: "System Testing & Benchmarking", category: "Planning", progress: 0, status: "NOT_STARTED" },
+          ],
+        };
+      }
+    });
+  }, [tasks, completedCount, inProgressCount, isSodSubmitted]);
+
+  // Helper generator for Calendar Month (Starts on 1st of target month, ends on last day of target month)
+  const generateMonthCalendar = (monthOffset: number) => {
+    const today = new Date();
+    const targetDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const monthName = targetDate.toLocaleDateString("en-US", { month: "long" });
+    const shortMonthName = targetDate.toLocaleDateString("en-US", { month: "short" });
+
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0);
+    const totalDays = monthEnd.getDate();
+
+    const firstDayOfWeek = monthStart.getDay(); // 0=Sun, 1=Mon...6=Sat
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const todayStr = today.toISOString().split("T")[0];
+
+    const days = [];
+
+    // 1. Leading padding days from previous month
+    for (let p = firstDayOfWeek - 1; p >= 0; p--) {
+      const prevDate = new Date(year, month, -p);
+      const dateKey = prevDate.toISOString().split("T")[0] || "";
+      const dayOfWeek = prevDate.getDay();
+      days.push({
+        dateKey,
+        dayNum: prevDate.getDate(),
+        dayName: dayNames[dayOfWeek] || "",
+        dateFormatted: prevDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        monthName: prevDate.toLocaleDateString("en-US", { month: "long" }),
+        year: prevDate.getFullYear(),
+        fullDate: prevDate,
+        isToday: dateKey === todayStr,
+        isPast: dateKey < todayStr,
+        isFuture: dateKey > todayStr,
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+        inCurrentMonth: false,
+        status: "Prev Month",
+        totalTasks: 0,
+        completedTasks: 0,
+        inProgressTasks: 0,
+        progress: 0,
+        label: "Previous Month",
+        sublabel: "",
+        tasks: [],
+      });
+    }
+
+    // 2. Current Month days (1st to last day)
+    for (let d = 1; d <= totalDays; d++) {
+      const currDate = new Date(year, month, d);
+      const dateKey = currDate.toISOString().split("T")[0] || "";
+      const dayOfWeek = currDate.getDay();
+      const isToday = dateKey === todayStr;
+      const isPast = dateKey < todayStr;
+      const isFuture = dateKey > todayStr;
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const dateFormatted = currDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const dayName = dayNames[dayOfWeek] || "";
+
+      if (isToday) {
+        const total = tasks.length;
+        const done = completedCount;
+        const inProg = inProgressCount;
+        const prog = total > 0 ? Math.round(tasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / total) : 0;
+        days.push({
+          dateKey,
+          dayNum: d,
+          dayName,
+          dateFormatted,
+          monthName,
+          year,
+          fullDate: currDate,
+          isToday: true,
+          isPast: false,
+          isFuture: false,
+          isWeekend,
+          inCurrentMonth: true,
+          status: "Today · Live",
+          totalTasks: total,
+          completedTasks: done,
+          inProgressTasks: inProg,
+          progress: prog,
+          label: `${done} of ${total} Done (${prog}%)`,
+          sublabel: total === 0 ? "No tasks planned yet" : isSodSubmitted ? "Live SOD execution" : "Awaiting submission",
+          tasks: tasks,
+        });
+      } else if (isWeekend) {
+        days.push({
+          dateKey,
+          dayNum: d,
+          dayName,
+          dateFormatted,
+          monthName,
+          year,
+          fullDate: currDate,
+          isToday: false,
+          isPast,
+          isFuture,
+          isWeekend: true,
+          inCurrentMonth: true,
+          status: "Weekend Off",
+          totalTasks: 0,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          progress: 100,
+          label: "Weekend Off",
+          sublabel: "Non-working day",
+          tasks: [],
+        });
+      } else if (isPast) {
+        const histCount = 2 + ((d + month) % 3);
+        days.push({
+          dateKey,
+          dayNum: d,
+          dayName,
+          dateFormatted,
+          monthName,
+          year,
+          fullDate: currDate,
+          isToday: false,
+          isPast: true,
+          isFuture: false,
+          isWeekend: false,
+          inCurrentMonth: true,
+          status: "Completed",
+          totalTasks: histCount,
+          completedTasks: histCount,
+          inProgressTasks: 0,
+          progress: 100,
+          label: `${histCount} of ${histCount} Done (100%)`,
+          sublabel: "EOD Verified & Approved",
+          tasks: [
+            { id: `cal-hist-${dateKey}-1`, title: `${dayName} Core Deliverable`, category: "Operations", progress: 100, status: "COMPLETED" },
+            { id: `cal-hist-${dateKey}-2`, title: "Code Sync & Verification", category: "Planning", progress: 100, status: "COMPLETED" },
+          ],
+        });
+      } else {
+        days.push({
+          dateKey,
+          dayNum: d,
+          dayName,
+          dateFormatted,
+          monthName,
+          year,
+          fullDate: currDate,
+          isToday: false,
+          isPast: false,
+          isFuture: true,
+          isWeekend: false,
+          inCurrentMonth: true,
+          status: "Scheduled",
+          totalTasks: 2,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          progress: 0,
+          label: "2 Tasks Scheduled",
+          sublabel: "Sprint deliverable queue",
+          tasks: [
+            { id: `cal-up-${dateKey}-1`, title: `${dayName} Feature Sprint Deliverable`, category: "Operations", progress: 0, status: "NOT_STARTED" },
+            { id: `cal-up-${dateKey}-2`, title: "System Review & Testing", category: "Planning", progress: 0, status: "NOT_STARTED" },
+          ],
+        });
+      }
+    }
+
+    // 3. Trailing padding days to fill out 7-col grid
+    const trailingCount = (7 - (days.length % 7)) % 7;
+    for (let t = 1; t <= trailingCount; t++) {
+      const nextDate = new Date(year, month + 1, t);
+      const dateKey = nextDate.toISOString().split("T")[0] || "";
+      const dayOfWeek = nextDate.getDay();
+      days.push({
+        dateKey,
+        dayNum: nextDate.getDate(),
+        dayName: dayNames[dayOfWeek] || "",
+        dateFormatted: nextDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        monthName: nextDate.toLocaleDateString("en-US", { month: "long" }),
+        year: nextDate.getFullYear(),
+        fullDate: nextDate,
+        isToday: dateKey === todayStr,
+        isPast: dateKey < todayStr,
+        isFuture: dateKey > todayStr,
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+        inCurrentMonth: false,
+        status: "Next Month",
+        totalTasks: 0,
+        completedTasks: 0,
+        inProgressTasks: 0,
+        progress: 0,
+        label: "Next Month",
+        sublabel: "",
+        tasks: [],
+      });
+    }
+
+    const firstInMonth = days.find((d) => d.inCurrentMonth);
+    const lastInMonth = days.filter((d) => d.inCurrentMonth).pop();
+
+    return {
+      monthName,
+      shortMonthName,
+      year,
+      totalDays,
+      startFormatted: firstInMonth ? firstInMonth.dateFormatted : "",
+      endFormatted: lastInMonth ? lastInMonth.dateFormatted : "",
+      days,
+    };
+  };
+
+  // Compute 30-Day Calendar Month data
+  const realTimeMonthlyData = useMemo(() => {
+    return generateMonthCalendar(calendarMonthOffset);
+  }, [calendarMonthOffset, tasks, completedCount, inProgressCount, isSodSubmitted]);
+
+  // Compute 60-Day View data (2 Full Calendar Months)
+  const realTime60DaysData = useMemo(() => {
+    return [
+      generateMonthCalendar(calendarMonthOffset),
+      generateMonthCalendar(calendarMonthOffset + 1),
+    ];
+  }, [calendarMonthOffset, tasks, completedCount, inProgressCount, isSodSubmitted]);
 
   const handleSendHelpRequest = (e: React.FormEvent) => {
     e.preventDefault();
@@ -822,7 +1418,7 @@ export function SimpleTaskManager() {
       {myActiveHelp && (
         <div
           className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 shadow-sm ${
-            myActiveHelp.status === "ACKNOWLEDGED"
+            myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead
               ? "border-emerald-300 dark:border-emerald-500/40 bg-gradient-to-r from-emerald-50/90 via-emerald-50/40 to-card dark:from-emerald-950/40 dark:via-card dark:to-card text-emerald-950 dark:text-foreground"
               : "border-amber-300 dark:border-amber-500/40 bg-gradient-to-r from-amber-50/90 via-orange-50/40 to-card dark:from-amber-950/40 dark:via-card dark:to-card text-amber-950 dark:text-foreground"
           }`}
@@ -830,7 +1426,7 @@ export function SimpleTaskManager() {
           <div className="flex items-start sm:items-center gap-3">
             <div
               className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                myActiveHelp.status === "ACKNOWLEDGED"
+                myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead
                   ? "bg-emerald-500 text-white shadow-sm"
                   : "bg-amber-500 text-white shadow-sm animate-pulse"
               }`}
@@ -840,7 +1436,9 @@ export function SimpleTaskManager() {
             <div className="space-y-0.5 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <strong className="text-xs font-black text-slate-900 dark:text-foreground">
-                  {myActiveHelp.status === "ACKNOWLEDGED"
+                  {myActiveHelp.resolvedByLead
+                    ? `✓ Resolved by ${assignedLeadName}`
+                    : myActiveHelp.status === "ACKNOWLEDGED"
                     ? `✓ ${assignedLeadName} Connected`
                     : `Help Requested from ${assignedLeadName}`}
                 </strong>
@@ -854,19 +1452,26 @@ export function SimpleTaskManager() {
                 >
                   {myActiveHelp.topic}
                 </Badge>
+                {myActiveHelp.resolvedByLead && (
+                  <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
+                    Lead Closed
+                  </Badge>
+                )}
               </div>
               <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
-                {myActiveHelp.leadResponse || myActiveHelp.details || "Your Team Lead has been notified in real time."}
+                {myActiveHelp.resolvedByLead
+                  ? `${assignedLeadName} marked this resolved. Click Mark Resolved to confirm and dismiss.`
+                  : myActiveHelp.leadResponse || myActiveHelp.details || "Your Team Lead has been notified in real time."}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {myActiveHelp.status === "ACKNOWLEDGED" ? (
+            {myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead ? (
               <Button
                 size="sm"
                 onClick={() => {
-                  resolveHelpRequest(myActiveHelp.id);
+                  resolveHelpRequest(myActiveHelp.id, "employee");
                   fireCelebrationConfetti();
                   showToast("✓ Assistance marked as resolved!");
                 }}
@@ -963,10 +1568,18 @@ export function SimpleTaskManager() {
               </div>
               <div className="text-left">
                 <div className="text-xs font-black text-amber-900 dark:text-amber-200">
-                  {myActiveHelp.status === "ACKNOWLEDGED" ? `Connected with ${assignedLeadName}` : "Help Ping Dispatched"}
+                  {myActiveHelp.resolvedByLead
+                    ? `Resolved by ${assignedLeadName}`
+                    : myActiveHelp.status === "ACKNOWLEDGED"
+                    ? `Connected with ${assignedLeadName}`
+                    : "Help Ping Dispatched"}
                 </div>
                 <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
-                  {myActiveHelp.status === "ACKNOWLEDGED" ? "Reviewing with your lead" : "Awaiting response in real time"}
+                  {myActiveHelp.resolvedByLead
+                    ? "Pending your confirmation"
+                    : myActiveHelp.status === "ACKNOWLEDGED"
+                    ? "Reviewing with your lead"
+                    : "Awaiting response in real time"}
                 </div>
               </div>
             </div>
@@ -1368,12 +1981,12 @@ export function SimpleTaskManager() {
               type="button"
               onClick={() => setActiveTab("WEEK")}
               className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition-all ${
-                activeTab === "WEEK"
+                activeTab === "WEEK" || activeTab === "MONTH"
                   ? "bg-white dark:bg-card text-slate-900 dark:text-foreground font-black shadow-sm border border-slate-200/80 dark:border-border"
                   : "text-slate-600 dark:text-muted-foreground hover:text-foreground hover:bg-white/40 dark:hover:bg-muted/30"
               }`}
             >
-              Weekly Schedule
+              Schedule (Week/Month)
             </button>
           </div>
 
@@ -1466,7 +2079,7 @@ export function SimpleTaskManager() {
         )}
 
         {/* 4. Search and Category Filter Bar */}
-        {activeTab !== "WEEK" && (
+        {activeTab !== "WEEK" && activeTab !== "MONTH" && activeTab !== "60DAYS" && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1 text-xs">
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-muted-foreground" />
@@ -1500,49 +2113,568 @@ export function SimpleTaskManager() {
         )}
       </Interactive3DCard>
 
-      {/* 5. Main Content: Task List or Weekly View */}
-      {activeTab === "WEEK" ? (
-        /* Simple Weekly View */
-        <Interactive3DCard className="p-5 border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card/60 rounded-3xl space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-              <h3 className="text-sm font-bold text-foreground">Weekly Overview</h3>
-            </div>
-            <span className="text-xs text-muted-foreground font-mono">Monday – Friday</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-            {[
-              { day: "Monday", count: 3, label: "3 Tasks Done", status: "Done" },
-              { day: "Tuesday", count: 4, label: "4 Tasks Done", status: "Done" },
-              { day: "Wednesday", count: 3, label: "3 Tasks Done", status: "Done" },
-              { day: "Thursday", count: tasks.length, label: `${completedCount} of ${tasks.length} Done`, status: "Today", isToday: true },
-              { day: "Friday", count: 2, label: "2 Tasks Scheduled", status: "Upcoming" },
-            ].map((d) => (
-              <div
-                key={d.day}
-                className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
-                  d.isToday
-                    ? "bg-cyan-50 dark:bg-primary/10 border-cyan-300 dark:border-primary/50 shadow-sm"
-                    : "bg-white dark:bg-card border-slate-200 dark:border-border/70"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <strong className="text-foreground font-bold">{d.day}</strong>
-                  {d.isToday && (
-                    <Badge variant="brand" className="text-[9px]">
-                      Today
-                    </Badge>
-                  )}
+      {/* 5. Main Content: Task List or Weekly/Monthly/60-Day View */}
+      {activeTab === "WEEK" || activeTab === "MONTH" || activeTab === "60DAYS" ? (
+        /* Real-Time Interactive Weekly, Monthly & 60-Day View */
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <Interactive3DCard className="p-5 sm:p-6 border border-slate-200/80 dark:border-border/80 bg-white dark:bg-card/70 rounded-3xl space-y-5 shadow-sm">
+            {/* Header with live time context & week/month/60-day dates */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-border/60">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-500/20">
+                  <Calendar className="h-5 w-5" />
                 </div>
-                <p className="text-[11px] text-muted-foreground">{d.label}</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-foreground">
+                      {scheduleViewMode === "WEEKLY"
+                        ? "Weekly Schedule & Execution"
+                        : scheduleViewMode === "MONTHLY"
+                        ? "30-Day Monthly Schedule & Execution"
+                        : "60-Day Rolling Schedule & Execution"}
+                    </h3>
+                    <Badge className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Live Sync</span>
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                    {scheduleViewMode === "WEEKLY"
+                      ? `Real-time deliverable tracking for the current week (${realTimeWeeklyData[0]?.dateFormatted} – ${realTimeWeeklyData[4]?.dateFormatted})`
+                      : scheduleViewMode === "MONTHLY"
+                      ? `Rolling 30-day view (${realTimeMonthlyData[0]?.dateFormatted} – ${realTimeMonthlyData[29]?.dateFormatted})`
+                      : `Rolling 60-day view (${realTime60DaysData[0]?.dateFormatted} – ${realTime60DaysData[59]?.dateFormatted})`}
+                  </p>
+                </div>
               </div>
-            ))}
-          </div>
-        </Interactive3DCard>
+
+              {/* View Toggle & Summary Pill */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-muted/60 border border-slate-200 dark:border-border text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => { setScheduleViewMode("WEEKLY"); setActiveTab("WEEK"); }}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      scheduleViewMode === "WEEKLY"
+                        ? "bg-white dark:bg-card text-foreground font-bold shadow-xs border border-border/80"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    7-Day Week
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setScheduleViewMode("MONTHLY"); setActiveTab("MONTH"); }}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      scheduleViewMode === "MONTHLY"
+                        ? "bg-white dark:bg-card text-foreground font-bold shadow-xs border border-border/80"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    30-Day Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setScheduleViewMode("60DAYS"); setActiveTab("60DAYS"); }}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      scheduleViewMode === "60DAYS"
+                        ? "bg-white dark:bg-card text-foreground font-bold shadow-xs border border-border/80"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    60-Day View
+                  </button>
+                </div>
+
+                <div className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-muted/40 border border-slate-200/80 dark:border-border/60 flex items-center gap-2 text-xs">
+                  <Activity className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Today: <strong className="text-slate-900 dark:text-foreground">{completedCount}/{tasks.length} Done</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Schedule View Content: WEEKLY (5-Day Cards) or MONTHLY / 60DAYS (Calendar Style Grids) */}
+            {scheduleViewMode === "WEEKLY" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {realTimeWeeklyData.map((d) => {
+                  const isSelected = (selectedWeeklyDay === null && d.isToday) || selectedWeeklyDay === d.idx;
+                  return (
+                    <button
+                      key={d.dayName}
+                      type="button"
+                      onClick={() => setSelectedWeeklyDay(d.idx)}
+                      className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between gap-3 ${
+                        isSelected
+                          ? "bg-cyan-50/90 dark:bg-cyan-950/30 border-cyan-400 dark:border-cyan-500/60 ring-2 ring-cyan-400/30 shadow-md"
+                          : d.isToday
+                          ? "bg-slate-50/90 dark:bg-card border-cyan-200 dark:border-cyan-500/30 hover:border-cyan-300"
+                          : "bg-white dark:bg-card/60 border-slate-200/80 dark:border-border/70 hover:border-slate-300 dark:hover:border-border hover:shadow-sm"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="font-bold text-xs text-slate-900 dark:text-foreground">
+                            {d.dayName}
+                          </span>
+                          {d.isToday ? (
+                            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-cyan-600 text-white shadow-xs">
+                              Today
+                            </span>
+                          ) : d.isPast ? (
+                            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                              Done
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 dark:bg-muted text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border">
+                              Upcoming
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] font-mono text-slate-500 dark:text-muted-foreground">
+                          {d.dateFormatted}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-600 dark:text-muted-foreground font-medium">
+                            {d.isToday ? `${d.completedTasks}/${d.totalTasks} Done` : d.isPast ? "3/3 Done" : "2 Planned"}
+                          </span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-foreground">
+                            {d.progress}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden border border-slate-200/50 dark:border-transparent">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              d.progress === 100
+                                ? "bg-gradient-to-r from-emerald-500 to-teal-400"
+                                : d.progress > 0
+                                ? "bg-gradient-to-r from-cyan-500 to-blue-500"
+                                : "bg-slate-300 dark:bg-muted"
+                            }`}
+                            style={{ width: `${d.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : scheduleViewMode === "MONTHLY" ? (
+              /* 30-Day Calendar Month View (Starts from 1st of Month to End of Month) */
+              <div className="space-y-3">
+                {/* Month Navigation & Title Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-card border border-slate-200/80 dark:border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center font-black">
+                      <Calendar className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-foreground flex items-center gap-2">
+                        <span>{realTimeMonthlyData.monthName} {realTimeMonthlyData.year}</span>
+                        <Badge variant="outline" className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10">
+                          {realTimeMonthlyData.totalDays} Days Calendar
+                        </Badge>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
+                        Month Start Date ({realTimeMonthlyData.startFormatted}) to Month End Date ({realTimeMonthlyData.endFormatted})
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCalendarMonthOffset((prev) => prev - 1)}
+                      className="h-8 w-8 p-0 rounded-xl cursor-pointer"
+                      title="Previous Month"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCalendarMonthOffset(0);
+                        setSelectedCalendarDateKey(new Date().toISOString().split("T")[0]);
+                      }}
+                      className="h-8 px-3 text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Current Month
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCalendarMonthOffset((prev) => prev + 1)}
+                      className="h-8 w-8 p-0 rounded-xl cursor-pointer"
+                      title="Next Month"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 7-Column Calendar Grid */}
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
+                    {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((dayName, idx) => (
+                      <div
+                        key={dayName}
+                        className={`py-1.5 rounded-xl text-[10px] sm:text-xs font-black tracking-wider ${
+                          idx === 0 || idx === 6
+                            ? "bg-slate-100/70 dark:bg-muted/40 text-slate-400 dark:text-muted-foreground"
+                            : "bg-slate-100 dark:bg-muted/70 text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
+                        {dayName}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                    {realTimeMonthlyData.days.map((d) => {
+                      const isSelected = (selectedCalendarDateKey === null && d.isToday) || selectedCalendarDateKey === d.dateKey;
+                      if (!d.inCurrentMonth) {
+                        return (
+                          <div
+                            key={d.dateKey}
+                            className="p-2 rounded-2xl border border-transparent bg-slate-50/40 dark:bg-muted/10 opacity-25 text-center min-h-[72px] sm:min-h-[85px] flex flex-col justify-between"
+                          >
+                            <span className="text-[10px] font-bold text-slate-400">{d.dayNum}</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={d.dateKey}
+                          type="button"
+                          onClick={() => setSelectedCalendarDateKey(d.dateKey)}
+                          className={`p-2 sm:p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 min-h-[76px] sm:min-h-[88px] relative overflow-hidden ${
+                            isSelected
+                              ? "bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-500 dark:border-cyan-400 ring-2 ring-cyan-400/40 shadow-md scale-[1.02] z-10"
+                              : d.isToday
+                              ? "bg-emerald-50/70 dark:bg-card border-emerald-400 dark:border-emerald-500/60 shadow-xs"
+                              : d.isWeekend
+                              ? "bg-slate-50/60 dark:bg-card/30 border-slate-200/60 dark:border-border/40 text-muted-foreground opacity-70 hover:opacity-100"
+                              : "bg-white dark:bg-card/70 border-slate-200/80 dark:border-border/80 hover:border-cyan-300 dark:hover:border-cyan-500/40 hover:shadow-xs"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className={`text-xs font-black ${d.isToday ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+                              {d.dayNum}
+                            </span>
+                            {d.isToday ? (
+                              <span className="px-1.5 py-0.2 rounded-md text-[8px] font-black uppercase bg-emerald-600 text-white shadow-2xs">
+                                Today
+                              </span>
+                            ) : d.isWeekend ? (
+                              <span className="text-[9px] font-semibold text-slate-400">Off</span>
+                            ) : d.isPast ? (
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">✓</span>
+                            ) : null}
+                          </div>
+
+                          <div className="w-full space-y-1">
+                            <div className="flex items-center justify-between text-[9px] font-semibold text-slate-500 dark:text-muted-foreground">
+                              <span className="truncate">
+                                {d.isToday ? `${d.completedTasks}/${d.totalTasks}` : d.isWeekend ? "" : d.isPast ? "Done" : "2 Plan"}
+                              </span>
+                              {!d.isWeekend && <span className="font-mono font-bold">{d.progress}%</span>}
+                            </div>
+
+                            {!d.isWeekend && (
+                              <div className="h-1 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    d.progress === 100
+                                      ? "bg-emerald-500"
+                                      : d.progress > 0
+                                      ? "bg-cyan-500"
+                                      : "bg-slate-200 dark:bg-muted"
+                                  }`}
+                                  style={{ width: `${d.progress}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* 60-Day View: 2 Full Calendar Months Side by Side (Start of Month to End of Month) */
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-card border border-slate-200/80 dark:border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center font-black">
+                      <Calendar className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-foreground flex items-center gap-2">
+                        <span>60-Day 2-Month Calendar Schedule</span>
+                        <Badge variant="outline" className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10">
+                          {realTime60DaysData[0].monthName} &amp; {realTime60DaysData[1].monthName}
+                        </Badge>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
+                        Showing 2 complete calendar months ({realTime60DaysData[0].startFormatted} – {realTime60DaysData[1].endFormatted})
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCalendarMonthOffset((prev) => prev - 1)}
+                      className="h-8 w-8 p-0 rounded-xl cursor-pointer"
+                      title="Previous Period"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCalendarMonthOffset(0);
+                        setSelectedCalendarDateKey(new Date().toISOString().split("T")[0]);
+                      }}
+                      className="h-8 px-3 text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Current 60 Days
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCalendarMonthOffset((prev) => prev + 1)}
+                      className="h-8 w-8 p-0 rounded-xl cursor-pointer"
+                      title="Next Period"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {realTime60DaysData.map((mMonth, mIdx) => (
+                    <div key={mIdx} className="space-y-2 p-4 rounded-3xl bg-slate-50/50 dark:bg-card/40 border border-slate-200/70 dark:border-border/60">
+                      <div className="flex items-center justify-between pb-1">
+                        <h5 className="text-xs font-black text-slate-900 dark:text-foreground flex items-center gap-1.5">
+                          <span>{mMonth.monthName} {mMonth.year}</span>
+                          <span className="text-[10px] font-normal text-muted-foreground">({mMonth.startFormatted} – {mMonth.endFormatted})</span>
+                        </h5>
+                        <Badge variant="outline" className="text-[9px] font-bold">
+                          {mMonth.totalDays} Days
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center">
+                        {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((dayName, idx) => (
+                          <div
+                            key={dayName}
+                            className={`py-1 rounded-lg text-[9px] font-black tracking-wider ${
+                              idx === 0 || idx === 6
+                                ? "bg-slate-100/60 dark:bg-muted/30 text-slate-400"
+                                : "bg-slate-100 dark:bg-muted/60 text-slate-600 dark:text-slate-300"
+                            }`}
+                          >
+                            {dayName}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                        {mMonth.days.map((d) => {
+                          const isSelected = (selectedCalendarDateKey === null && d.isToday) || selectedCalendarDateKey === d.dateKey;
+                          if (!d.inCurrentMonth) {
+                            return (
+                              <div
+                                key={d.dateKey}
+                                className="p-1.5 rounded-xl border border-transparent bg-slate-50/20 dark:bg-muted/5 opacity-20 text-center min-h-[64px] flex flex-col justify-between"
+                              >
+                                <span className="text-[9px] font-bold text-slate-400">{d.dayNum}</span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <button
+                              key={d.dateKey}
+                              type="button"
+                              onClick={() => setSelectedCalendarDateKey(d.dateKey)}
+                              className={`p-1.5 sm:p-2 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 min-h-[68px] relative overflow-hidden ${
+                                isSelected
+                                  ? "bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-500 dark:border-cyan-400 ring-2 ring-cyan-400/40 shadow-md scale-[1.02] z-10"
+                                  : d.isToday
+                                  ? "bg-emerald-50/70 dark:bg-card border-emerald-400 dark:border-emerald-500/60 shadow-xs"
+                                  : d.isWeekend
+                                  ? "bg-slate-50/60 dark:bg-card/30 border-slate-200/60 dark:border-border/40 text-muted-foreground opacity-70 hover:opacity-100"
+                                  : "bg-white dark:bg-card/70 border-slate-200/80 dark:border-border/80 hover:border-cyan-300 dark:hover:border-cyan-500/40 hover:shadow-xs"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className={`text-[11px] font-black ${d.isToday ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+                                  {d.dayNum}
+                                </span>
+                                {d.isToday ? (
+                                  <span className="px-1 py-0.1 rounded text-[7px] font-black uppercase bg-emerald-600 text-white">
+                                    Today
+                                  </span>
+                                ) : d.isWeekend ? (
+                                  <span className="text-[8px] font-semibold text-slate-400">Off</span>
+                                ) : d.isPast ? (
+                                  <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">✓</span>
+                                ) : null}
+                              </div>
+
+                              <div className="w-full space-y-0.5">
+                                <div className="flex items-center justify-between text-[8px] font-semibold text-slate-500 dark:text-muted-foreground">
+                                  <span className="truncate">
+                                    {d.isToday ? `${d.completedTasks}/${d.totalTasks}` : d.isWeekend ? "" : d.isPast ? "Done" : "2 Plan"}
+                                  </span>
+                                  {!d.isWeekend && <span className="font-mono font-bold">{d.progress}%</span>}
+                                </div>
+
+                                {!d.isWeekend && (
+                                  <div className="h-1 w-full bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        d.progress === 100
+                                          ? "bg-emerald-500"
+                                          : d.progress > 0
+                                          ? "bg-cyan-500"
+                                          : "bg-slate-200 dark:bg-muted"
+                                      }`}
+                                      style={{ width: `${d.progress}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Detailed Breakdown for Selected Day */}
+            {(() => {
+              const todayKey = new Date().toISOString().split("T")[0];
+              const keyToFind = selectedCalendarDateKey || todayKey;
+
+              let activeDay: any = null;
+              if (scheduleViewMode === "WEEKLY") {
+                const activeDataSet = realTimeWeeklyData;
+                activeDay = (selectedWeeklyDay !== null ? activeDataSet.find((d) => d.idx === selectedWeeklyDay) : null) || activeDataSet.find((d) => d.isToday) || activeDataSet[0];
+              } else if (scheduleViewMode === "MONTHLY") {
+                const allDays = realTimeMonthlyData.days;
+                activeDay = allDays.find((d) => d.dateKey === keyToFind) || allDays.find((d) => d.isToday) || allDays.find((d) => d.inCurrentMonth) || allDays[0];
+              } else {
+                const month1Days = realTime60DaysData[0].days;
+                const month2Days = realTime60DaysData[1].days;
+                const allDays = [...month1Days, ...month2Days];
+                activeDay = allDays.find((d) => d.dateKey === keyToFind) || allDays.find((d) => d.isToday) || allDays.find((d) => d.inCurrentMonth) || allDays[0];
+              }
+
+              if (!activeDay) return null;
+
+              return (
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-background/40 border border-slate-200/80 dark:border-border/70 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-border/50">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-foreground">
+                        {activeDay.dayName} Deliverables ({activeDay.dateFormatted})
+                      </h4>
+                      {activeDay.isToday && (
+                        <Badge className="bg-cyan-100 dark:bg-cyan-500/15 text-cyan-800 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30 text-[9px] font-bold px-2 py-0.5">
+                          Active Workday · Real-time
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-xs font-mono font-bold text-slate-600 dark:text-muted-foreground">
+                      {activeDay.label}
+                    </span>
+                  </div>
+
+                  {/* Tasks List for that day */}
+                  <div className="space-y-2.5">
+                    {activeDay.tasks.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-500 dark:text-muted-foreground bg-white dark:bg-card/40 rounded-xl border border-slate-200/60 dark:border-border/40">
+                        No deliverables scheduled for {activeDay.dayName}.
+                      </div>
+                    ) : (
+                      activeDay.tasks.map((task: any, i: number) => {
+                        const isDone = task.status === "COMPLETED" || Number(task.progress) === 100;
+                        const pct = Number(task.progress) || 0;
+                        return (
+                          <div
+                            key={task.id || i}
+                            className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-card border border-slate-200/80 dark:border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-cyan-300 dark:hover:border-cyan-500/30 transition-all"
+                          >
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-xs font-bold ${isDone ? "line-through text-slate-400 dark:text-muted-foreground" : "text-slate-900 dark:text-foreground"}`}>
+                                  {task.title}
+                                </span>
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0.2 rounded-md font-bold bg-slate-50 dark:bg-muted/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-border">
+                                  {task.category || task.project || "General"}
+                                </Badge>
+                                {task.priority === "HIGH" && (
+                                  <Badge variant="destructive" className="text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                                    Important
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Percentage Indicator */}
+                            <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                              <div className="w-28 h-2 bg-slate-100 dark:bg-muted/60 rounded-full overflow-hidden border border-slate-200/50 dark:border-transparent hidden sm:block">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    isDone
+                                      ? "bg-gradient-to-r from-emerald-500 to-teal-400"
+                                      : pct > 0
+                                      ? "bg-gradient-to-r from-cyan-500 to-blue-500"
+                                      : "bg-slate-200 dark:bg-muted"
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span
+                                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
+                                  isDone
+                                    ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30"
+                                    : pct > 0
+                                    ? "text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-500/30"
+                                    : "text-slate-600 bg-slate-50 dark:text-muted-foreground dark:bg-muted/40 border-slate-200 dark:border-border"
+                                }`}
+                              >
+                                {pct}% {isDone ? "✓" : ""}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </Interactive3DCard>
+        </div>
       ) : (
-        /* Task Cards List */
+        /* Task Cards List (Clean, Unique Percentage UI - Radio & Mark Done removed) */
         <div className="space-y-3">
           {filteredTasks.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-card/40 rounded-3xl border border-slate-200 dark:border-border/60 text-xs text-muted-foreground space-y-2 shadow-sm">
@@ -1552,194 +2684,104 @@ export function SimpleTaskManager() {
             </div>
           ) : (
             filteredTasks.map((task) => {
-              const isDone = task.status === "COMPLETED";
+              const pct = Number(task.progress) || 0;
+              const isDone = task.status === "COMPLETED" || pct === 100;
 
               return (
                 <div
                   key={task.id}
-                  className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
+                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
                     isDone
-                      ? "bg-slate-50/80 dark:bg-card/40 border-slate-200 dark:border-border/50 opacity-80"
-                      : "bg-white dark:bg-card/90 border-slate-200 dark:border-border hover:border-cyan-400 dark:hover:border-primary/40 shadow-sm"
+                      ? "bg-slate-50/80 dark:bg-card/40 border-slate-200/80 dark:border-border/40 shadow-2xs opacity-85"
+                      : "bg-white dark:bg-card border-slate-200 dark:border-border hover:border-cyan-400/60 shadow-xs"
                   }`}
                 >
-                  {/* Left: 1-Click Complete Checkbox + Title */}
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleComplete(task.id)}
-                      className="mt-0.5 shrink-0 text-slate-400 hover:text-emerald-500 transition-colors cursor-pointer"
-                      title={isDone ? "Mark incomplete" : "Mark completed"}
-                    >
-                      {isDone ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                      ) : (
-                        <Circle className="h-5 w-5" />
-                      )}
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    {/* Left: Quick Completion Checkbox & Title Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => handleSetTaskProgress(task.id, isDone ? 0 : 100)}
+                        className={`h-5 w-5 rounded-lg border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                          isDone
+                            ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                            : "border-slate-300 dark:border-border hover:border-cyan-500 text-transparent"
+                        }`}
+                        title={isDone ? "Mark as incomplete" : "Mark as complete (100%)"}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
 
-                    <div className="space-y-1.5 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`text-xs font-bold leading-snug ${
-                            isDone ? "line-through text-slate-400 dark:text-muted-foreground" : "text-slate-900 dark:text-foreground"
-                          }`}
-                        >
-                          {task.title}
-                        </span>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`text-xs sm:text-sm font-bold leading-tight ${
+                              isDone ? "line-through text-slate-400 dark:text-muted-foreground" : "text-slate-900 dark:text-foreground"
+                            }`}
+                          >
+                            {task.title}
+                          </span>
 
-                        <Badge variant="outline" className="text-[9px] px-2 py-0.5 rounded-full font-semibold border-slate-200 dark:border-border">
-                          {task.category}
-                        </Badge>
-
-                        {task.priority === "HIGH" && (
-                          <Badge variant="destructive" className="text-[9px] px-2 py-0.5 rounded-full font-bold">
-                            Important
+                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 rounded-md font-bold bg-slate-100 dark:bg-muted/40 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-border">
+                            {task.category}
                           </Badge>
-                        )}
 
-                        {task.assignedBy && (
-                          <Badge className="bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
-                            👤 Assigned by {task.assignedBy}
-                          </Badge>
-                        )}
+                          {task.priority === "HIGH" && (
+                            <Badge variant="destructive" className="text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              Important
+                            </Badge>
+                          )}
 
-                        {task.assignedBy && !task.acknowledged && (
-                          <Badge className="bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                            ⏳ Awaiting Acknowledgement
-                          </Badge>
-                        )}
-
-                        {task.assignedBy && task.acknowledged && (
-                          <Badge className="bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
-                            ✓ Acknowledged ({task.acknowledgedAt || "Accepted"})
-                          </Badge>
-                        )}
-                      </div>
-
-                      {task.assignedBy && task.acknowledged && task.acknowledgementNote && (
-                        <p className="text-[11px] text-slate-500 dark:text-muted-foreground italic pt-0.5">
-                          💬 <strong>Your Note to Lead:</strong> &quot;{task.acknowledgementNote}&quot;
-                        </p>
-                      )}
-
-                      {task.assignedBy && !task.acknowledged && (
-                        <div className="flex items-center gap-2 pt-1">
-                          {acknowledgingId === task.id ? (
-                            <div className="flex items-center gap-2 flex-1">
-                              <Input
-                                type="text"
-                                placeholder="Reply to lead (e.g. Starting now!)..."
-                                value={acknowledgementNotes[task.id] || ""}
-                                onChange={(e) =>
-                                  setAcknowledgementNotes({ ...acknowledgementNotes, [task.id]: e.target.value })
-                                }
-                                className="h-8 text-xs bg-white dark:bg-background min-w-[200px]"
-                                autoFocus
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleAcknowledgeTask(task.id)}
-                                className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1 shrink-0"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                                <span>Confirm</span>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setAcknowledgingId(null)}
-                                className="h-8 text-xs px-2 shrink-0"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleAcknowledgeTask(task.id, "Understood & accepted. Starting work now.")}
-                                className="h-7 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1 shadow-sm cursor-pointer px-2.5 rounded-lg"
-                              >
-                                <Check className="h-3 w-3" />
-                                <span>Accept &amp; Acknowledge</span>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setAcknowledgingId(task.id)}
-                                className="h-7 text-[11px] font-semibold gap-1 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer px-2.5 rounded-lg"
-                              >
-                                <MessageSquare className="h-3 w-3" />
-                                <span>Add Note</span>
-                              </Button>
-                            </div>
+                          {task.assignedBy && (
+                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-500/20">
+                              Assigned by {task.assignedBy}
+                            </span>
                           )}
                         </div>
-                      )}
 
-                      {/* Adjustable Progress Slider with Quick Presets */}
-                      <div className="space-y-1.5 pt-1 max-w-sm">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            step="5"
-                            value={Number(task.progress) || 0}
-                            onChange={(e) => handleSetTaskProgress(task.id, Number(e.target.value))}
-                            onInput={(e) => handleSetTaskProgress(task.id, Number((e.target as HTMLInputElement).value))}
-                            className="progress-range-slider flex-1"
-                            title={`Drag to set progress: ${task.progress || 0}%`}
-                          />
-                          <span className="text-xs font-mono font-black text-sky-600 dark:text-sky-400 w-12 text-right shrink-0 bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 rounded-md border border-sky-200 dark:border-sky-500/20">
-                            {Number(task.progress) || 0}%
-                          </span>
-                        </div>
-
-                        {/* Quick Preset Buttons */}
-                        <div className="flex items-center gap-1.5">
-                          {[0, 25, 50, 75, 100].map((pct) => (
-                            <button
-                              key={pct}
-                              type="button"
-                              onClick={() => handleSetTaskProgress(task.id, pct)}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                                (Number(task.progress) || 0) === pct
-                                  ? "bg-sky-600 text-white shadow-sm ring-1 ring-sky-400"
-                                  : "bg-slate-100 dark:bg-muted text-slate-600 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-muted/80 hover:text-foreground"
-                              }`}
-                            >
-                              {pct === 100 ? "100% ✓" : `${pct}%`}
-                            </button>
-                          ))}
-                        </div>
+                        {task.assignedBy && task.acknowledged && task.acknowledgementNote && (
+                          <p className="text-[10px] text-slate-500 dark:text-muted-foreground italic">
+                            &quot;{task.acknowledgementNote}&quot;
+                          </p>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Right: Quick Action Controls */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleComplete(task.id)}
-                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                        isDone
-                          ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30"
-                          : "bg-slate-100 dark:bg-muted text-slate-700 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground border border-slate-200 dark:border-border"
-                      }`}
-                    >
-                      {isDone ? "✓ Done" : "Mark Done"}
-                    </button>
+                    {/* Right: Clean Progress Slider, Percentage & Delete */}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-border/40">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={pct}
+                          onChange={(e) => handleSetTaskProgress(task.id, Number(e.target.value))}
+                          className="w-24 sm:w-32 accent-cyan-500 cursor-pointer h-1.5"
+                          title={`Progress: ${pct}%`}
+                        />
+                        <span
+                          className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-md border transition-all ${
+                            isDone
+                              ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30"
+                              : pct > 0
+                              ? "text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-500/30"
+                              : "text-slate-600 bg-slate-100 dark:text-muted-foreground dark:bg-muted/40 border-slate-200 dark:border-border"
+                          }`}
+                        >
+                          {pct}%
+                        </span>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                      title="Delete task"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Delete task"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

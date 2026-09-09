@@ -13,6 +13,11 @@ import { CheckSquare, Users, ShieldCheck } from "lucide-react";
 export default function MyWorkPage() {
   const user = useCurrentUser();
   const { allEmployees } = useWorkpulseSharedStore();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isHR =
     user.roles.includes("HR") ||
@@ -67,12 +72,12 @@ export default function MyWorkPage() {
                 )}
               </span>
               {isHR ? (
-                <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
-                  {allEmployees.length || 19} Total Staff
+                <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium" suppressHydrationWarning>
+                  {mounted ? allEmployees.length : 11} Total Staff
                 </span>
               ) : isLead ? (
-                <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
-                  Development Team · {teamMemberCount} Direct Reports
+                <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium" suppressHydrationWarning>
+                  Development Team · {mounted ? teamMemberCount : 4} Direct Reports
                 </span>
               ) : null}
             </div>

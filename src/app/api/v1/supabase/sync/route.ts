@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
       case "delete_employee": {
         if (!id) return apiError("Missing employee 'id'", 400);
-        // Cascade delete related records across all child tables
+        // Cascade delete related records across all child tables and clear manager links
         await Promise.allSettled([
           supabaseAdmin.from("leave_requests").delete().eq("employee_id", id),
           supabaseAdmin.from("wfh_requests").delete().eq("employee_id", id),
@@ -93,6 +93,10 @@ export async function POST(req: NextRequest) {
           supabaseAdmin.from("biometric_punches").delete().eq("employee_id", id),
           supabaseAdmin.from("feedbacks").delete().eq("employee_id", id),
           supabaseAdmin.from("regularization_requests").delete().eq("employee_id", id),
+          supabaseAdmin.from("daily_tasks").delete().eq("employee_id", id),
+          supabaseAdmin.from("notifications").delete().eq("user_id", id),
+          supabaseAdmin.from("profiles").delete().eq("id", id),
+          supabaseAdmin.from("employees").update({ manager_id: null, manager_name: null }).eq("manager_id", id),
         ]);
         const { data, error } = await supabaseAdmin.from("employees").delete().eq("id", id);
         if (error) console.warn("[Supabase Admin Sync] Employee delete warning:", error.message);
@@ -181,6 +185,17 @@ export async function POST(req: NextRequest) {
 
         // 3. Cascade update to all other connected tables
         const cascadeTasks: Promise<any>[] = [];
+
+        // employees (update reportees' manager_name if this employee is a manager)
+        if (name) {
+          cascadeTasks.push(
+            Promise.resolve(
+              supabaseAdmin.from("employees").update({
+                manager_name: name,
+              }).eq("manager_id", empId)
+            )
+          );
+        }
 
         // workdays
         cascadeTasks.push(

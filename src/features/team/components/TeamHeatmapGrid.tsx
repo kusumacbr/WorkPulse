@@ -14,6 +14,7 @@ interface TeamMemberHeatmap {
     date: string;
     dayName: string;
     dayNum: string;
+    monthName?: string;
     isToday: boolean;
     status: string;
     taskCount: number;
@@ -33,6 +34,7 @@ export function TeamHeatmapGrid({
   members,
 }: TeamHeatmapGridProps) {
   const { allEmployees } = useWorkpulseSharedStore();
+  const [viewMode, setViewMode] = useState<"WEEKLY" | "MONTHLY" | "60DAYS">("WEEKLY");
   const [realtimeVersion, setRealtimeVersion] = useState(0);
   const [livePunches, setLivePunches] = useState<Record<string, any>>({});
   const [liveSubmissions, setLiveSubmissions] = useState<Record<string, { sod: boolean; eod: boolean; tasksCount: number }>>({});
@@ -78,8 +80,78 @@ export function TeamHeatmapGrid({
     return days;
   }, []);
 
+  // Compute dynamic 30-Day Month (Current Month: 1st to last day of month)
+  const monthDays = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const days = [];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    for (let day = 1; day <= totalDays; day++) {
+      const d = new Date(year, month, day);
+      const dateStr = d.toISOString().split("T")[0] || "";
+      const todayStr = today.toISOString().split("T")[0] || "";
+      const dayOfWeek = d.getDay();
+      days.push({
+        date: dateStr,
+        dayName: dayNames[dayOfWeek] || "",
+        dayNum: `${d.getDate()}`,
+        monthName: d.toLocaleDateString("en-US", { month: "short" }),
+        isToday: dateStr === todayStr,
+        isPast: dateStr < todayStr,
+        isFuture: dateStr > todayStr,
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+      });
+    }
+    return days;
+  }, []);
+
+  // Compute dynamic 60-Day View (2 full calendar months: 1st of current month to end of next month)
+  const days60 = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const days = [];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const endOfNextMonth = new Date(year, month + 2, 0);
+    const totalDays = Math.round((endOfNextMonth.getTime() - new Date(year, month, 1).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(year, month, 1 + i);
+      const dateStr = d.toISOString().split("T")[0] || "";
+      const todayStr = today.toISOString().split("T")[0] || "";
+      const dayOfWeek = d.getDay();
+      days.push({
+        date: dateStr,
+        dayName: dayNames[dayOfWeek] || "",
+        dayNum: `${d.getDate()}`,
+        monthName: d.toLocaleDateString("en-US", { month: "short" }),
+        isToday: dateStr === todayStr,
+        isPast: dateStr < todayStr,
+        isFuture: dateStr > todayStr,
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+      });
+    }
+    return days;
+  }, []);
+
+  const activeDays = viewMode === "WEEKLY" ? weekDays : viewMode === "MONTHLY" ? monthDays : days60;
+
   const dynamicSprintRange = useMemo(() => {
-    if (propSprintRange) return propSprintRange;
+    if (propSprintRange && viewMode === "WEEKLY") return propSprintRange;
+    if (viewMode === "60DAYS") {
+      const start = days60[0];
+      const end = days60[days60.length - 1];
+      return `60-Day View (${start?.monthName} ${start?.dayNum} – ${end?.monthName} ${end?.dayNum})`;
+    }
+    if (viewMode === "MONTHLY") {
+      const start = monthDays[0];
+      const end = monthDays[monthDays.length - 1];
+      return `30-Day Month (${start?.monthName} ${start?.dayNum} – ${end?.monthName} ${end?.dayNum})`;
+    }
     if (weekDays.length >= 7) {
       const start = weekDays[0];
       const end = weekDays[6];
@@ -88,12 +160,11 @@ export function TeamHeatmapGrid({
       }
     }
     return "This Week";
-  }, [propSprintRange, weekDays]);
+  }, [propSprintRange, viewMode, weekDays, monthDays, days60]);
 
   // Load real-time punches and submissions from Supabase and local storage
   const refreshRealtimeData = async () => {
     try {
-      // 1. Fetch real biometric punches
       const res = await fetch("/api/v1/attendance/punches");
       if (res.ok) {
         const data = await res.json();
@@ -110,7 +181,6 @@ export function TeamHeatmapGrid({
       }
     } catch {}
 
-    // 2. Read live SOD and EOD states from localStorage & API
     if (typeof window !== "undefined") {
       const subMap: Record<string, { sod: boolean; eod: boolean; tasksCount: number }> = {};
       employeesToShow.forEach((emp) => {
@@ -179,7 +249,7 @@ export function TeamHeatmapGrid({
       const latestPunch = livePunches[emp.id] || livePunches[emp.email] || (emp.id === "emp-sarah" ? livePunches["employee.test@xorstack.com"] : null);
       const isPunchedIn = latestPunch?.direction === "IN" || latestPunch?.punch_type === "IN";
 
-      const days = weekDays.map((d, idx) => {
+      const days = activeDays.map((d, idx) => {
         let status = "OPEN";
         let taskCount = 0;
         let detail = "Pending";
@@ -205,7 +275,7 @@ export function TeamHeatmapGrid({
           }
         } else if (d.isPast) {
           status = "LOCKED";
-          taskCount = 3 + (idx % 2);
+          taskCount = 3 + (idx % 3);
           detail = `Verified & Locked (${taskCount} tasks)`;
         } else {
           status = "UPCOMING";
@@ -216,6 +286,7 @@ export function TeamHeatmapGrid({
           date: d.date,
           dayName: d.dayName,
           dayNum: d.dayNum,
+          monthName: (d as any).monthName,
           isToday: d.isToday,
           status,
           taskCount,
@@ -230,7 +301,7 @@ export function TeamHeatmapGrid({
         days,
       };
     });
-  }, [employeesToShow, weekDays, liveSubmissions, livePunches, realtimeVersion]);
+  }, [employeesToShow, activeDays, liveSubmissions, livePunches, realtimeVersion]);
 
   const getCellColor = (status: string, isToday: boolean) => {
     switch (status) {
@@ -269,44 +340,99 @@ export function TeamHeatmapGrid({
             </CardDescription>
           </div>
 
-          {/* Legend */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500 inline-block" />
-              <span className="text-[11px]">EOD Done</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* View Mode Toggle: 7 Days vs 30 Days vs 60 Days */}
+            <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-border text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setViewMode("WEEKLY")}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  viewMode === "WEEKLY"
+                    ? "bg-card text-foreground font-bold shadow-xs border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                7-Day Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("MONTHLY")}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  viewMode === "MONTHLY"
+                    ? "bg-card text-foreground font-bold shadow-xs border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                30-Day Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("60DAYS")}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  viewMode === "60DAYS"
+                    ? "bg-card text-foreground font-bold shadow-xs border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                60-Day View
+              </button>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-cyan-500 inline-block" />
-              <span className="text-[11px]">SOD Active</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block" />
-              <span className="text-[11px]">In Progress</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-muted inline-block" />
-              <span className="text-[11px]">Weekend</span>
+
+            {/* Legend */}
+            <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500 inline-block" />
+                <span className="text-[10px]">EOD Done</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm bg-cyan-500 inline-block" />
+                <span className="text-[10px]">SOD Active</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block" />
+                <span className="text-[10px]">In Progress</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm bg-muted inline-block" />
+                <span className="text-[10px]">Weekend</span>
+              </div>
             </div>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="overflow-x-auto pt-2 pb-6">
-        <div className="min-w-[650px] space-y-2">
-          {/* Header Row: Days of Sprint */}
-          <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground pb-1 border-b border-border">
-            <div className="col-span-4">Direct Report</div>
-            {weekDays.map((d) => (
+        <div className={viewMode === "60DAYS" ? "min-w-[2100px] space-y-2" : viewMode === "MONTHLY" ? "min-w-[1200px] space-y-2" : "min-w-[650px] space-y-2"}>
+          {/* Header Row: Days of Sprint or Month or 60 Days */}
+          <div
+            className={`grid gap-2 text-xs font-semibold text-muted-foreground pb-1 border-b border-border ${
+              viewMode === "60DAYS"
+                ? "grid-cols-[180px_repeat(60,minmax(24px,1fr))_65px]"
+                : viewMode === "MONTHLY"
+                ? "grid-cols-[180px_repeat(30,minmax(28px,1fr))_65px]"
+                : "grid-cols-12"
+            }`}
+          >
+            <div className={viewMode !== "WEEKLY" ? "" : "col-span-4"}>Direct Report</div>
+            {activeDays.map((d) => (
               <div
                 key={d.date}
-                className={`col-span-1 text-center ${
+                className={`text-center ${
                   d.isToday ? "font-bold text-[var(--brand-primary)] bg-[var(--brand-primary)]/10 rounded-md py-0.5" : ""
-                }`}
+                } ${viewMode !== "WEEKLY" ? "text-[10px] truncate" : "col-span-1"}`}
+                title={`${d.dayName} ${d.dayNum} ${(d as any).monthName || ""}`}
               >
-                {d.dayName} {d.dayNum}
+                {viewMode !== "WEEKLY" ? (
+                  <div className="leading-tight">
+                    <div className="font-extrabold text-[10px]">{d.dayNum}</div>
+                    <div className="text-[8px] opacity-70">{(d as any).monthName || d.dayName}</div>
+                  </div>
+                ) : (
+                  `${d.dayName} ${d.dayNum}`
+                )}
               </div>
             ))}
-            <div className="col-span-1 text-center">Health</div>
+            <div className={viewMode !== "WEEKLY" ? "text-center" : "col-span-1 text-center"}>Health</div>
           </div>
 
           {/* Member Rows */}
@@ -322,19 +448,26 @@ export function TeamHeatmapGrid({
               const activeCount = member.days.filter(
                 (d) => d.status === "SOD_SUBMITTED" || d.status === "PUNCHED_IN"
               ).length;
-              const healthScore = Math.min(100, Math.round(((completedCount + activeCount * 0.5) / 5) * 100));
+              const totalDaysCount = member.days.length;
+              const healthScore = Math.min(100, Math.round(((completedCount + activeCount * 0.5) / (totalDaysCount * 0.4)) * 100));
 
               return (
                 <div
                   key={member.employeeId}
-                  className="grid grid-cols-12 gap-2 items-center p-2 rounded-xl bg-card/60 border border-border hover:border-border/80 transition-colors"
+                  className={`grid gap-2 items-center p-2 rounded-xl bg-card/60 border border-border hover:border-border/80 transition-colors ${
+                    viewMode === "60DAYS"
+                      ? "grid-cols-[180px_repeat(60,minmax(24px,1fr))_65px]"
+                      : viewMode === "MONTHLY"
+                      ? "grid-cols-[180px_repeat(30,minmax(28px,1fr))_65px]"
+                      : "grid-cols-12"
+                  }`}
                 >
                   {/* Member Info */}
-                  <div className="col-span-4 flex items-center gap-2.5">
+                  <div className={`flex items-center gap-2 ${viewMode !== "WEEKLY" ? "min-w-0" : "col-span-4"}`}>
                     <div className="h-7 w-7 rounded-full bg-[var(--brand-primary)]/15 border border-[var(--brand-primary)]/30 flex items-center justify-center text-[var(--brand-primary)] font-bold text-xs shrink-0">
                       {member.employeeName.slice(0, 2).toUpperCase()}
                     </div>
-                    <div className="overflow-hidden">
+                    <div className="overflow-hidden min-w-0">
                       <span className="text-xs font-bold text-foreground block truncate">
                         {member.employeeName}
                       </span>
@@ -344,12 +477,12 @@ export function TeamHeatmapGrid({
                     </div>
                   </div>
 
-                  {/* 7 Day Status Cells */}
+                  {/* Day Status Cells */}
                   {member.days.map((day) => (
                     <div
                       key={day.date}
-                      title={`${member.employeeName} — ${day.dayName} (${day.date}): ${day.detail}`}
-                      className={`col-span-1 h-9 rounded-lg border flex flex-col items-center justify-center text-[10px] cursor-pointer transition-all ${getCellColor(
+                      title={`${member.employeeName} — ${day.dayName} ${day.monthName || ""} ${day.dayNum} (${day.date}): ${day.detail}`}
+                      className={`${viewMode !== "WEEKLY" ? "h-8" : "col-span-1 h-9"} rounded-lg border flex flex-col items-center justify-center text-[10px] cursor-pointer transition-all ${getCellColor(
                         day.status,
                         day.isToday
                       )}`}
@@ -357,12 +490,20 @@ export function TeamHeatmapGrid({
                       {day.isToday && (day.status === "SOD_SUBMITTED" || day.status === "EOD_SUBMITTED" || day.status === "PUNCHED_IN") && (
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping mb-0.5" />
                       )}
-                      <span>{day.taskCount > 0 ? `${day.taskCount}t` : day.isToday ? "Today" : ""}</span>
+                      <span>
+                        {day.taskCount > 0
+                          ? `${day.taskCount}t`
+                          : day.isToday
+                          ? "Today"
+                          : viewMode !== "WEEKLY"
+                          ? ""
+                          : ""}
+                      </span>
                     </div>
                   ))}
 
                   {/* Health / Adherence Indicator */}
-                  <div className="col-span-1 text-center">
+                  <div className={viewMode !== "WEEKLY" ? "text-center" : "col-span-1 text-center"}>
                     <Badge
                       variant={healthScore >= 70 ? "brand" : healthScore >= 40 ? "secondary" : "destructive"}
                       className="text-[10px] font-bold px-1.5 py-0.5"
