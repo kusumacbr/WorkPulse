@@ -107,27 +107,88 @@ export function HREnterpriseGoalsDeck() {
   const [newCategory, setNewCategory] = useState("Talent Acquisition");
   const [newTarget, setNewTarget] = useState("");
 
-  // Load from localStorage
+  // Load Company OKRs from API & localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("workpulse_simple_hr_goals");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setGoals(parsed);
+    const loadCompanyOkrs = async () => {
+      // 1. Try Supabase API
+      try {
+        const res = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
+            setGoals(data.data.goals);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("workpulse_company_okrs", JSON.stringify(data.data.goals));
+              localStorage.setItem("workpulse_simple_hr_goals", JSON.stringify(data.data.goals));
+            }
+            return;
+          }
         }
+      } catch {}
+
+      // 2. Fallback to localStorage
+      try {
+        const savedCompany = localStorage.getItem("workpulse_company_okrs");
+        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
+        const raw = savedCompany || savedHr;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setGoals(parsed);
+            return;
+          }
+        }
+      } catch {}
+
+      // 3. Fallback to default HR goals
+      setGoals(DEFAULT_GOALS);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("workpulse_company_okrs", JSON.stringify(DEFAULT_GOALS));
+          localStorage.setItem("workpulse_simple_hr_goals", JSON.stringify(DEFAULT_GOALS));
+        } catch {}
       }
-    } catch {}
+    };
+    loadCompanyOkrs();
   }, []);
 
-  // Save to localStorage
-  const saveGoals = (updated: SimpleHRGoal[]) => {
+  // Listen to cross-component sync events
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const savedCompany = localStorage.getItem("workpulse_company_okrs");
+        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
+        const raw = savedCompany || savedHr;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            setGoals(parsed);
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener("workpulse_sync", handleSync);
+    return () => window.removeEventListener("workpulse_sync", handleSync);
+  }, []);
+
+  // Save Company OKRs and sync across Employee, TL, and HR
+  const saveGoals = async (updated: SimpleHRGoal[]) => {
     setGoals(updated);
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("workpulse_simple_hr_goals", JSON.stringify(updated));
+        localStorage.setItem("workpulse_company_okrs", JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
+    // Sync Company OKRs to Supabase
+    try {
+      await fetch(`/api/v1/goals/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: "COMPANY_OKRS", goals: updated }),
+      });
+    } catch {}
   };
 
   // Toggle complete

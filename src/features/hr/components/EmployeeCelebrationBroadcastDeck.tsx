@@ -311,7 +311,7 @@ export function EmployeeCelebrationBroadcastDeck() {
               onClick={() => setFilter("today")}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                 filter === "today"
-                  ? "bg-card border border-pink-500/40 text-pink-400 font-bold shadow-sm"
+                  ? "bg-card border border-pink-300 dark:border-pink-500/40 text-pink-700 dark:text-pink-400 font-bold shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -322,7 +322,7 @@ export function EmployeeCelebrationBroadcastDeck() {
               onClick={() => setFilter("upcoming")}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                 filter === "upcoming"
-                  ? "bg-card border border-cyan-500/40 text-cyan-400 font-bold shadow-sm"
+                  ? "bg-card border border-cyan-300 dark:border-cyan-500/40 text-cyan-700 dark:text-cyan-400 font-bold shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -340,20 +340,20 @@ export function EmployeeCelebrationBroadcastDeck() {
               key={item.id}
               className={`p-4 rounded-2xl border transition-all space-y-3 bg-card/70 ${
                 item.daysAway === 0
-                  ? "border-pink-500/40 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+                  ? "border-pink-400 dark:border-pink-500/40 shadow-sm"
                   : "border-border/70 hover:border-border"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-600 dark:bg-gradient-to-tr dark:from-cyan-500 dark:to-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm">
                     {item.avatar}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
                       <strong className="text-foreground text-xs font-bold block">{item.name}</strong>
                       {item.daysAway === 0 && (
-                        <Badge variant="brand" className="text-[9px] bg-pink-500/15 text-pink-400 border-pink-500/30 px-1 py-0 animate-pulse">
+                        <Badge variant="brand" className="text-[9px] bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-400 dark:border-pink-500/30 px-1 py-0 animate-pulse font-bold">
                           TODAY 🎂
                         </Badge>
                       )}
@@ -375,7 +375,7 @@ export function EmployeeCelebrationBroadcastDeck() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleBroadcastBirthday(item)}
-                  className="text-[11px] h-7 px-2.5 gap-1 rounded-lg border-border/80 hover:border-pink-500/40 hover:text-pink-400"
+                  className="text-[11px] h-7 px-2.5 gap-1 rounded-lg border-border/80 hover:border-pink-400 hover:text-pink-600 dark:hover:text-pink-400"
                 >
                   <Megaphone className="h-3 w-3" />
                   <span>Broadcast</span>
@@ -407,14 +407,14 @@ export function EmployeeCelebrationBroadcastDeck() {
 
               <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs">
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-cyan-400" />
+                  <Calendar className="h-3 w-3 text-indigo-600 dark:text-cyan-400" />
                   In {fest.daysAway} days
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => handleBroadcastFestival(fest)}
-                  className="text-[11px] h-7 px-2.5 gap-1 rounded-lg border-border/80 hover:border-amber-500/40 hover:text-amber-400"
+                  className="text-[11px] h-7 px-2.5 gap-1 rounded-lg border-border/80 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400"
                 >
                   <Megaphone className="h-3 w-3" />
                   <span>Broadcast</span>

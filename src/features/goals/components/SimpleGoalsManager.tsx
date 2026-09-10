@@ -189,6 +189,7 @@ export function SimpleGoalsManager() {
   const empId = EMAIL_TO_EMP_ID[userEmail] || userEmail;
 
   const [goals, setGoals] = useState<SimpleGoalItem[]>([]);
+  const [companyOkrs, setCompanyOkrs] = useState<any[]>(COMPANY_OKRS);
   const [activeTab, setActiveTab] = useState<GoalTab>("ALL");
   const [showAddForm, setShowAddForm] = useState(false);
   const [showCompanyOkrs, setShowCompanyOkrs] = useState(false);
@@ -197,10 +198,10 @@ export function SimpleGoalsManager() {
   const [newTargetDate, setNewTargetDate] = useState("This Month");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Load goals from Supabase API & localStorage on mount
+  // Load goals and live Company OKRs from API & localStorage on mount
   useEffect(() => {
     const loadGoals = async () => {
-      // 1. Try Supabase API
+      // 1. Try Supabase API for employee personal goals
       try {
         const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(empId)}`);
         if (res.ok) {
@@ -212,35 +213,33 @@ export function SimpleGoalsManager() {
               localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(data.data.goals));
               localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(data.data.goals));
             }
-            return;
           }
         }
       } catch {}
 
-      // 2. Fallback to localStorage
+      // 2. Try Supabase API & localStorage for live Company OKRs managed by HR
       try {
-        const savedEmp = localStorage.getItem(`workpulse_simple_goals_${empId}`);
-        const savedEmail = localStorage.getItem(`workpulse_simple_goals_${userEmail}`);
-        const savedDefault = localStorage.getItem("workpulse_simple_goals");
-        const raw = savedEmp || savedEmail || savedDefault;
-        if (raw !== null) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setGoals(parsed);
+        const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
+        if (resOkrs.ok) {
+          const okrsData = await resOkrs.json();
+          if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
+            setCompanyOkrs(okrsData.data.goals);
             return;
           }
         }
       } catch {}
 
-      // 3. Fallback to default friendly goals
-      setGoals(DEFAULT_FRIENDLY_GOALS);
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("workpulse_simple_goals", JSON.stringify(DEFAULT_FRIENDLY_GOALS));
-          localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(DEFAULT_FRIENDLY_GOALS));
-          localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(DEFAULT_FRIENDLY_GOALS));
-        } catch {}
-      }
+      try {
+        const savedCompany = localStorage.getItem("workpulse_company_okrs");
+        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
+        const rawOkrs = savedCompany || savedHr;
+        if (rawOkrs) {
+          const parsed = JSON.parse(rawOkrs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCompanyOkrs(parsed);
+          }
+        }
+      } catch {}
     };
     loadGoals();
   }, [empId, userEmail]);
@@ -257,6 +256,16 @@ export function SimpleGoalsManager() {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
             setGoals(parsed);
+          }
+        }
+
+        const savedCompany = localStorage.getItem("workpulse_company_okrs");
+        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
+        const rawOkrs = savedCompany || savedHr;
+        if (rawOkrs) {
+          const parsedOkrs = JSON.parse(rawOkrs);
+          if (Array.isArray(parsedOkrs)) {
+            setCompanyOkrs(parsedOkrs);
           }
         }
       } catch {}
@@ -627,36 +636,64 @@ export function SimpleGoalsManager() {
 
       {/* When Company OKRs is selected: keep only Company OKRs view */}
       {showCompanyOkrs ? (
-        <div className="p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-b from-purple-500/[0.06] to-card space-y-4 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center justify-between text-xs font-bold text-foreground">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-purple-400" />
-              <span className="text-sm">Company Strategic Objectives (Q3 2026)</span>
+        <div className="p-5 sm:p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-b from-purple-500/[0.08] via-card to-card space-y-4 shadow-lg animate-in fade-in slide-in-from-top-2">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Company Strategic Objectives</h4>
+                <p className="text-[11px] text-muted-foreground">Q3 2026 Organization Targets</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px] text-purple-400 border-purple-500/30">
-                Organization-Wide OKRs
+              <Badge variant="outline" className="text-[10px] font-bold text-purple-400 border-purple-500/30 bg-purple-500/10">
+                Organization Wide
               </Badge>
               <button
                 type="button"
                 onClick={() => setShowCompanyOkrs(false)}
-                className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-lg hover:bg-muted/40 transition-colors"
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-xl hover:bg-muted/50 transition-colors"
               >
                 ✕ Close
               </button>
             </div>
           </div>
+
+          {/* Clean OKR Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {COMPANY_OKRS.map((okr) => (
-              <div key={okr.id} className="p-4 rounded-2xl bg-card border border-border/70 space-y-2 shadow-sm hover:border-purple-500/30 transition-all">
-                <Badge variant="outline" className="text-[10px] text-purple-400 border-purple-500/30">
-                  {okr.department}
-                </Badge>
-                <h5 className="text-xs font-bold text-foreground">{okr.objective}</h5>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">{okr.keyResult}</p>
-                <div className="flex items-center justify-between text-[11px] pt-1">
-                  <span className="text-muted-foreground">Progress:</span>
-                  <span className="text-purple-400 font-bold">{okr.progress}%</span>
+            {companyOkrs.map((okr: any) => (
+              <div
+                key={okr.id}
+                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-purple-500/40 space-y-3 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="text-[10px] font-semibold text-purple-400 border-purple-500/30 bg-purple-500/10">
+                      {okr.category || okr.department || "Organization Wide"}
+                    </Badge>
+                    <span className="font-mono font-bold text-xs text-purple-400 bg-purple-500/15 px-2.5 py-0.5 rounded-full border border-purple-500/30 shrink-0">
+                      {okr.progress}%
+                    </span>
+                  </div>
+                  <h5 className="text-xs font-bold text-foreground leading-snug">{okr.title || okr.objective}</h5>
+                  {(okr.target || okr.keyResult || okr.description) && (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {okr.target || okr.keyResult || okr.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Sleek Progress Bar */}
+                <div className="pt-2 border-t border-border/40">
+                  <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-400 transition-all duration-500"
+                      style={{ width: `${okr.progress}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}

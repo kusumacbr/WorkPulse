@@ -176,7 +176,7 @@ export function HRPerformanceGovernanceDeck() {
           onClick={() => setActiveTab("cycles")}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
             activeTab === "cycles"
-              ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+              ? "bg-indigo-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >

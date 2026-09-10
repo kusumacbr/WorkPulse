@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
+import { useCurrentUser } from "@/components/layout/UserContext";
+
 interface NotificationItem {
   id: string;
   type: string;
@@ -25,7 +27,87 @@ interface NotificationItem {
   createdAt: string;
 }
 
+// LocalStorage helpers per user email key
+function getReadNotifIds(userKey: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const val = localStorage.getItem(`workpulse_read_notifs_${userKey}`);
+    return val ? JSON.parse(val) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveReadNotifId(userKey: string, id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getReadNotifIds(userKey);
+    if (!list.includes(id)) {
+      list.push(id);
+      localStorage.setItem(`workpulse_read_notifs_${userKey}`, JSON.stringify(list));
+    }
+  } catch {}
+}
+
+function getDeletedNotifIds(userKey: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const val = localStorage.getItem(`workpulse_deleted_notifs_${userKey}`);
+    return val ? JSON.parse(val) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDeletedNotifId(userKey: string, id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getDeletedNotifIds(userKey);
+    if (!list.includes(id)) {
+      list.push(id);
+      localStorage.setItem(`workpulse_deleted_notifs_${userKey}`, JSON.stringify(list));
+    }
+  } catch {}
+}
+
+function getReadAllTimestamp(userKey: string): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const val = localStorage.getItem(`workpulse_read_all_ts_${userKey}`);
+    return val ? parseInt(val, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveReadAllTimestamp(userKey: string, ts: number) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`workpulse_read_all_ts_${userKey}`, ts.toString());
+  } catch {}
+}
+
+function getClearAllTimestamp(userKey: string): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const val = localStorage.getItem(`workpulse_clear_all_ts_${userKey}`);
+    return val ? parseInt(val, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveClearAllTimestamp(userKey: string, ts: number) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`workpulse_clear_all_ts_${userKey}`, ts.toString());
+  } catch {}
+}
+
 export function NotificationDropdown() {
+  const user = useCurrentUser();
+  const userKey = (user?.userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
+
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -43,20 +125,48 @@ export function NotificationDropdown() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+  const processNotifications = useCallback((rawNotifs: NotificationItem[]) => {
+    const deletedIds = getDeletedNotifIds(userKey);
+    const readIds = getReadNotifIds(userKey);
+    const readAllTs = getReadAllTimestamp(userKey);
+    const clearAllTs = getClearAllTimestamp(userKey);
+
+    const filtered = rawNotifs
+      .filter((n) => {
+        if (deletedIds.includes(n.id)) return false;
+        if (clearAllTs > 0 && n.createdAt) {
+          const nTime = new Date(n.createdAt).getTime();
+          if (!isNaN(nTime) && nTime <= clearAllTs) return false;
+        }
+        return true;
+      })
+      .map((n) => {
+        let isRead = n.read;
+        if (readIds.includes(n.id)) isRead = true;
+        if (readAllTs > 0 && n.createdAt) {
+          const nTime = new Date(n.createdAt).getTime();
+          if (!isNaN(nTime) && nTime <= readAllTs) isRead = true;
+        }
+        return { ...n, read: isRead };
+      });
+
+    setNotifications(filtered);
+    setUnreadCount(filtered.filter((n) => !n.read).length);
+  }, [userKey]);
+
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch("/api/v1/notifications");
       if (res.ok) {
         const data = await res.json();
         if (data?.data?.notifications) {
-          setNotifications(data.data.notifications);
-          setUnreadCount(data.data.unreadCount || 0);
+          processNotifications(data.data.notifications);
         }
       }
     } catch {
       // safe fallback
     }
-  }, []);
+  }, [processNotifications]);
 
   // Initial fetch and 60s fallback sync (SSE and Supabase handle live updates)
   useEffect(() => {
@@ -222,6 +332,7 @@ export function NotificationDropdown() {
 
   // Mark all as read with Real-Time sync
   const markAllAsRead = async () => {
+    saveReadAllTimestamp(userKey, Date.now());
     // Optimistic UI update
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
@@ -249,6 +360,7 @@ export function NotificationDropdown() {
 
   // Mark single notification as read with Real-Time sync
   const markAsRead = async (id: string) => {
+    saveReadNotifId(userKey, id);
     // Optimistic UI update
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
@@ -288,6 +400,7 @@ export function NotificationDropdown() {
       e.stopPropagation();
       e.preventDefault();
     }
+    saveDeletedNotifId(userKey, id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setUnreadCount((prev) => Math.max(0, prev - 1));
 
@@ -312,6 +425,7 @@ export function NotificationDropdown() {
 
   // Permanently delete all notifications
   const deleteAllNotifications = async () => {
+    saveClearAllTimestamp(userKey, Date.now());
     setNotifications([]);
     setUnreadCount(0);
 

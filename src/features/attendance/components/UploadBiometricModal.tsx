@@ -142,11 +142,29 @@ interface UploadBiometricModalProps {
 }
 
 export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: UploadBiometricModalProps) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [parsedRecords, setParsedRecords] = useState<BiometricPunchRecord[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleCloseModal = React.useCallback(() => {
+    setParsedRecords([]);
+    setFileName(null);
+    setErrorMsg(null);
+    setIsUploading(false);
+    onClose();
+  }, [onClose]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setParsedRecords([]);
+      setFileName(null);
+      setErrorMsg(null);
+      setIsUploading(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -233,22 +251,17 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
           if (records.length > 0) {
             setParsedRecords(records);
           } else {
-            setParsedRecords(SAMPLE_BIOMETRIC_PUNCHES);
+            setErrorMsg("No valid records found in the uploaded file. Please select a valid biometric CSV or JSON file.");
+            setParsedRecords([]);
           }
         }
       } catch (err: any) {
-        setErrorMsg("Could not parse file structure. Loaded standard sample biometric schema instead.");
-        setParsedRecords(SAMPLE_BIOMETRIC_PUNCHES);
+        setErrorMsg("Could not parse file structure. Please ensure it is a valid CSV or JSON file.");
+        setParsedRecords([]);
       }
     };
 
     reader.readAsText(file);
-  };
-
-  const handleLoadSample = () => {
-    setFileName("Sample_Biometric_Logs_BLR_HQ.csv");
-    setErrorMsg(null);
-    setParsedRecords(SAMPLE_BIOMETRIC_PUNCHES);
   };
 
   const handleSaveAndSync = async () => {
@@ -294,7 +307,7 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
 
       onUploadSuccess(parsedRecords);
       setIsUploading(false);
-      onClose();
+      handleCloseModal();
     } catch (err: any) {
       console.error("Error saving biometric records:", err);
       setIsUploading(false);
@@ -320,16 +333,24 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Upload Zone & Quick Sample Button */}
+        {/* Device File Upload Zone */}
         <div className="space-y-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.json,.txt"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
           <div
+            onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             onDrop={(e) => {
@@ -338,50 +359,35 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
               const file = e.dataTransfer.files?.[0];
               if (file) parseUploadedFile(file);
             }}
-            className={`p-6 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2 ${
+            className={`p-8 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
               dragActive
                 ? "border-cyan-400 bg-cyan-500/10"
                 : "border-border/80 bg-muted/30 hover:border-cyan-500/50 hover:bg-muted/50"
             }`}
           >
-            <div className="h-10 w-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center">
-              <Upload className="h-5 w-5" />
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shadow-sm">
+              <Upload className="h-6 w-6" />
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="text-xs font-bold text-foreground">
-                {fileName ? `Loaded: ${fileName}` : "Drag & drop biometric CSV or JSON file here"}
+                {fileName ? `Loaded: ${fileName}` : "Click to select or drag & drop biometric CSV file from your device"}
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Supports standard biometric terminal logs (ID, Name, In Time, Out Time, Date)</p>
+              <p className="text-[11px] text-muted-foreground">
+                Supports standard biometric terminal log formats (.csv, .json, .txt)
+              </p>
             </div>
 
-            <label className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer shadow-sm">
-              <span>Choose File from Disk</span>
-              <input type="file" accept=".csv,.json,.txt" onChange={handleFileSelect} className="hidden" />
-            </label>
-          </div>
-
-          {/* Quick Demo Sample Data Button */}
-          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="h-7 w-7 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div>
-                <span className="font-bold text-foreground block">Testing / Quick Demo?</span>
-                <span className="text-[11px] text-muted-foreground">Load 8 pre-formatted biometric records for all departments</span>
-              </div>
-            </div>
-
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleLoadSample}
-              className="h-8 text-xs font-bold text-indigo-300 border-indigo-500/40 bg-indigo-500/15 hover:bg-indigo-500/25 gap-1.5 rounded-xl shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer shadow-md transition-all hover:scale-[1.02]"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Load Dummy Sample Data</span>
-            </Button>
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Choose File from Disk</span>
+            </button>
           </div>
         </div>
 
@@ -444,7 +450,7 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
 
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
-          <Button variant="outline" size="sm" onClick={onClose} className="h-9 text-xs rounded-xl">
+          <Button variant="outline" size="sm" onClick={handleCloseModal} className="h-9 text-xs rounded-xl">
             Cancel
           </Button>
           <Button

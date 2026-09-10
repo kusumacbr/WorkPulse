@@ -21,25 +21,31 @@ export async function GET(req: NextRequest) {
     let announcementNotifs: InAppNotification[] = [];
     try {
       const announcements = await AnnouncementService.getAnnouncementsForEmployee({ actor });
-      announcementNotifs = announcements.map((a) => {
-        const notifId = `notif-ann-${a.id}`;
-        const isRead =
-          NotificationService.isNotificationRead(notifId, userId, a.publishDate || a.createdAt) ||
-          a.receipts?.some((r) => r.employeeId === actor.employeeId) ||
-          (a.acknowledgedBy && actor.employeeId ? a.acknowledgedBy.includes(actor.employeeId) : false) ||
-          false;
+      announcementNotifs = announcements
+        .filter((a) => {
+          const notifId = `notif-ann-${a.id}`;
+          const createdAt = a.publishDate || a.createdAt;
+          return !NotificationService.isNotificationDeleted(notifId, userId, createdAt);
+        })
+        .map((a) => {
+          const notifId = `notif-ann-${a.id}`;
+          const isRead =
+            NotificationService.isNotificationRead(notifId, userId, a.publishDate || a.createdAt) ||
+            a.receipts?.some((r) => r.employeeId === actor.employeeId) ||
+            (a.acknowledgedBy && actor.employeeId ? a.acknowledgedBy.includes(actor.employeeId) : false) ||
+            false;
 
-        return {
-          id: notifId,
-          userId,
-          type: a.category === "BIRTHDAY" ? "BIRTHDAY_BROADCAST" : a.category === "FESTIVAL" ? "FESTIVAL_BROADCAST" : "GENERAL",
-          title: a.title,
-          message: a.body,
-          linkUrl: "/announcements",
-          read: isRead,
-          createdAt: a.publishDate || a.createdAt || new Date().toISOString(),
-        };
-      });
+          return {
+            id: notifId,
+            userId,
+            type: a.category === "BIRTHDAY" ? "BIRTHDAY_BROADCAST" : a.category === "FESTIVAL" ? "FESTIVAL_BROADCAST" : "GENERAL",
+            title: a.title,
+            message: a.body,
+            linkUrl: "/announcements",
+            read: isRead,
+            createdAt: a.publishDate || a.createdAt || new Date().toISOString(),
+          };
+        });
     } catch {}
 
     // 3. Aggregate profile queries for this user as notifications
@@ -47,24 +53,30 @@ export async function GET(req: NextRequest) {
       (q) => q.employeeEmail.toLowerCase() === userEmail || q.employeeId === userId
     );
 
-    const queryNotifs: InAppNotification[] = myQueries.map((q) => {
-      const notifId = `notif-qry-${q.id}`;
-      const queryDate = (q as any).submittedAt || (q as any).createdAt || "2026-08-20T10:00:00.000Z";
-      const isRead =
-        q.status === "APPROVED" ||
-        NotificationService.isNotificationRead(notifId, userId, queryDate);
+    const queryNotifs: InAppNotification[] = myQueries
+      .filter((q) => {
+        const notifId = `notif-qry-${q.id}`;
+        const queryDate = (q as any).submittedAt || (q as any).createdAt || "2026-08-20T10:00:00.000Z";
+        return !NotificationService.isNotificationDeleted(notifId, userId, queryDate);
+      })
+      .map((q) => {
+        const notifId = `notif-qry-${q.id}`;
+        const queryDate = (q as any).submittedAt || (q as any).createdAt || "2026-08-20T10:00:00.000Z";
+        const isRead =
+          q.status === "APPROVED" ||
+          NotificationService.isNotificationRead(notifId, userId, queryDate);
 
-      return {
-        id: notifId,
-        userId,
-        type: "GENERAL",
-        title: q.status === "APPROVED" ? `Profile Change Approved (${q.ticketNumber})` : `Profile Change Under Review (${q.ticketNumber})`,
-        message: q.status === "APPROVED" ? `HR approved your change: "${q.requestedChange}". Records updated.` : `Your request "${q.requestedChange}" is being reviewed by HR.`,
-        linkUrl: "/profile",
-        read: isRead,
-        createdAt: queryDate,
-      };
-    });
+        return {
+          id: notifId,
+          userId,
+          type: "GENERAL",
+          title: q.status === "APPROVED" ? `Profile Change Approved (${q.ticketNumber})` : `Profile Change Under Review (${q.ticketNumber})`,
+          message: q.status === "APPROVED" ? `HR approved your change: "${q.requestedChange}". Records updated.` : `Your request "${q.requestedChange}" is being reviewed by HR.`,
+          linkUrl: "/profile",
+          read: isRead,
+          createdAt: queryDate,
+        };
+      });
 
     // Merge and deduplicate by content/title
     const map = new Map<string, InAppNotification>();

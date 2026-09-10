@@ -1542,7 +1542,7 @@ export function SimpleTaskManager() {
         {/* Left: Alex Lead Profile Hub */}
         <div className="flex items-center gap-4 relative z-10 min-w-0">
           <div className="relative shrink-0">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-indigo-500/25 ring-4 ring-indigo-100 dark:ring-indigo-500/20 tracking-tight">
+            <div className="h-14 w-14 rounded-2xl bg-indigo-600 dark:bg-indigo-700 text-white font-black text-base flex items-center justify-center shadow-md shadow-indigo-500/25 ring-4 ring-indigo-100 dark:ring-indigo-500/20 tracking-tight">
               {leadInitials}
             </div>
             <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-white dark:border-card flex items-center justify-center shadow-sm" title="Lead Active on Shift">
@@ -1556,7 +1556,7 @@ export function SimpleTaskManager() {
                 <ShieldCheck className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                 Reporting Team Lead
               </span>
-              <Badge variant="outline" className="text-[10px] font-bold text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30 bg-purple-100/80 dark:bg-purple-500/15">
+              <Badge variant="outline" className="text-[10px] font-bold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
                 {assignedDeptName} Team
               </Badge>
               <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1 bg-emerald-100/80 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20">
@@ -1584,7 +1584,7 @@ export function SimpleTaskManager() {
             <button
               type="button"
               onClick={() => setShowHelpModal(true)}
-              className="group relative inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 text-white font-black text-xs shadow-lg shadow-orange-500/25 ring-2 ring-orange-400/40 dark:ring-orange-400/20 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+              className="group relative inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-lg shadow-amber-600/25 ring-2 ring-amber-400/40 dark:ring-amber-400/20 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
             >
               <div className="h-8 w-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform">
                 <Sparkles className="h-4 w-4 text-white" />
@@ -1599,7 +1599,7 @@ export function SimpleTaskManager() {
             </button>
           ) : (
             <div className="p-3 px-4 rounded-2xl bg-amber-50 dark:bg-amber-500/15 border-2 border-amber-300 dark:border-amber-500/40 flex items-center gap-3 shadow-sm">
-              <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 animate-bounce">
+              <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 animate-pulse">
                 <HelpCircle className="h-5 w-5" />
               </div>
               <div className="text-left">

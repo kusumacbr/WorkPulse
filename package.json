@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "extract:branding": "tsx scripts/extract-branding.ts",
+    "postinstall": "prisma generate",
     "supabase:seed": "tsx scripts/seed-supabase-all-tables.ts",
     "supabase:check": "tsx scripts/check-all-tables.ts",
     "agent:serve": "adk api_server C:\\Users\\Victus\\sample_agent --port 8000 --auto_create_session",

@@ -231,7 +231,7 @@ export function MorningPlanLoginModal() {
 
               <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
                 Good morning,{" "}
-                <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-primary bg-clip-text text-transparent">
+                <span className="text-indigo-600 dark:text-indigo-400">
                   {currentUser.userName}
                 </span>
                 !
@@ -239,14 +239,14 @@ export function MorningPlanLoginModal() {
 
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Review your active tasks below from <strong className="text-foreground">My Tasks</strong>. With one click, send them to your Team Lead (
-                <strong className="text-cyan-400">{leadName}</strong>) as your official Morning Plan.
+                <strong className="text-indigo-600 dark:text-indigo-400">{leadName}</strong>) as your official Morning Plan.
               </p>
             </div>
 
             {/* Success View */}
             {submittedSuccess ? (
               <div className="p-8 text-center bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-3">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto animate-bounce" />
+                <CheckCircle2 className="h-12 w-12 text-emerald-500 dark:text-emerald-400 mx-auto transition-transform duration-300 hover:scale-105" />
                 <h3 className="text-lg font-bold text-foreground">
                   Morning Plan Sent to {leadName}!
                 </h3>

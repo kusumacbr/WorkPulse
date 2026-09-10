@@ -20,6 +20,11 @@ import {
 
 interface MemberHeroMetricsProps {
   checkInTime?: string;
+  activeHoursStr?: string;
+  shiftProgressPercent?: number;
+  shiftStartStr?: string;
+  shiftEndStr?: string;
+  isCheckedIn?: boolean;
   tasksCount: number;
   completedTasksCount: number;
   taskProgressPercent?: number;
@@ -33,7 +38,12 @@ interface MemberHeroMetricsProps {
 }
 
 export function MemberHeroMetrics({
-  checkInTime = "10:05 AM",
+  checkInTime = "--",
+  activeHoursStr = "0.0h Active",
+  shiftProgressPercent = 0,
+  shiftStartStr = "10:00 AM Start",
+  shiftEndStr = "07:00 PM Out",
+  isCheckedIn = false,
   tasksCount,
   completedTasksCount,
   taskProgressPercent,
@@ -48,6 +58,7 @@ export function MemberHeroMetrics({
   const safeTasksCount = tasksCount;
   const safeCompletedTasks = completedTasksCount;
   const safeTaskPercent = tasksCount > 0 ? (taskProgressPercent !== undefined ? taskProgressPercent : Math.round((safeCompletedTasks / safeTasksCount) * 100)) : 0;
+  const isPresent = isCheckedIn || (checkInTime !== "--" && checkInTime !== "Not Checked In");
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
@@ -73,9 +84,13 @@ export function MemberHeroMetrics({
                 </div>
               </div>
 
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-                {workMode === "WFH" ? "Remote (WFH)" : "In Office"}
+              <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold ${
+                isPresent
+                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                  : "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400"
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${isPresent ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse" : "bg-amber-500"}`} />
+                {workMode === "WFH" ? "Remote (WFH)" : isPresent ? "In Office" : "Not Checked In"}
               </span>
             </div>
 
@@ -83,7 +98,7 @@ export function MemberHeroMetrics({
             <div className="space-y-1">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black text-foreground tracking-tight font-mono">
-                  Present
+                  {isPresent ? "Present" : "Not Checked In"}
                 </span>
                 <span className="text-xs font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 dark:bg-cyan-500/20 px-2 py-0.5 rounded-md border border-cyan-500/30 font-mono">
                   In: {checkInTime}
@@ -94,15 +109,15 @@ export function MemberHeroMetrics({
             {/* Bottom: Shift Progress Timeline Track */}
             <div className="pt-2 border-t border-border/70 space-y-1.5">
               <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-muted-foreground">10:00 AM Shift Start</span>
-                <span className="text-cyan-600 dark:text-cyan-400 font-bold">5.8h Active</span>
-                <span className="text-muted-foreground">07:00 PM Out</span>
+                <span className="text-muted-foreground">{shiftStartStr}</span>
+                <span className="text-cyan-600 dark:text-cyan-400 font-bold">{activeHoursStr}</span>
+                <span className="text-muted-foreground">{shiftEndStr}</span>
               </div>
               <div className="h-2 w-full rounded-full bg-muted/50 dark:bg-muted/30 overflow-hidden relative">
                 <motion.div
                   className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]"
                   initial={{ width: 0 }}
-                  animate={{ width: "65%" }}
+                  animate={{ width: `${Math.min(100, Math.max(0, shiftProgressPercent))}%` }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 />
               </div>

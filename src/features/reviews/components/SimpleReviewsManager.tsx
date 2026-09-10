@@ -174,25 +174,25 @@ export function SimpleReviewsManager() {
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Competency Avg</span>
-            <Award className="h-4 w-4 text-purple-400" />
+            <Award className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <p className="text-2xl font-bold text-purple-400">4.9 / 5.0</p>
+          <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">4.9 / 5.0</p>
           <span className="text-[11px] text-muted-foreground">Based on 5 core dimensions</span>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Manager Feedback</span>
-            <MessageSquare className="h-4 w-4 text-cyan-400" />
+            <MessageSquare className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
           </div>
-          <p className="text-2xl font-bold text-cyan-400">{DEFAULT_FEEDBACK_NOTES.length} Notes</p>
+          <p className="text-2xl font-bold text-indigo-500 dark:text-indigo-400">{DEFAULT_FEEDBACK_NOTES.length} Notes</p>
           <span className="text-[11px] text-muted-foreground">From Alex Lead</span>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Next 1-on-1</span>
-            <Clock className="h-4 w-4 text-emerald-400" />
+            <Clock className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
           </div>
           <p className="text-2xl font-bold text-foreground">Today</p>
           <span className="text-[11px] text-muted-foreground">03:30 PM with Lead</span>
@@ -208,7 +208,7 @@ export function SimpleReviewsManager() {
               onClick={() => setActiveTab("OVERVIEW")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
                 activeTab === "OVERVIEW"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-sm"
+                  ? "bg-indigo-600 text-white font-bold shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
@@ -221,8 +221,8 @@ export function SimpleReviewsManager() {
               onClick={() => setActiveTab("FEEDBACK")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
                 activeTab === "FEEDBACK"
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-sm"
-                  : "text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                  ? "bg-indigo-600 text-white font-bold shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5" />

@@ -53,6 +53,7 @@ const inMemoryNotifications: InAppNotification[] = [
 const readNotificationIds = new Set<string>();
 const deletedNotificationIds = new Set<string>();
 const userAllReadTimestamps = new Map<string, number>();
+const userAllClearedTimestamps = new Map<string, number>();
 
 /**
  * Normalizes and checks if a notification's target userId matches the given user.
@@ -158,12 +159,19 @@ export class NotificationService {
   /**
    * Check if a notification is permanently deleted
    */
-  static isNotificationDeleted(notificationId: string, userId?: string): boolean {
+  static isNotificationDeleted(notificationId: string, userId?: string, createdAt?: string): boolean {
     if (deletedNotificationIds.has(notificationId)) return true;
     if (userId) {
       if (deletedNotificationIds.has(`${userId}:${notificationId}`)) return true;
       const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
       if (deletedNotificationIds.has(`${uCore}:${notificationId}`)) return true;
+
+      const allClearedTs = userAllClearedTimestamps.get(userId) || userAllClearedTimestamps.get(uCore);
+      if (allClearedTs) {
+        if (!createdAt) return true;
+        const parsed = new Date(createdAt).getTime();
+        if (isNaN(parsed) || parsed <= allClearedTs) return true;
+      }
     }
     return false;
   }
@@ -554,6 +562,11 @@ export class NotificationService {
    * Permanently delete all notifications for a user from memory and from Supabase
    */
   static async deleteAllNotifications(userId: string, _isHr?: boolean): Promise<void> {
+    const now = Date.now();
+    userAllClearedTimestamps.set(userId, now);
+    const uCore = userId.toLowerCase().replace(/^(user|emp|lead|hr)-/, "");
+    userAllClearedTimestamps.set(uCore, now);
+
     const deletedIds: string[] = [];
     for (let i = inMemoryNotifications.length - 1; i >= 0; i--) {
       const n = inMemoryNotifications[i];
@@ -561,6 +574,7 @@ export class NotificationService {
         deletedIds.push(n.id);
         deletedNotificationIds.add(n.id);
         deletedNotificationIds.add(`${userId}:${n.id}`);
+        deletedNotificationIds.add(`${uCore}:${n.id}`);
         inMemoryNotifications.splice(i, 1);
       }
     }

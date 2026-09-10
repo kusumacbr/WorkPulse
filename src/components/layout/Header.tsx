@@ -22,6 +22,7 @@ import {
   Clock,
   Target,
   Shield,
+  Fingerprint,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -112,6 +113,199 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
 
   const roleInfo = ROLE_BADGE_STYLES[activeRole] || { label: "Core Member", variant: "brand" };
 
+  const userEmailKey = (userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const punchStateKey = `workpulse_header_punch_state_${userEmailKey}`;
+  const virtualPunchesKey = `workpulse_virtual_punches_${userEmailKey}`;
+
+  // Format seconds into HH:MM:SS format starting from 00:00:00
+  const formatRunningTimer = (totalSeconds: number): string => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+  };
+
+  // Header Biometric Punch & Live Login Timer State
+  const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("OUT");
+  const [punchStartTimeMs, setPunchStartTimeMs] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [isPunching, setIsPunching] = useState<boolean>(false);
+
+  // Initial read & restore stored punch state from localStorage for this specific role/email
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem(punchStateKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.status === "IN" && parsed.startTimeMs) {
+          setPunchStatus("IN");
+          setPunchStartTimeMs(parsed.startTimeMs);
+          const diffSecs = Math.floor((Date.now() - parsed.startTimeMs) / 1000);
+          setElapsedSeconds(Math.max(0, diffSecs));
+        } else {
+          setPunchStatus("OUT");
+          setPunchStartTimeMs(null);
+          setElapsedSeconds(0);
+        }
+      } else {
+        setPunchStatus("OUT");
+        setPunchStartTimeMs(null);
+        setElapsedSeconds(0);
+      }
+    } catch {}
+  }, [punchStateKey]);
+
+  // Ticking live timer every second when Punched IN
+  useEffect(() => {
+    if (punchStatus !== "IN" || !punchStartTimeMs) return;
+
+    const updateTimer = () => {
+      const diffSecs = Math.floor((Date.now() - punchStartTimeMs) / 1000);
+      setElapsedSeconds(Math.max(0, diffSecs));
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [punchStatus, punchStartTimeMs]);
+
+  // Sync punch status with global events
+  useEffect(() => {
+    const syncPunchState = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const stored = localStorage.getItem(punchStateKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.status === "IN" && parsed.startTimeMs) {
+            setPunchStatus("IN");
+            setPunchStartTimeMs(parsed.startTimeMs);
+            const diffSecs = Math.floor((Date.now() - parsed.startTimeMs) / 1000);
+            setElapsedSeconds(Math.max(0, diffSecs));
+          } else {
+            setPunchStatus("OUT");
+            setPunchStartTimeMs(null);
+            setElapsedSeconds(0);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener("attendance:punched", syncPunchState);
+    window.addEventListener("workpulse_sync", syncPunchState);
+    window.addEventListener("storage", syncPunchState);
+    return () => {
+      window.removeEventListener("attendance:punched", syncPunchState);
+      window.removeEventListener("workpulse_sync", syncPunchState);
+      window.removeEventListener("storage", syncPunchState);
+    };
+  }, [punchStateKey]);
+
+  const handleHeaderPunch = async () => {
+    setIsPunching(true);
+    const nextStatus = punchStatus === "IN" ? "OUT" : "IN";
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const startTime = now.getTime();
+    const dateStr = now.toISOString().split("T")[0];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dayName = dayNames[now.getDay()] || "Thu";
+
+    try {
+      await fetch("/api/v1/attendance/punch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: userEmail || "emp-sarah",
+          type: nextStatus,
+          terminalId: `VIRTUAL-HEADER-${roleInfo.label.replace(/\s+/g, "-")}`,
+          timestamp: now.toISOString(),
+        }),
+      });
+    } catch (e) {
+      console.warn("Punch logged locally:", e);
+    }
+
+    if (nextStatus === "IN") {
+      setPunchStatus("IN");
+      setPunchStartTimeMs(startTime);
+      setElapsedSeconds(0);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          punchStateKey,
+          JSON.stringify({
+            status: "IN",
+            punchInTimeStr: timeStr,
+            startTimeMs: startTime,
+            roleLabel: roleInfo.label,
+            userEmail,
+          })
+        );
+      }
+    } else {
+      const finalSecs = punchStartTimeMs ? Math.floor((now.getTime() - punchStartTimeMs) / 1000) : elapsedSeconds;
+      const workedHours = Math.round((finalSecs / 3600) * 100) / 100;
+
+      let storedInTime = timeStr;
+      if (typeof window !== "undefined") {
+        try {
+          const rawState = localStorage.getItem(punchStateKey);
+          if (rawState) {
+            const parsed = JSON.parse(rawState);
+            if (parsed.punchInTimeStr) storedInTime = parsed.punchInTimeStr;
+          }
+        } catch {}
+
+        // Append completed Virtual Punch record
+        let existingVirtual: any[] = [];
+        try {
+          const raw = localStorage.getItem(virtualPunchesKey);
+          if (raw) existingVirtual = JSON.parse(raw);
+        } catch {}
+
+        const newVirtualRecord = {
+          id: `virt-${Date.now()}`,
+          date: dateStr,
+          dayName,
+          firstIn: storedInTime,
+          lastOut: timeStr,
+          durationSecs: finalSecs,
+          workedHours: Math.max(workedHours, 0.05),
+          roleLabel: roleInfo.label,
+          status: "COMPLETED",
+          terminal: `Virtual Header Bar (${roleInfo.label})`,
+        };
+
+        localStorage.setItem(virtualPunchesKey, JSON.stringify([newVirtualRecord, ...existingVirtual]));
+        localStorage.setItem(
+          punchStateKey,
+          JSON.stringify({ status: "OUT", logoutTimeStr: timeStr, finalElapsedSeconds: finalSecs })
+        );
+      }
+
+      setPunchStatus("OUT");
+      setPunchStartTimeMs(null);
+      setElapsedSeconds(0);
+    }
+
+    setIsPunching(false);
+
+    // Notify all components across windows/tabs
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("attendance:punched", { detail: { type: nextStatus, time: timeStr, email: userEmail } }));
+      window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      if ("BroadcastChannel" in window) {
+        try {
+          const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+          bc.postMessage({ type: "attendance:punched", status: nextStatus, timestamp: Date.now() });
+          bc.close();
+        } catch {}
+      }
+    }
+  };
+
   return (
     <header className="h-16 border-b border-border/80 bg-card/85 dark:bg-card/60 backdrop-blur-2xl px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 shadow-[0_2px_15px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.3)] transition-all duration-300">
       <div className="flex items-center gap-3">
@@ -130,15 +324,48 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
           <BrandLogo size="sm" />
         </div>
 
-        {/* Clean Authenticated Role Badge */}
-        <div className="hidden sm:flex items-center gap-2">
+        {/* Clean Authenticated Role Badge & Role Header Login/Logout Timer Button */}
+        <div className="hidden sm:flex items-center gap-2.5">
           <Badge
             variant={roleInfo.variant}
-            className="text-[11px] font-bold tracking-wide px-3 py-1 rounded-full shadow-sm"
+            className="text-[11px] font-bold tracking-wide px-3 py-1 rounded-full shadow-sm shrink-0"
           >
             <Shield className="h-3 w-3 mr-1 opacity-80" />
             {roleInfo.label}
           </Badge>
+
+          {/* Role Header Punch & Live Duration Button */}
+          {punchStatus === "OUT" ? (
+            <Button
+              type="button"
+              onClick={handleHeaderPunch}
+              disabled={isPunching}
+              size="sm"
+              className="h-7 px-3 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-full shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Click to register Login Time"
+            >
+              <Fingerprint className="h-3.5 w-3.5" />
+              <span>Login Time</span>
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2 bg-emerald-500/15 dark:bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 rounded-full text-xs font-mono">
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span>In: {formatRunningTimer(elapsedSeconds)}</span>
+              </div>
+              <Button
+                type="button"
+                onClick={handleHeaderPunch}
+                disabled={isPunching}
+                size="sm"
+                className="h-6 px-2.5 text-[11px] font-bold bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white rounded-full shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-1"
+                title="Click to stop time and register Logout Time"
+              >
+                <LogOut className="h-3 w-3" />
+                <span>Logout Time</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

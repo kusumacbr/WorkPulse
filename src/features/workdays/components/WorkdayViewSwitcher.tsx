@@ -140,7 +140,7 @@ export function WorkdayViewSwitcher({ defaultTab = "sod" }: WorkdayViewSwitcherP
             onClick={() => setActiveTab("week")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === "week"
-                ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold shadow-sm"
+                ? "bg-indigo-600 text-white font-bold shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >

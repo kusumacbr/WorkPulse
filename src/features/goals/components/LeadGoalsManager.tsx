@@ -25,10 +25,10 @@ import {
   ChevronDown,
   ChevronUp,
   UserPlus,
-  Search,
   Headphones,
   GraduationCap,
   Layers,
+  Building2,
 } from "lucide-react";
 import { SimpleGoalItem } from "./SimpleGoalsManager";
 
@@ -301,6 +301,8 @@ const TEAM_CATEGORY_CONFIG: Record<string, TeamCategoryStyle> = {
 export function LeadGoalsManager() {
   const { allEmployees } = useWorkpulseSharedStore();
   const [goals, setGoals] = useState<TeamSprintGoal[]>(DEFAULT_TEAM_SPRINT_GOALS);
+  const [companyOkrs, setCompanyOkrs] = useState<any[]>([]);
+  const [showCompanyOkrs, setShowCompanyOkrs] = useState(false);
   const [activeTab, setActiveTab] = useState<"TEAM_SPRINT" | "DIRECT_REPORTS">("TEAM_SPRINT");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -311,7 +313,6 @@ export function LeadGoalsManager() {
   // Direct Reports state
   const [memberGoalsMap, setMemberGoalsMap] = useState<Record<string, SimpleGoalItem[]>>({});
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>("emp-sarah");
-  const [searchQuery, setSearchQuery] = useState("");
   const [assignModalMemberId, setAssignModalMemberId] = useState<string | null>(null);
   const [assignTitle, setAssignTitle] = useState("");
   const [assignCategory, setAssignCategory] = useState("Architecture");
@@ -404,7 +405,7 @@ export function LeadGoalsManager() {
     });
   }, [directReports]);
 
-  // Load saved team sprint goals and member goals on client mount
+  // Load saved team sprint goals, live Company OKRs, and member goals on client mount
   useEffect(() => {
     const loadTeamGoals = async () => {
       try {
@@ -416,7 +417,6 @@ export function LeadGoalsManager() {
             if (typeof window !== "undefined") {
               localStorage.setItem("workpulse_lead_team_goals", JSON.stringify(data.data.goals));
             }
-            return;
           }
         }
       } catch {}
@@ -427,6 +427,30 @@ export function LeadGoalsManager() {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
             setGoals(parsed);
+          }
+        }
+      } catch {}
+
+      // Load Company OKRs managed by HR
+      try {
+        const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
+        if (resOkrs.ok) {
+          const okrsData = await resOkrs.json();
+          if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
+            setCompanyOkrs(okrsData.data.goals);
+            return;
+          }
+        }
+      } catch {}
+
+      try {
+        const savedCompany = localStorage.getItem("workpulse_company_okrs");
+        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
+        const rawOkrs = savedCompany || savedHr;
+        if (rawOkrs) {
+          const parsedOkrs = JSON.parse(rawOkrs);
+          if (Array.isArray(parsedOkrs) && parsedOkrs.length > 0) {
+            setCompanyOkrs(parsedOkrs);
           }
         }
       } catch {}
@@ -445,6 +469,18 @@ export function LeadGoalsManager() {
           const data = await res.json();
           if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
             setGoals(data.data.goals);
+          }
+        }
+      } catch {}
+
+      try {
+        const savedCompany = localStorage.getItem("workpulse_company_okrs");
+        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
+        const rawOkrs = savedCompany || savedHr;
+        if (rawOkrs) {
+          const parsedOkrs = JSON.parse(rawOkrs);
+          if (Array.isArray(parsedOkrs)) {
+            setCompanyOkrs(parsedOkrs);
           }
         }
       } catch {}
@@ -638,11 +674,8 @@ export function LeadGoalsManager() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (averageTeamProgress / 100) * circumference;
 
-  // Filtered direct reports
-  const filteredReports = directReports.filter((m) =>
-    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Direct reports list
+  const filteredReports = directReports;
 
   return (
     <div className="space-y-6">
@@ -909,14 +942,17 @@ export function LeadGoalsManager() {
         </form>
       )}
 
-      {/* 4. Tabs & Direct Reports Search Bar */}
+      {/* 4. Tabs for Team Lead */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/40 border border-border/60 text-xs w-fit">
           <button
             type="button"
-            onClick={() => setActiveTab("TEAM_SPRINT")}
+            onClick={() => {
+              setActiveTab("TEAM_SPRINT");
+              setShowCompanyOkrs(false);
+            }}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-xl font-bold transition-all ${
-              activeTab === "TEAM_SPRINT"
+              !showCompanyOkrs && activeTab === "TEAM_SPRINT"
                 ? "bg-card text-foreground shadow-sm border border-border/60"
                 : "text-muted-foreground hover:text-foreground"
             }`}
@@ -927,9 +963,12 @@ export function LeadGoalsManager() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("DIRECT_REPORTS")}
+            onClick={() => {
+              setActiveTab("DIRECT_REPORTS");
+              setShowCompanyOkrs(false);
+            }}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-xl font-bold transition-all ${
-              activeTab === "DIRECT_REPORTS"
+              !showCompanyOkrs && activeTab === "DIRECT_REPORTS"
                 ? "bg-card text-foreground shadow-sm border border-border/60"
                 : "text-muted-foreground hover:text-foreground"
             }`}
@@ -939,22 +978,87 @@ export function LeadGoalsManager() {
           </button>
         </div>
 
-        {activeTab === "DIRECT_REPORTS" && (
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search direct report by name or role..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 pl-8 text-xs rounded-xl border-border/70 bg-card"
-            />
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowCompanyOkrs(!showCompanyOkrs)}
+          className={`text-xs font-bold px-3.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${
+            showCompanyOkrs
+              ? "bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-sm"
+              : "border-border/70 text-muted-foreground hover:text-foreground bg-card/60"
+          }`}
+        >
+          <Building2 className="h-3.5 w-3.5 text-purple-400" />
+          <span>Company OKRs</span>
+          {showCompanyOkrs ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
       </div>
 
-      {/* 5. Goal Cards / Direct Reports List */}
-      {activeTab === "TEAM_SPRINT" ? (
+      {/* 5. Company OKRs View / Goal Cards / Direct Reports List */}
+      {showCompanyOkrs ? (
+        <div className="p-5 sm:p-6 rounded-3xl border border-purple-500/30 bg-gradient-to-b from-purple-500/[0.08] via-card to-card space-y-4 shadow-lg animate-in fade-in slide-in-from-top-2">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Company Strategic Objectives</h4>
+                <p className="text-[11px] text-muted-foreground">Q3 2026 Organization Targets (Managed by HR)</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-bold text-purple-400 border-purple-500/30 bg-purple-500/10">
+                Organization Wide
+              </Badge>
+              <button
+                type="button"
+                onClick={() => setShowCompanyOkrs(false)}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                ✕ Close
+              </button>
+            </div>
+          </div>
+
+          {/* Clean OKR Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {companyOkrs.map((okr: any) => (
+              <div
+                key={okr.id}
+                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-purple-500/40 space-y-3 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="text-[10px] font-semibold text-purple-400 border-purple-500/30 bg-purple-500/10">
+                      {okr.category || okr.department || "Organization Wide"}
+                    </Badge>
+                    <span className="font-mono font-bold text-xs text-purple-400 bg-purple-500/15 px-2.5 py-0.5 rounded-full border border-purple-500/30 shrink-0">
+                      {okr.progress}%
+                    </span>
+                  </div>
+                  <h5 className="text-xs font-bold text-foreground leading-snug">{okr.title || okr.objective}</h5>
+                  {(okr.target || okr.keyResult || okr.description) && (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {okr.target || okr.keyResult || okr.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Sleek Progress Bar */}
+                <div className="pt-2 border-t border-border/40">
+                  <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-400 transition-all duration-500"
+                      style={{ width: `${okr.progress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : activeTab === "TEAM_SPRINT" ? (
         <div className="space-y-3.5">
           {goals.map((goal) => {
             const isDone = goal.status === "COMPLETED";
@@ -1142,20 +1246,12 @@ export function LeadGoalsManager() {
                   </div>
                 </div>
 
-                {/* Overall Progress Bar */}
-                <div className="space-y-1.5 pt-1 border-t border-border/40">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground text-[11px] font-semibold">
-                      Overall Direct Report Goal Progress:
-                    </span>
-                    <span className="font-mono font-bold text-indigo-400">{avgProgress}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted/60 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 rounded-full transition-all duration-500"
-                      style={{ width: `${avgProgress}%` }}
-                    />
-                  </div>
+                {/* Overall Progress Percentage */}
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40">
+                  <span className="text-muted-foreground text-[11px] font-semibold">
+                    Overall Direct Report Goal Progress:
+                  </span>
+                  <span className="font-mono font-black text-sm text-indigo-400">{avgProgress}%</span>
                 </div>
 
                 {/* Expanded Goals List */}
@@ -1229,25 +1325,15 @@ export function LeadGoalsManager() {
                                 </button>
                               </div>
 
-                              {/* Progress Adjustment */}
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs pt-1 border-t border-border/30">
-                                <div className="flex items-center gap-2 flex-1 max-w-xs">
-                                  <div className="flex-1 h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full ${
-                                        isDone ? "bg-emerald-500" : config.progressGradient
-                                      }`}
-                                      style={{ width: `${g.progress}%` }}
-                                    />
-                                  </div>
-                                  <span
-                                    className={`font-mono font-bold text-[11px] w-8 text-right ${
-                                      isDone ? "text-emerald-400" : config.activeText
-                                    }`}
-                                  >
-                                    {g.progress}%
-                                  </span>
-                                </div>
+                              {/* Progress Percentage & Stepper Pills */}
+                              <div className="flex items-center justify-between gap-2 text-xs pt-1.5 border-t border-border/30">
+                                <span
+                                  className={`font-mono font-bold text-xs ${
+                                    isDone ? "text-emerald-400" : config.activeText
+                                  }`}
+                                >
+                                  {g.progress}%
+                                </span>
 
                                 <div className="flex items-center gap-1">
                                   {[25, 50, 75, 100].map((pct) => (

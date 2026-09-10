@@ -10,7 +10,6 @@ import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
 import {
-  Calendar,
   CheckCircle2,
   XCircle,
   Users,
@@ -18,7 +17,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-type LeadLeaveTab = "TEAM_APPROVALS" | "HR_STAGE_2" | "MY_LEAVES" | "TEAM_BALANCES";
+type LeadLeaveTab = "TEAM_APPROVALS" | "HR_STAGE_2" | "TEAM_BALANCES";
 
 export function LeadLeaveManager() {
   const user = useCurrentUser();
@@ -34,6 +33,7 @@ export function LeadLeaveManager() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const {
+    allEmployees,
     leaveRequests,
     wfhRequests,
     tlApproveLeave,
@@ -44,6 +44,7 @@ export function LeadLeaveManager() {
     hrRejectLeave,
     hrApproveWfh,
     hrRejectWfh,
+    syncWithSupabase,
   } = useWorkpulseSharedStore();
 
   const showToast = (msg: string) => {
@@ -69,25 +70,63 @@ export function LeadLeaveManager() {
   const totalStage2 = stage2LeaveRequests.length + stage2WfhRequests.length;
 
   React.useEffect(() => {
-    // Fetch latest leave and WFH requests from Supabase via API
-    fetch("/api/v1/leave")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.data?.requests) {
-          // store will be synced
-        }
-      })
-      .catch(() => {});
+    // Sync live state with Supabase & API
+    syncWithSupabase();
+  }, [syncWithSupabase]);
 
-    fetch("/api/v1/leave/wfh")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.data?.requests) {
-          // store will be synced
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Real-time dynamic calculation of Direct Reports Time-Off Balances
+  const teamBalances = React.useMemo(() => {
+    const defaultDevRoster = [
+      { id: "emp-sarah", name: "Sarah Dev", role: "Senior Backend Engineer", avatar: "SD", casualBase: 6.0, sickBase: 5.0 },
+      { id: "emp-rohit", name: "Rohit Sharma", role: "Frontend Engineer", avatar: "RS", casualBase: 7.0, sickBase: 5.0 },
+      { id: "emp-priya", name: "Priya Patel", role: "QA Engineer", avatar: "PP", casualBase: 8.0, sickBase: 6.0 },
+      { id: "emp-arjun", name: "Arjun Kumar", role: "Junior Developer", avatar: "AK", casualBase: 6.0, sickBase: 6.0 },
+    ];
+
+    const reports = (allEmployees && allEmployees.length > 0 ? allEmployees : [])
+      .filter((emp) => emp.teamLeadId === "lead-alex" || emp.departmentName === "Development" || emp.id.startsWith("emp-"));
+
+    const roster = reports.length > 0 ? reports : defaultDevRoster;
+
+    return roster.map((emp) => {
+      // Find all approved leave requests for this employee
+      const empApprovedLeaves = leaveRequests.filter(
+        (r) => (r.employeeId === emp.id || r.employeeName === emp.name) &&
+               ((r.status as string).includes("APPROVED") || (r.status as string).includes("STAGE_2"))
+      );
+
+      const casualDeducted = empApprovedLeaves
+        .filter((r) => r.leaveType === "CASUAL")
+        .reduce((sum, r) => sum + (r.daysCount || 1), 0);
+
+      const sickDeducted = empApprovedLeaves
+        .filter((r) => r.leaveType === "SICK")
+        .reduce((sum, r) => sum + (r.daysCount || 1), 0);
+
+      const casualBase = (emp as any).casualBase ?? 8.0;
+      const sickBase = (emp as any).sickBase ?? 6.0;
+
+      const casual = Math.max(0, casualBase - casualDeducted);
+      const sick = Math.max(0, sickBase - sickDeducted);
+      const total = casual + sick;
+
+      return {
+        id: emp.id,
+        name: emp.name,
+        role: (emp as any).role || (emp as any).designation || "Engineer",
+        avatar: emp.avatar || emp.name.slice(0, 2).toUpperCase(),
+        casual,
+        sick,
+        total,
+      };
+    });
+  }, [allEmployees, leaveRequests]);
+
+  const avgTeamBalance = React.useMemo(() => {
+    if (teamBalances.length === 0) return "12.0 Days";
+    const totalDays = teamBalances.reduce((acc, m) => acc + m.total, 0);
+    return `${(totalDays / teamBalances.length).toFixed(1)} Days`;
+  }, [teamBalances]);
 
   const handleApproveLeave = async (id: string, name: string) => {
     const comment = "Approved by Team Lead (Alex Lead). Forwarded to HR.";
@@ -221,17 +260,6 @@ export function LeadLeaveManager() {
     }
   };
 
-  // Team members' balances
-  const teamBalances = [
-    { name: "Sarah Dev", role: "Senior Backend Engineer", avatar: "SD", casual: 6.0, sick: 5.0, total: 11.0 },
-    { name: "Rohit Sharma", role: "Frontend Engineer", avatar: "RS", casual: 7.0, sick: 5.0, total: 12.0 },
-    { name: "Priya Patel", role: "QA Engineer", avatar: "PP", casual: 8.0, sick: 6.0, total: 14.0 },
-    { name: "Arjun Kumar", role: "Junior Developer", avatar: "AK", casual: 6.0, sick: 6.0, total: 12.0 },
-  ];
-
-  // Lead's personal leaves & wfh
-  const myLeadLeaves = leaveRequests.filter((r) => r.employeeId === "lead-alex");
-
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -274,11 +302,11 @@ export function LeadLeaveManager() {
 
         <div className="p-4 rounded-xl border border-border bg-card/60 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>My Personal Balance</span>
+            <span>Avg Team Balance</span>
             <Clock className="h-4 w-4 text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-emerald-400" suppressHydrationWarning>12.0 Days</p>
-          <span className="text-[11px] text-muted-foreground">Available Time-Off</span>
+          <p className="text-2xl font-bold text-emerald-400" suppressHydrationWarning>{avgTeamBalance}</p>
+          <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>Across {teamBalances.length} Direct Reports</span>
         </div>
       </div>
 
@@ -327,26 +355,12 @@ export function LeadLeaveManager() {
               onClick={() => setActiveTab("TEAM_BALANCES")}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
                 activeTab === "TEAM_BALANCES"
-                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-sm"
+                  ? "bg-indigo-600 text-white font-bold shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
               <Users className="h-3.5 w-3.5" />
               <span>Team Balances</span>
-            </button>
-
-            {/* My Time Off */}
-            <button
-              type="button"
-              onClick={() => setActiveTab("MY_LEAVES")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
-                activeTab === "MY_LEAVES"
-                  ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>My Time Off</span>
             </button>
           </div>
         </div>
@@ -670,37 +684,6 @@ export function LeadLeaveManager() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* TAB 4: MY PERSONAL LEAVES */}
-      {activeTab === "MY_LEAVES" && (
-        <div className="space-y-3">
-          {myLeadLeaves.length === 0 ? (
-            <div className="p-12 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
-              <Calendar className="h-8 w-8 text-muted-foreground mx-auto" />
-              <p className="font-semibold text-sm text-foreground">No Personal Leave Requests</p>
-              <p>You have not submitted any recent leave applications. Click &quot;Apply for Leave&quot; above if you need time off.</p>
-            </div>
-          ) : (
-            myLeadLeaves.map((req) => (
-              <div
-                key={req.id}
-                className="p-4 rounded-xl border border-border bg-card flex items-center justify-between gap-4 shadow-sm"
-              >
-                <div className="space-y-0.5">
-                  <strong className="text-xs font-bold text-foreground block">{req.leaveType} LEAVE</strong>
-                  <span className="text-[11px] text-muted-foreground">
-                    {req.startDate} to {req.endDate} · {req.daysCount} Day(s)
-                  </span>
-                </div>
-
-                <Badge variant="outline" className="text-[10px]">
-                  {req.status}
-                </Badge>
-              </div>
-            ))
-          )}
         </div>
       )}
 

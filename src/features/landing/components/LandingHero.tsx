@@ -79,11 +79,11 @@ export function LandingHero() {
             style={{ fontFamily: "'Instrument Serif', serif" }}
           >
             Where{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-100 to-white font-medium">
+            <span className="text-cyan-300 font-medium">
               daily execution
             </span>{" "}
             meets{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-white to-cyan-200 font-medium">
+            <span className="text-amber-200 font-medium">
               operational velocity.
             </span>
           </motion.h1>

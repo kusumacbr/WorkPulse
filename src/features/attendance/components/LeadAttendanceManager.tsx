@@ -2,11 +2,9 @@
 
 import React, { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { HolidayCalendarGrid } from "@/features/holidays/components/HolidayCalendarGrid";
 import { useWorkpulseSharedStore } from "@/lib/stores/use-workpulse-store";
-import { fireSuccessBurst } from "@/lib/ui/confetti";
 import {
   Clock,
   Calendar,
@@ -20,6 +18,7 @@ import {
   MapPin,
 } from "lucide-react";
 
+import { formatWorkedHours } from "@/lib/ui/time-formatter";
 import { useCurrentUser } from "@/components/layout/UserContext";
 
 export type LeadAttendanceTab = "TEAM_PRESENCE" | "MY_PUNCHES" | "HOLIDAYS";
@@ -34,13 +33,24 @@ export function LeadAttendanceManager() {
 
   const [punchStatus, setPunchStatus] = useState<"IN" | "OUT">("OUT");
   const [punchTime, setPunchTime] = useState<string>("--");
-  const [isPunching, setIsPunching] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastMsg] = useState<string | null>(null);
 
-  // Fetch real-time punch state from Supabase
+  // Fetch real-time punch state & sync with global events
   React.useEffect(() => {
     const fetchLatestPunch = async () => {
       try {
+        if (typeof window !== "undefined") {
+          const storedHeaderState = localStorage.getItem("workpulse_header_punch_state");
+          if (storedHeaderState) {
+            const parsed = JSON.parse(storedHeaderState);
+            if (parsed.status === "IN") {
+              setPunchStatus("IN");
+              setPunchTime(parsed.punchInTimeStr || "10:00 AM");
+              return;
+            }
+          }
+        }
+
         const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(leadEmail)}`);
         if (res.ok) {
           const data = await res.json();
@@ -56,41 +66,22 @@ export function LeadAttendanceManager() {
         }
       } catch {}
     };
+
     fetchLatestPunch();
+
+    const handleSync = () => fetchLatestPunch();
+    window.addEventListener("attendance:punched", handleSync);
+    window.addEventListener("workpulse_sync", handleSync);
+    window.addEventListener("workday:biometric_uploaded", handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => {
+      window.removeEventListener("attendance:punched", handleSync);
+      window.removeEventListener("workpulse_sync", handleSync);
+      window.removeEventListener("workday:biometric_uploaded", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
   }, [leadEmail]);
-
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
-  };
-
-  const handleBiometricPunch = async () => {
-    setIsPunching(true);
-    const nextType = punchStatus === "IN" ? "OUT" : "IN";
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-    try {
-      await fetch("/api/v1/attendance/punch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId: leadEmail,
-          type: nextType,
-          terminalId: "TERM-BLR-01",
-          timestamp: now.toISOString(),
-        }),
-      });
-    } catch (err) {
-      console.warn("Punch logged locally:", err);
-    }
-
-    setPunchStatus(nextType);
-    setPunchTime(timeStr);
-    setIsPunching(false);
-    fireSuccessBurst();
-    showToast(`✓ Lead Biometric Punch-${nextType} registered at ${timeStr} (Bangalore HQ Floor 4).`);
-  };
 
   const leadReportsPresence = useMemo(() => {
     if (leadEmail.includes("lead") || currentUser?.primaryRole === "MANAGER") {
@@ -134,7 +125,7 @@ export function LeadAttendanceManager() {
           </p>
           <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            {totalGrossHours.toFixed(1)} hrs total logged today
+            {formatWorkedHours(totalGrossHours)} total logged today
           </span>
         </div>
 
@@ -336,7 +327,7 @@ export function LeadAttendanceManager() {
                     </span>
                     <span>·</span>
                     <span>
-                      Logged: <strong className="text-foreground">{member.grossHours} hrs</strong>
+                      Logged: <strong className="text-foreground">{formatWorkedHours(member.grossHours)}</strong>
                     </span>
                   </div>
                 </div>
@@ -346,7 +337,7 @@ export function LeadAttendanceManager() {
               <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold text-cyan-400">
-                    {member.grossHours} / 8.0 hrs
+                    {formatWorkedHours(member.grossHours)} / 8h 00m
                   </span>
                   <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
                     {Math.round((member.grossHours / 8.0) * 100)}% Shift
@@ -371,146 +362,150 @@ export function LeadAttendanceManager() {
       )}
 
       {/* TAB 2: LEAD PERSONAL BIOMETRIC PUNCH LOGS */}
+      {/* TAB 2: LEAD PERSONAL BIOMETRIC & VIRTUAL PUNCH LOGS */}
       {activeTab === "MY_PUNCHES" && (
-        <Interactive3DCard className="p-6 space-y-4 border-border/80 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Fingerprint className="h-4 w-4 text-cyan-400" />
-                Official Biometric Transactions &amp; Virtual Punch
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Logged from Bangalore HQ Terminal #1 (10:00 AM – 07:00 PM Shift Schedule).
-              </p>
+        <div className="space-y-6">
+          {/* PART 1: BIOMETRIC PUNCH LOGS (Hardware Terminal / HR CSV Upload) */}
+          <Interactive3DCard className="p-6 space-y-4 border-border/80 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/50">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Fingerprint className="h-5 w-5 text-cyan-400" />
+                  <span>Biometric Punch Logs</span>
+                  <Badge variant="outline" className="text-[10px] font-bold text-cyan-300 border-cyan-500/30 bg-cyan-500/10">
+                    HR Biometric CSV Data
+                  </Badge>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Official hardware terminal logs from HR Daily Attendance CSV import (Bangalore HQ Gate #1, Turnstiles).
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
-              <Button
-                variant="brand"
-                size="sm"
-                disabled={isPunching}
-                onClick={handleBiometricPunch}
-                className={`text-xs font-bold gap-1.5 h-8.5 px-3.5 shadow-sm transition-all cursor-pointer ${
-                  punchStatus === "IN"
-                    ? "bg-gradient-to-r from-amber-500 to-rose-600 text-white hover:opacity-95 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
-                    : "bg-gradient-to-r from-cyan-500 to-emerald-600 text-black hover:opacity-95 shadow-[0_0_12px_rgba(6,182,212,0.3)]"
-                }`}
-              >
-                <Fingerprint className="h-3.5 w-3.5" />
-                <span>
-                  {isPunching
-                    ? "Registering Punch..."
-                    : punchStatus === "IN"
-                    ? "Punch-Out (End of Shift)"
-                    : "Punch-In (Start of Shift)"}
-                </span>
-              </Button>
-
-              <Badge variant="outline" className="text-[10px] text-cyan-300 border-cyan-500/30 font-mono">
-                Current: {punchStatus} ({punchTime})
-              </Badge>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            {[
-              {
-                date: "2026-08-21",
-                dayName: "Fri",
-                workMode: "OFFICE",
-                firstIn: "10:05 AM",
-                lastOut: punchStatus === "OUT" ? punchTime : "--:--",
-                workedHours: punchStatus === "OUT" ? 8.2 : 4.8,
-                status: "ON_TIME",
-              },
-              {
-                date: "2026-08-20",
-                dayName: "Thu",
-                workMode: "OFFICE",
-                firstIn: "10:00 AM",
-                lastOut: "07:12 PM",
-                workedHours: 8.8,
-                status: "ON_TIME",
-              },
-              {
-                date: "2026-08-19",
-                dayName: "Wed",
-                workMode: "OFFICE",
-                firstIn: "10:10 AM",
-                lastOut: "07:15 PM",
-                workedHours: 8.6,
-                status: "ON_TIME",
-              },
-              {
-                date: "2026-08-18",
-                dayName: "Tue",
-                workMode: "WFH",
-                firstIn: "09:50 AM",
-                lastOut: "06:55 PM",
-                workedHours: 8.5,
-                status: "ON_TIME",
-              },
-              {
-                date: "2026-08-17",
-                dayName: "Mon",
-                workMode: "OFFICE",
-                firstIn: "10:04 AM",
-                lastOut: "07:08 PM",
-                workedHours: 8.6,
-                status: "ON_TIME",
-              },
-            ].map((log, idx) => (
-              <div
-                key={idx}
-                className="p-4 rounded-xl bg-card/50 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-cyan-500/40 transition-all text-xs"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="h-8 w-8 rounded-lg bg-muted text-cyan-400 font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                    {log.dayName}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground">{log.date}</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] uppercase font-bold ${
-                          log.workMode === "OFFICE"
-                            ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-                            : "bg-purple-500/15 text-purple-300 border-purple-500/30"
-                        }`}
-                      >
-                        {log.workMode}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] uppercase font-bold ${
-                          log.status === "ON_TIME"
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                            : "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                        }`}
-                      >
-                        {log.status.replace("_", " ")}
-                      </Badge>
+            <div className="space-y-3 pt-1">
+              {[
+                {
+                  date: "2026-09-10",
+                  dayName: "Thu",
+                  workMode: "OFFICE",
+                  firstIn: "10:05 AM",
+                  lastOut: "07:12 PM",
+                  workedHours: 8.8,
+                  status: "ON_TIME",
+                  terminalId: "TERM-BLR-GATE1",
+                },
+                {
+                  date: "2026-09-08",
+                  dayName: "Tue",
+                  workMode: "OFFICE",
+                  firstIn: "10:00 AM",
+                  lastOut: "07:05 PM",
+                  workedHours: 8.5,
+                  status: "ON_TIME",
+                  terminalId: "TERM-BLR-01",
+                },
+                {
+                  date: "2026-09-05",
+                  dayName: "Fri",
+                  workMode: "OFFICE",
+                  firstIn: "10:10 AM",
+                  lastOut: "07:15 PM",
+                  workedHours: 8.6,
+                  status: "ON_TIME",
+                  terminalId: "TERM-BLR-FLR4",
+                },
+              ].map((log, idx) => (
+                <div
+                  key={`lead-biom-${idx}`}
+                  className="p-4 rounded-xl bg-card/50 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-cyan-500/40 transition-all text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="h-8 w-8 rounded-lg bg-cyan-500/10 text-cyan-400 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-cyan-500/20">
+                      {log.dayName}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground">{log.date}</span>
+                        <Badge
+                          variant="outline"
+                          className="bg-cyan-500/15 text-cyan-300 border-cyan-500/30 text-[9px] font-bold uppercase"
+                        >
+                          {log.workMode}
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] font-mono text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                          {log.terminalId}
+                        </Badge>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">
+                        In: <strong className="text-foreground">{log.firstIn}</strong> · Out:{" "}
+                        <strong className="text-foreground">{log.lastOut}</strong>
+                      </span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
-                      In: <strong className="text-foreground">{log.firstIn}</strong> · Out:{" "}
-                      <strong className="text-foreground">{log.lastOut}</strong>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-black text-cyan-400 font-mono">
+                      {formatWorkedHours(log.workedHours)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block font-medium">
+                      Biometric Terminal Scanned ✓
                     </span>
                   </div>
                 </div>
+              ))}
+            </div>
+          </Interactive3DCard>
 
-                <div className="text-right shrink-0">
-                  <span className="text-sm font-black text-cyan-400 font-mono">
-                    {log.workedHours} hrs
-                  </span>
-                  <span className="text-[10px] text-muted-foreground block">
-                    {log.workedHours >= 8 ? "Full Day Completed ✓" : "In Progress (Shift: 10AM - 7PM)"}
+          {/* PART 2: VIRTUAL PUNCH LOGS (Header Bar Login & Logout Sessions) */}
+          <Interactive3DCard className="p-6 space-y-4 border-border/80 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/50">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-emerald-400" />
+                  <span>Virtual Punch Logs</span>
+                  <Badge variant="outline" className="text-[10px] font-bold text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                    Header Role Bar Timer
+                  </Badge>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Recorded directly via the Top Header Bar Login Time &amp; Logout Time buttons for Team Lead role.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-card/50 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-emerald-500/40 transition-all text-xs">
+              <div className="flex items-center gap-3">
+                <span className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-500/20">
+                  Thu
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-foreground">2026-09-10</span>
+                    <Badge variant="outline" className="text-[9px] font-bold text-cyan-300 border-cyan-500/30">
+                      Team Lead
+                    </Badge>
+                    <Badge variant="outline" className="text-[9px] font-mono text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                      Active Header Session
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    Virtual Punch-In: <strong className="text-foreground">{punchTime !== "--" ? punchTime : "10:00 AM"}</strong> · Virtual Punch-Out:{" "}
+                    <strong className="text-foreground">{punchStatus === "IN" ? "In Progress (Timer Ticking)" : "Punched Out"}</strong>
                   </span>
                 </div>
               </div>
-            ))}
-          </div>
-        </Interactive3DCard>
+
+              <div className="text-right shrink-0">
+                <span className="text-sm font-black text-emerald-400 font-mono">
+                  {punchStatus === "IN" ? "Live Session" : "8h 15m"}
+                </span>
+                <span className="text-[10px] text-muted-foreground block font-medium">
+                  {punchStatus === "IN" ? "Controlled via Header" : "Completed Virtual Session ✓"}
+                </span>
+              </div>
+            </div>
+          </Interactive3DCard>
+        </div>
       )}
 
       {/* TAB 3: HOLIDAY CALENDAR */}

@@ -71,19 +71,19 @@ export function BroadcastNotificationPopup() {
         name: "Birthday",
         badgeText: "Birthday Celebration",
         ambientIcons: ["🎈", "✨", "🎂", "🎉", "🌟", "🎁", "💖", "🥳"],
-        borderStyle: "border-pink-500/60",
-        glowShadow: "shadow-[0_0_60px_rgba(244,63,94,0.5)]",
-        orb1Gradient: "bg-gradient-to-r from-pink-500 to-rose-500",
-        orb2Gradient: "bg-gradient-to-r from-purple-600 to-pink-500",
-        badgeClasses: "bg-pink-500/20 text-pink-300 border-pink-500/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]",
-        headingGradient: "bg-gradient-to-r from-pink-400 via-rose-300 to-amber-300",
+        borderStyle: "border-pink-500/60 dark:border-pink-500/60",
+        glowShadow: "shadow-[0_0_50px_rgba(244,63,94,0.25)] dark:shadow-[0_0_60px_rgba(244,63,94,0.5)]",
+        orb1Gradient: "bg-gradient-to-r from-pink-400 to-rose-400 opacity-30 dark:opacity-50",
+        orb2Gradient: "bg-gradient-to-r from-purple-500 to-pink-400 opacity-30 dark:opacity-50",
+        badgeClasses: "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/20 dark:text-pink-300 dark:border-pink-500/40 shadow-sm",
+        headingGradient: "bg-gradient-to-r from-pink-600 via-rose-600 to-amber-600 dark:from-pink-400 dark:via-rose-300 dark:to-amber-300",
         heroIcon: activeBroadcast.celebrantAvatar || "🎂",
         heroSubIconLeft: "✨",
         heroSubIconRight: "🎉",
         reactionEmojis: ["🎉", "🎂", "🎈", "🎁", "🚀", "❤️", "👏"],
-        ctaButtonGradient: "bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.35)]",
+        ctaButtonGradient: "bg-gradient-to-r from-pink-600 via-rose-600 to-amber-600 text-white shadow-md hover:shadow-lg",
         ctaText: "Join Celebration 🎂",
-        centerpieceRing: "from-pink-500 via-amber-400 to-purple-500 shadow-[0_0_35px_rgba(244,63,94,0.6)]",
+        centerpieceRing: "from-pink-500 via-amber-400 to-purple-500 shadow-md",
         centerpieceAnimationType: "birthday",
       };
     }
@@ -94,18 +94,18 @@ export function BroadcastNotificationPopup() {
         badgeText: "Diwali Festival of Lights",
         ambientIcons: ["🪔", "✨", "🎆", "🎇", "🪔", "🌟", "🪔", "💫"],
         borderStyle: "border-amber-500/60",
-        glowShadow: "shadow-[0_0_60px_rgba(245,158,11,0.55)]",
-        orb1Gradient: "bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400",
-        orb2Gradient: "bg-gradient-to-r from-orange-600 via-amber-500 to-rose-500",
-        badgeClasses: "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.4)]",
-        headingGradient: "bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400",
+        glowShadow: "shadow-[0_0_50px_rgba(245,158,11,0.25)] dark:shadow-[0_0_60px_rgba(245,158,11,0.55)]",
+        orb1Gradient: "bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 opacity-30 dark:opacity-50",
+        orb2Gradient: "bg-gradient-to-r from-orange-500 via-amber-400 to-rose-400 opacity-30 dark:opacity-50",
+        badgeClasses: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40 shadow-sm",
+        headingGradient: "bg-gradient-to-r from-amber-700 via-orange-600 to-yellow-600 dark:from-amber-300 dark:via-yellow-400 dark:to-orange-400",
         heroIcon: "🪔",
         heroSubIconLeft: "✨",
         heroSubIconRight: "🎆",
         reactionEmojis: ["🪔", "✨", "🎆", "🎇", "❤️", "🙏", "👏"],
-        ctaButtonGradient: "bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 text-black font-bold shadow-[0_0_20px_rgba(245,158,11,0.45)]",
+        ctaButtonGradient: "bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 text-black font-bold shadow-md",
         ctaText: "Celebrate Diwali ✨",
-        centerpieceRing: "from-amber-400 via-orange-500 to-yellow-400 shadow-[0_0_40px_rgba(245,158,11,0.75)]",
+        centerpieceRing: "from-amber-400 via-orange-500 to-yellow-400 shadow-md",
         centerpieceAnimationType: "diwali",
       };
     }
@@ -116,18 +116,18 @@ export function BroadcastNotificationPopup() {
         badgeText: "Christmas & Holiday Gala",
         ambientIcons: ["❄️", "🎄", "🎁", "⭐", "⛄", "🔔", "🎅", "❄️"],
         borderStyle: "border-emerald-500/60",
-        glowShadow: "shadow-[0_0_60px_rgba(16,185,129,0.5)]",
-        orb1Gradient: "bg-gradient-to-r from-emerald-500 to-teal-500",
-        orb2Gradient: "bg-gradient-to-r from-red-600 to-rose-500",
-        badgeClasses: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.35)]",
-        headingGradient: "bg-gradient-to-r from-emerald-300 via-red-400 to-amber-200",
+        glowShadow: "shadow-[0_0_50px_rgba(16,185,129,0.25)] dark:shadow-[0_0_60px_rgba(16,185,129,0.5)]",
+        orb1Gradient: "bg-gradient-to-r from-emerald-400 to-teal-400 opacity-30 dark:opacity-50",
+        orb2Gradient: "bg-gradient-to-r from-red-500 to-rose-400 opacity-30 dark:opacity-50",
+        badgeClasses: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40 shadow-sm",
+        headingGradient: "bg-gradient-to-r from-emerald-700 via-red-600 to-amber-600 dark:from-emerald-300 dark:via-red-400 dark:to-amber-200",
         heroIcon: "🎄",
         heroSubIconLeft: "❄️",
         heroSubIconRight: "🎁",
         reactionEmojis: ["🎄", "❄️", "🎁", "⭐", "🔔", "⛄", "❤️"],
-        ctaButtonGradient: "bg-gradient-to-r from-emerald-600 via-teal-600 to-red-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]",
+        ctaButtonGradient: "bg-gradient-to-r from-emerald-600 via-teal-600 to-red-600 text-white shadow-md",
         ctaText: "Holiday Cheer 🎄",
-        centerpieceRing: "from-emerald-400 via-red-500 to-amber-400 shadow-[0_0_40px_rgba(16,185,129,0.7)]",
+        centerpieceRing: "from-emerald-400 via-red-500 to-amber-400 shadow-md",
         centerpieceAnimationType: "christmas",
       };
     }
@@ -138,18 +138,18 @@ export function BroadcastNotificationPopup() {
         badgeText: "Holi Colors Festival",
         ambientIcons: ["🎨", "🌸", "🌈", "💧", "💜", "🌺", "💛", "🎊"],
         borderStyle: "border-pink-500/60",
-        glowShadow: "shadow-[0_0_60px_rgba(236,72,153,0.55)]",
-        orb1Gradient: "bg-gradient-to-r from-pink-500 via-purple-500 to-yellow-400",
-        orb2Gradient: "bg-gradient-to-r from-cyan-500 via-pink-500 to-purple-600",
-        badgeClasses: "bg-pink-500/20 text-pink-300 border-pink-500/40 shadow-[0_0_12px_rgba(236,72,153,0.4)]",
-        headingGradient: "bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400",
+        glowShadow: "shadow-[0_0_50px_rgba(236,72,153,0.25)] dark:shadow-[0_0_60px_rgba(236,72,153,0.55)]",
+        orb1Gradient: "bg-gradient-to-r from-pink-400 via-purple-400 to-yellow-300 opacity-30 dark:opacity-50",
+        orb2Gradient: "bg-gradient-to-r from-cyan-400 via-pink-400 to-purple-500 opacity-30 dark:opacity-50",
+        badgeClasses: "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-500/20 dark:text-pink-300 dark:border-pink-500/40 shadow-sm",
+        headingGradient: "bg-gradient-to-r from-pink-700 via-purple-700 to-cyan-700 dark:from-pink-400 dark:via-purple-400 dark:to-cyan-400",
         heroIcon: "🎨",
         heroSubIconLeft: "🌸",
         heroSubIconRight: "🌈",
         reactionEmojis: ["🎨", "🌈", "🌸", "💧", "💜", "🎉", "👏"],
-        ctaButtonGradient: "bg-gradient-to-r from-pink-500 via-purple-500 to-yellow-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.45)]",
+        ctaButtonGradient: "bg-gradient-to-r from-pink-600 via-purple-600 to-yellow-500 text-white shadow-md",
         ctaText: "Join Holi Colors 🎨",
-        centerpieceRing: "from-pink-500 via-yellow-400 to-cyan-400 shadow-[0_0_40px_rgba(236,72,153,0.75)]",
+        centerpieceRing: "from-pink-500 via-yellow-400 to-cyan-400 shadow-md",
         centerpieceAnimationType: "holi",
       };
     }
@@ -160,18 +160,18 @@ export function BroadcastNotificationPopup() {
         badgeText: "Eid-ul-Fitr Celebration",
         ambientIcons: ["🌙", "✨", "🕌", "⭐", "🏮", "💫", "🤲", "🌙"],
         borderStyle: "border-teal-500/60",
-        glowShadow: "shadow-[0_0_60px_rgba(20,184,166,0.55)]",
-        orb1Gradient: "bg-gradient-to-r from-teal-500 via-emerald-600 to-cyan-500",
-        orb2Gradient: "bg-gradient-to-r from-emerald-600 via-teal-500 to-amber-500",
-        badgeClasses: "bg-teal-500/20 text-teal-300 border-teal-500/40 shadow-[0_0_12px_rgba(20,184,166,0.4)]",
-        headingGradient: "bg-gradient-to-r from-teal-300 via-emerald-300 to-amber-200",
+        glowShadow: "shadow-[0_0_50px_rgba(20,184,166,0.25)] dark:shadow-[0_0_60px_rgba(20,184,166,0.55)]",
+        orb1Gradient: "bg-gradient-to-r from-teal-400 via-emerald-500 to-cyan-400 opacity-30 dark:opacity-50",
+        orb2Gradient: "bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 opacity-30 dark:opacity-50",
+        badgeClasses: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-500/40 shadow-sm",
+        headingGradient: "bg-gradient-to-r from-teal-700 via-emerald-700 to-amber-600 dark:from-teal-300 dark:via-emerald-300 dark:to-amber-200",
         heroIcon: "🌙",
         heroSubIconLeft: "✨",
         heroSubIconRight: "⭐",
         reactionEmojis: ["🌙", "✨", "🕌", "🤲", "⭐", "❤️", "👏"],
-        ctaButtonGradient: "bg-gradient-to-r from-teal-500 via-emerald-600 to-cyan-600 text-white shadow-[0_0_20px_rgba(20,184,166,0.45)]",
+        ctaButtonGradient: "bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white shadow-md",
         ctaText: "Eid Mubarak 🌙",
-        centerpieceRing: "from-teal-400 via-emerald-500 to-amber-300 shadow-[0_0_40px_rgba(20,184,166,0.75)]",
+        centerpieceRing: "from-teal-400 via-emerald-500 to-amber-300 shadow-md",
         centerpieceAnimationType: "eid",
       };
     }
@@ -182,18 +182,18 @@ export function BroadcastNotificationPopup() {
         badgeText: "Independence Day Broadcast",
         ambientIcons: ["🇮🇳", "🕊️", "⭐", "🌟", "🇮🇳", "🎖️", "💫", "🌾"],
         borderStyle: "border-orange-500/60",
-        glowShadow: "shadow-[0_0_60px_rgba(249,115,22,0.5)]",
-        orb1Gradient: "bg-gradient-to-r from-orange-500 via-sky-500 to-emerald-600",
-        orb2Gradient: "bg-gradient-to-r from-emerald-600 via-sky-600 to-orange-500",
-        badgeClasses: "bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-[0_0_12px_rgba(249,115,22,0.35)]",
-        headingGradient: "bg-gradient-to-r from-orange-400 via-sky-300 to-emerald-400",
+        glowShadow: "shadow-[0_0_50px_rgba(249,115,22,0.25)] dark:shadow-[0_0_60px_rgba(249,115,22,0.5)]",
+        orb1Gradient: "bg-gradient-to-r from-orange-400 via-sky-400 to-emerald-500 opacity-30 dark:opacity-50",
+        orb2Gradient: "bg-gradient-to-r from-emerald-500 via-sky-500 to-orange-400 opacity-30 dark:opacity-50",
+        badgeClasses: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/40 shadow-sm",
+        headingGradient: "bg-gradient-to-r from-orange-600 via-sky-600 to-emerald-700 dark:from-orange-400 dark:via-sky-300 dark:to-emerald-400",
         heroIcon: "🇮🇳",
         heroSubIconLeft: "🕊️",
         heroSubIconRight: "⭐",
         reactionEmojis: ["🇮🇳", "🕊️", "🌟", "🎖️", "👏", "❤️", "🎉"],
-        ctaButtonGradient: "bg-gradient-to-r from-orange-500 via-sky-500 to-emerald-600 text-white shadow-[0_0_20px_rgba(249,115,22,0.4)]",
+        ctaButtonGradient: "bg-gradient-to-r from-orange-600 via-sky-600 to-emerald-600 text-white shadow-md",
         ctaText: "Celebrate 🇮🇳",
-        centerpieceRing: "from-orange-500 via-sky-400 to-emerald-500 shadow-[0_0_40px_rgba(249,115,22,0.7)]",
+        centerpieceRing: "from-orange-500 via-sky-400 to-emerald-500 shadow-md",
         centerpieceAnimationType: "independence",
       };
     }
@@ -204,16 +204,16 @@ export function BroadcastNotificationPopup() {
       badgeText: "Company Broadcast",
       ambientIcons: ["📢", "⚡", "✨", "📌", "💡", "🎯"],
       borderStyle: "border-cyan-500/60",
-      glowShadow: "shadow-[0_0_60px_rgba(6,182,212,0.35)]",
-      orb1Gradient: "bg-cyan-500",
-      orb2Gradient: "bg-blue-600",
-      badgeClasses: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
-      headingGradient: "text-foreground",
+      glowShadow: "shadow-[0_0_50px_rgba(6,182,212,0.2)] dark:shadow-[0_0_60px_rgba(6,182,212,0.35)]",
+      orb1Gradient: "bg-cyan-500 opacity-30 dark:opacity-50",
+      orb2Gradient: "bg-blue-600 opacity-30 dark:opacity-50",
+      badgeClasses: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-500/40",
+      headingGradient: "text-slate-900 dark:text-foreground",
       heroIcon: "📢",
       reactionEmojis: ["👍", "🚀", "💡", "❤️", "👏", "🎉"],
-      ctaButtonGradient: "bg-gradient-to-r from-cyan-500 to-blue-600 text-white",
+      ctaButtonGradient: "bg-gradient-to-r from-cyan-600 to-blue-600 text-white",
       ctaText: "View Notice",
-      centerpieceRing: "from-cyan-400 to-blue-600 shadow-[0_0_30px_rgba(6,182,212,0.5)]",
+      centerpieceRing: "from-cyan-400 to-blue-600 shadow-md",
       centerpieceAnimationType: "general",
     };
   };
@@ -293,7 +293,7 @@ export function BroadcastNotificationPopup() {
             animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
             exit={{ opacity: 0, scale: 0.85, y: 25 }}
             transition={{ type: "spring", damping: 22, stiffness: 280 }}
-            className={`relative z-20 w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden glass-panel ${theme.borderStyle} ${theme.glowShadow} bg-gradient-to-b from-slate-950/95 via-card/95 to-slate-950/95`}
+            className={`relative z-20 w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden glass-panel ${theme.borderStyle} ${theme.glowShadow} bg-white/95 dark:bg-gradient-to-b dark:from-slate-950/95 dark:via-card/95 dark:to-slate-950/95`}
           >
             {/* Animated Rotating Gradient Mesh Orbs behind modal */}
             <motion.div
@@ -302,7 +302,7 @@ export function BroadcastNotificationPopup() {
                 rotate: [0, 180, 360],
               }}
               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className={`absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl pointer-events-none opacity-50 ${theme.orb1Gradient}`}
+              className={`absolute -top-20 -right-20 w-52 h-52 rounded-full blur-3xl pointer-events-none ${theme.orb1Gradient}`}
             />
             <motion.div
               animate={{
@@ -310,11 +310,11 @@ export function BroadcastNotificationPopup() {
                 rotate: [360, 180, 0],
               }}
               transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-              className={`absolute -bottom-20 -left-20 w-52 h-52 rounded-full blur-3xl pointer-events-none opacity-50 ${theme.orb2Gradient}`}
+              className={`absolute -bottom-20 -left-20 w-52 h-52 rounded-full blur-3xl pointer-events-none ${theme.orb2Gradient}`}
             />
 
             {/* Top Bar Header */}
-            <div className="relative z-10 px-6 py-4 border-b border-border/80 flex items-center justify-between backdrop-blur-md bg-card/40">
+            <div className="relative z-10 px-6 py-4 border-b border-slate-200 dark:border-border/80 flex items-center justify-between backdrop-blur-md bg-white/60 dark:bg-card/40">
               <div className="flex items-center gap-2">
                 <Badge
                   variant="brand"
@@ -324,7 +324,7 @@ export function BroadcastNotificationPopup() {
                   <span>{activeBroadcast.badge || theme.badgeText}</span>
                 </Badge>
 
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                <span className="text-[11px] text-slate-600 dark:text-muted-foreground flex items-center gap-1 font-medium">
                   <Users className="h-3 w-3" />
                   {activeBroadcast.targetAudience || "All Staff (19)"}
                 </span>
@@ -334,7 +334,7 @@ export function BroadcastNotificationPopup() {
                 variant="ghost"
                 size="icon"
                 onClick={closeBroadcast}
-                className="h-7 w-7 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+                className="h-7 w-7 rounded-xl text-slate-500 hover:text-slate-900 dark:text-muted-foreground dark:hover:text-foreground hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -394,13 +394,13 @@ export function BroadcastNotificationPopup() {
                   className="relative z-10"
                 >
                   <div className={`h-20 w-20 rounded-3xl p-[3px] bg-gradient-to-tr ${theme.centerpieceRing} flex items-center justify-center`}>
-                    <div className="h-full w-full rounded-[21px] bg-[#0b0f19] flex items-center justify-center text-3xl shadow-inner relative overflow-hidden">
+                    <div className="h-full w-full rounded-[21px] bg-slate-100 dark:bg-[#0b0f19] flex items-center justify-center text-3xl shadow-inner relative overflow-hidden font-bold text-slate-800 dark:text-white">
                       <span className="relative z-10">{theme.heroIcon}</span>
                       {/* Shimmer light pass */}
                       <motion.div
                         animate={{ x: ["-100%", "200%"] }}
                         transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 1 }}
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent skew-x-12"
                       />
                     </div>
                   </div>
@@ -437,22 +437,22 @@ export function BroadcastNotificationPopup() {
                   {activeBroadcast.title}
                 </motion.h3>
                 {activeBroadcast.author && (
-                  <span className="text-xs text-muted-foreground block font-mono">
+                  <span className="text-xs text-slate-600 dark:text-muted-foreground block font-mono font-medium">
                     Published by {activeBroadcast.author} &middot; Just Now
                   </span>
                 )}
               </div>
 
               {/* Message Box with subtle glass border */}
-              <div className="p-4 rounded-2xl bg-card/70 border border-border/70 text-xs text-foreground/90 leading-relaxed text-center shadow-inner backdrop-blur-md">
-                <p className="font-medium">{activeBroadcast.message}</p>
+              <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-card/70 border border-slate-200 dark:border-border/70 text-xs text-slate-800 dark:text-foreground/90 leading-relaxed text-center shadow-inner backdrop-blur-md">
+                <p className="font-semibold">{activeBroadcast.message}</p>
               </div>
 
               {/* Interactive Reaction Cannon with Festival-Specific Emojis */}
-              <div className="space-y-2.5 pt-2 border-t border-border/60">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground font-bold px-1">
+              <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-border/60">
+                <div className="flex items-center justify-between text-[11px] text-slate-700 dark:text-muted-foreground font-bold px-1">
                   <span className="uppercase tracking-wider">Tap to cheer &amp; celebrate:</span>
-                  <span className="text-amber-400 font-mono text-[10px] flex items-center gap-1">
+                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] flex items-center gap-1">
                     <Sparkles className="h-3 w-3" /> Live Festive Cheers
                   </span>
                 </div>
@@ -471,12 +471,12 @@ export function BroadcastNotificationPopup() {
                         onClick={(e) => handleEmojiReact(emoji, e)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer shadow-sm ${
                           isSelected
-                            ? "bg-amber-500 text-black border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)] font-black"
-                            : "bg-card/80 hover:bg-card border-border text-foreground hover:border-amber-500/40"
+                            ? "bg-amber-500 text-black border-amber-400 shadow-md font-black"
+                            : "bg-white dark:bg-card/80 hover:bg-slate-100 dark:hover:bg-card border-slate-200 dark:border-border text-slate-800 dark:text-foreground hover:border-amber-500/40"
                         }`}
                       >
                         <span className="text-base">{emoji}</span>
-                        <span className="font-mono text-[10px] text-muted-foreground">
+                        <span className="font-mono text-[10px] text-slate-600 dark:text-muted-foreground font-semibold">
                           {count + (isSelected ? 1 : 0)}
                         </span>
                       </motion.button>
