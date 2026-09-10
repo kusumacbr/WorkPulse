@@ -1,16 +1,36 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { AnimatedTabContent } from "@/components/animations/AnimatedTabContent";
-import { WhosWhereTodayBoard } from "@/features/attendance/components/WhosWhereTodayBoard";
-import { HolidayCalendarGrid } from "@/features/holidays/components/HolidayCalendarGrid";
-import { HREnterpriseAttendanceOversight } from "@/features/attendance/components/HREnterpriseAttendanceOversight";
-import { LeadAttendanceManager } from "@/features/attendance/components/LeadAttendanceManager";
 import { useCurrentUser } from "@/components/layout/UserContext";
+
+const LoadingSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="h-48 rounded-2xl bg-card/40 border border-border/40" />
+  </div>
+);
+
+const WhosWhereTodayBoard = dynamic(
+  () => import("@/features/attendance/components/WhosWhereTodayBoard").then((m) => ({ default: m.WhosWhereTodayBoard })),
+  { ssr: false, loading: LoadingSkeleton }
+);
+const HolidayCalendarGrid = dynamic(
+  () => import("@/features/holidays/components/HolidayCalendarGrid").then((m) => ({ default: m.HolidayCalendarGrid })),
+  { ssr: false, loading: LoadingSkeleton }
+);
+const HREnterpriseAttendanceOversight = dynamic(
+  () => import("@/features/attendance/components/HREnterpriseAttendanceOversight").then((m) => ({ default: m.HREnterpriseAttendanceOversight })),
+  { ssr: false, loading: LoadingSkeleton }
+);
+const LeadAttendanceManager = dynamic(
+  () => import("@/features/attendance/components/LeadAttendanceManager").then((m) => ({ default: m.LeadAttendanceManager })),
+  { ssr: false, loading: LoadingSkeleton }
+);
 import {
   Clock,
   Calendar,

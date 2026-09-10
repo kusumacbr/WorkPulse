@@ -8,7 +8,6 @@ export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const employeeId = searchParams.get("employeeId") || actor.employeeId;
   const status = searchParams.get("status");
-  const date = searchParams.get("date") || new Date().toISOString().split("T")[0]!;
 
   try {
     const supabaseAdmin = createAdminClient();
@@ -20,8 +19,11 @@ export async function GET(req: NextRequest) {
       .from("daily_tasks")
       .select("*")
       .eq("employee_id", employeeId)
-      .or(`date.eq.${date},assigned_by.not.is.null`)
       .order("created_at", { ascending: false });
+
+    if (searchParams.has("date")) {
+      query = query.eq("date", searchParams.get("date")!);
+    }
 
     if (status) {
       query = query.eq("status", status);
@@ -143,8 +145,19 @@ export async function POST(req: NextRequest) {
       if (supabaseAdmin) {
         const today = new Date().toISOString().split("T")[0]!;
 
+        // Check if a task with the same title already exists for this employee+date
+        const { data: existingRow } = await supabaseAdmin
+          .from("daily_tasks")
+          .select("id")
+          .eq("employee_id", targetEmpId)
+          .eq("date", today)
+          .ilike("title", newTask.title)
+          .maybeSingle();
+
+        const upsertId = existingRow?.id || newTask.id;
+
         await supabaseAdmin.from("daily_tasks").upsert({
-          id: newTask.id,
+          id: upsertId,
           employee_id: targetEmpId,
           date: today,
           title: newTask.title,

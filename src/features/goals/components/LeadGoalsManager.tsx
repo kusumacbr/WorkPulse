@@ -321,12 +321,20 @@ export function LeadGoalsManager() {
   const directReports = useMemo<DirectReportMember[]>(() => {
     if (allEmployees && allEmployees.length > 0) {
       const devLeadReports = allEmployees.filter(
-        (e) => e.teamLeadId === "lead-alex" || e.departmentId === "dept-development"
+        (e) =>
+          e.id !== "lead-alex" &&
+          !e.email?.toLowerCase().includes("lead") &&
+          !e.email?.toLowerCase().includes("director") &&
+          !e.email?.toLowerCase().includes("hr") &&
+          !e.designation?.toLowerCase().includes("lead") &&
+          (e.teamLeadId === "lead-alex" ||
+            e.departmentId === "dept-development" ||
+            e.departmentName?.toLowerCase().includes("development"))
       );
       if (devLeadReports.length > 0) {
         return devLeadReports.map((emp) => {
           const matchedDefault = DEFAULT_DIRECT_REPORTS.find(
-            (d) => d.id === emp.id || d.email === emp.email
+            (d) => d.id === emp.id || d.email.toLowerCase() === emp.email.toLowerCase()
           );
           return {
             id: emp.id,
@@ -339,8 +347,8 @@ export function LeadGoalsManager() {
         });
       }
     }
-    return DEFAULT_DIRECT_REPORTS;
-  }, [allEmployees?.length]);
+    return DEFAULT_DIRECT_REPORTS.filter((d) => !d.email.includes("lead"));
+  }, [allEmployees]);
 
   // Function to refresh all direct reports goals from storage and Supabase
   const refreshMemberGoals = React.useCallback(async () => {

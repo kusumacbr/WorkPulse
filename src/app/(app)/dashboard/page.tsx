@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import {
   useWorkpulseSharedStore,
@@ -14,19 +15,40 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
-import { DEFAULT_FRIENDLY_GOALS } from "@/features/goals/components/SimpleGoalsManager";
-import {
-  TrendAreaSparkline,
-  MultiRingRadialChart,
-  WeeklyActivityBarChart,
-  WorkforceDistributionDonut,
-  DepartmentVelocityBarChart,
-} from "@/components/dashboard/charts";
-import {
-  MemberHeroMetrics,
-  LeadHeroMetrics,
-  HRHeroMetrics,
-} from "@/components/dashboard/BespokeHeroMetrics";
+
+// Lazy-load heavy recharts-based chart components and metrics
+const TrendAreaSparkline = dynamic(
+  () => import("@/components/dashboard/charts").then((m) => ({ default: m.TrendAreaSparkline })),
+  { ssr: false }
+);
+const MultiRingRadialChart = dynamic(
+  () => import("@/components/dashboard/charts").then((m) => ({ default: m.MultiRingRadialChart })),
+  { ssr: false }
+);
+const WeeklyActivityBarChart = dynamic(
+  () => import("@/components/dashboard/charts").then((m) => ({ default: m.WeeklyActivityBarChart })),
+  { ssr: false }
+);
+const WorkforceDistributionDonut = dynamic(
+  () => import("@/components/dashboard/charts").then((m) => ({ default: m.WorkforceDistributionDonut })),
+  { ssr: false }
+);
+const DepartmentVelocityBarChart = dynamic(
+  () => import("@/components/dashboard/charts").then((m) => ({ default: m.DepartmentVelocityBarChart })),
+  { ssr: false }
+);
+const MemberHeroMetrics = dynamic(
+  () => import("@/components/dashboard/BespokeHeroMetrics").then((m) => ({ default: m.MemberHeroMetrics })),
+  { ssr: false }
+);
+const LeadHeroMetrics = dynamic(
+  () => import("@/components/dashboard/BespokeHeroMetrics").then((m) => ({ default: m.LeadHeroMetrics })),
+  { ssr: false }
+);
+const HRHeroMetrics = dynamic(
+  () => import("@/components/dashboard/BespokeHeroMetrics").then((m) => ({ default: m.HRHeroMetrics })),
+  { ssr: false }
+);
 import {
   Calendar,
   CalendarClock,
@@ -371,7 +393,7 @@ export default function DashboardPage() {
         }
       } catch {}
     }
-    return DEFAULT_FRIENDLY_GOALS;
+    return [];
   }, [mounted, syncVersion]);
 
   const totalGoalsCount = liveEmployeeGoals.length;

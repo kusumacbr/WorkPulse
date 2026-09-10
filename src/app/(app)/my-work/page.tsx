@@ -1,14 +1,26 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
-import { SimpleTaskManager } from "@/features/workdays/components/SimpleTaskManager";
-import { LeadTaskManager } from "@/features/workdays/components/LeadTaskManager";
-import { HRTaskManager } from "@/features/workdays/components/HRTaskManager";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { CheckSquare, Users, ShieldCheck } from "lucide-react";
+
+// Lazy-load heavy task managers (136KB + 128KB + 100KB) — only the active role's manager loads
+const SimpleTaskManager = dynamic(
+  () => import("@/features/workdays/components/SimpleTaskManager").then((m) => ({ default: m.SimpleTaskManager })),
+  { ssr: false, loading: () => <div className="space-y-3 animate-pulse"><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /></div> }
+);
+const LeadTaskManager = dynamic(
+  () => import("@/features/workdays/components/LeadTaskManager").then((m) => ({ default: m.LeadTaskManager })),
+  { ssr: false, loading: () => <div className="space-y-3 animate-pulse"><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /></div> }
+);
+const HRTaskManager = dynamic(
+  () => import("@/features/workdays/components/HRTaskManager").then((m) => ({ default: m.HRTaskManager })),
+  { ssr: false, loading: () => <div className="space-y-3 animate-pulse"><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /><div className="h-14 rounded-2xl bg-card/40 border border-border/40" /></div> }
+);
 
 export default function MyWorkPage() {
   const user = useCurrentUser();
@@ -38,7 +50,7 @@ export default function MyWorkPage() {
         (e.teamLeadId === "lead-alex" ||
           e.departmentId === "dept-development" ||
           e.departmentName?.toLowerCase().includes("development"))
-    ).length || 4;
+    ).length || 2;
 
   return (
     <PageTransition>

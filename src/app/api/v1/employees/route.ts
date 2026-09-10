@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     const deletedIds = WorkpulseSharedStore.getDeletedEmployeeIds();
     if (deletedIds && deletedIds.size > 0) {
       liveEmployees = liveEmployees.filter(
-        (e) => !deletedIds.has(e.id?.toLowerCase()) && !deletedIds.has(e.email?.toLowerCase())
+        (e) => (e.id ? !deletedIds.has(e.id.toLowerCase()) : true) && (e.email ? !deletedIds.has(e.email.toLowerCase()) : true)
       );
     }
 

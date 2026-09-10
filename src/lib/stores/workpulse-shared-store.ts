@@ -2310,6 +2310,7 @@ export const WorkpulseSharedStore = {
     deleteEmployeeFromSupabase(id, removedEmployee?.email);
     return removedEmployee;
   },
+  getDeletedEmployeeIds: () => getDeletedEmployeeIds(),
 
   // Feedbacks
   getFeedbacks: () => globalFeedbacks,

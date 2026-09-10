@@ -213,6 +213,15 @@ export class WorkdayService {
           status: "SUBMITTED",
         });
 
+        // Delete stale tasks for this employee+date before inserting fresh SOD tasks
+        // Preserve lead-assigned tasks (those with assigned_by set)
+        await supabase
+          .from("daily_tasks")
+          .delete()
+          .eq("employee_id", targetEmployeeId)
+          .eq("date", params.input.workDate)
+          .is("assigned_by", null);
+
         const dbTasks = tasks.map(t => ({
           id: t.id,
           employee_id: targetEmployeeId,
@@ -473,6 +482,15 @@ export class WorkdayService {
           blockers: params.input.dailySummary.issues || null,
           tomorrow_focus: params.input.dailySummary.nextDayFocus || null,
         });
+
+        // Delete stale tasks for this employee+date before inserting fresh EOD tasks
+        // Preserve lead-assigned tasks (those with assigned_by set)
+        await supabase
+          .from("daily_tasks")
+          .delete()
+          .eq("employee_id", updatedWorkday.employeeId)
+          .eq("date", updatedWorkday.workDate)
+          .is("assigned_by", null);
 
         const dbTasks = updatedTasks.map(t => ({
           id: t.id,

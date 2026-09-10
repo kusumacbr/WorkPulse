@@ -1,14 +1,26 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { AmbientBackdrop } from "../3d/AmbientBackdrop";
 import { UserProvider, UserContextValue, useCurrentUser } from "./UserContext";
-import { BroadcastNotificationPopup } from "./BroadcastNotificationPopup";
-import { PulseAgentWidget } from "../agent/PulseAgentWidget";
-import { MorningPlanLoginModal } from "@/features/workdays/components/MorningPlanLoginModal";
 import { useRealtimeSync } from "@/lib/realtime/use-realtime-sync";
+
+// Lazy-load heavy global widgets — they're modals/overlays not needed for initial render
+const BroadcastNotificationPopup = dynamic(
+  () => import("./BroadcastNotificationPopup").then((m) => ({ default: m.BroadcastNotificationPopup })),
+  { ssr: false }
+);
+const PulseAgentWidget = dynamic(
+  () => import("../agent/PulseAgentWidget").then((m) => ({ default: m.PulseAgentWidget })),
+  { ssr: false }
+);
+const MorningPlanLoginModal = dynamic(
+  () => import("@/features/workdays/components/MorningPlanLoginModal").then((m) => ({ default: m.MorningPlanLoginModal })),
+  { ssr: false }
+);
 
 interface AppShellProps {
   children: React.ReactNode;

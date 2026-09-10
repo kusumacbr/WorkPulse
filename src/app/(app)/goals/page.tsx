@@ -1,17 +1,38 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { PageTransition } from "@/components/animations/PageTransition";
-import { HREnterpriseGoalsDeck } from "@/features/goals/components/HREnterpriseGoalsDeck";
-import { LeadGoalsManager } from "@/features/goals/components/LeadGoalsManager";
-import { SimpleGoalsManager } from "@/features/goals/components/SimpleGoalsManager";
 import { useCurrentUser } from "@/components/layout/UserContext";
 import { Target, Users } from "lucide-react";
+import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+
+const LoadingSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="h-40 rounded-2xl bg-card/40 border border-border/40" />
+    <div className="h-40 rounded-2xl bg-card/40 border border-border/40" />
+  </div>
+);
+
+const HREnterpriseGoalsDeck = dynamic(
+  () => import("@/features/goals/components/HREnterpriseGoalsDeck").then((m) => ({ default: m.HREnterpriseGoalsDeck })),
+  { ssr: false, loading: LoadingSkeleton }
+);
+const LeadGoalsManager = dynamic(
+  () => import("@/features/goals/components/LeadGoalsManager").then((m) => ({ default: m.LeadGoalsManager })),
+  { ssr: false, loading: LoadingSkeleton }
+);
+const SimpleGoalsManager = dynamic(
+  () => import("@/features/goals/components/SimpleGoalsManager").then((m) => ({ default: m.SimpleGoalsManager })),
+  { ssr: false, loading: LoadingSkeleton }
+);
 
 export default function GoalsPage() {
   const user = useCurrentUser();
+  const { allEmployees } = useWorkpulseSharedStore();
+
   const isHR =
     user.roles.includes("HR") ||
     user.primaryRole === "HR" ||
@@ -23,11 +44,22 @@ export default function GoalsPage() {
       user.primaryRole === "MANAGER" ||
       user.userEmail.toLowerCase().includes("lead"));
 
+  const directReportCount =
+    allEmployees.filter(
+      (e) =>
+        e.id !== "lead-alex" &&
+        !e.email?.toLowerCase().includes("lead") &&
+        !e.email?.toLowerCase().includes("hr") &&
+        (e.teamLeadId === "lead-alex" ||
+          e.departmentId === "dept-development" ||
+          e.departmentName?.toLowerCase().includes("development"))
+    ).length || 2;
+
   return (
     <PageTransition>
       <div className="space-y-6">
-        {/* Differentiated Role Header */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+        {/* Simple & Clean Header */}
+        <Interactive3DCard className="p-6 border border-slate-200/90 dark:border-border/80 bg-gradient-to-r from-white via-slate-50/50 to-white dark:from-card/90 dark:via-card/70 dark:to-card/50 shadow-sm rounded-3xl">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               {isHR ? (
@@ -49,7 +81,7 @@ export default function GoalsPage() {
 
               {isLead && (
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  Development Team · 4 Direct Reports
+                  Development Team · {directReportCount} Direct Reports
                 </span>
               )}
 

@@ -266,11 +266,14 @@ export function LeadTaskManager() {
     const members = allEmployees.filter(
       (e) =>
         e.id !== leadId &&
+        e.id !== "lead-alex" &&
         e.email.toLowerCase() !== (currentUser.userEmail || "").toLowerCase() &&
         !e.email.toLowerCase().includes("lead") &&
         !e.email.toLowerCase().includes("hr") &&
         (e.teamLeadId === leadId ||
-          (leadId === "lead-alex" && (e.id === "emp-sarah" || e.email.toLowerCase().includes("employee.test"))) ||
+          e.departmentId === "dept-development" ||
+          e.departmentName?.toLowerCase().includes("development") ||
+          (leadId === "lead-alex" && (e.id === "emp-sarah" || e.id === "emp-rohit" || e.email.toLowerCase().includes("employee.test"))) ||
           e.teamLeadName?.toLowerCase() === leadName.toLowerCase())
     );
     return members;
