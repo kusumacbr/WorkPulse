@@ -71,18 +71,8 @@ export function MorningPlanLoginModal() {
       return;
     }
 
-    // Load initial tasks from store or localStorage
-    let initialTasks: any[] = [];
-    if (currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0) {
-      initialTasks = currentEmp.plannedTasks;
-    } else if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_simple_tasks");
-        if (saved) {
-          initialTasks = JSON.parse(saved);
-        }
-      } catch {}
-    }
+    // Load initial tasks from store (synchronized from Supabase)
+    const initialTasks: any[] = currentEmp?.plannedTasks || [];
 
     setTasks(
       initialTasks.map((t, idx) => ({
@@ -93,20 +83,12 @@ export function MorningPlanLoginModal() {
         estimatedMinutes: Number(t.estimatedMinutes) || 60,
       }))
     );
-  }, [isEmployee, currentUser.userEmail, currentEmp?.sodStatus]);
+  }, [isEmployee, currentUser.userEmail, currentEmp?.sodStatus, currentEmp?.plannedTasks]);
 
   // Listen for manual trigger button clicks
   useEffect(() => {
     const handleOpen = () => {
-      let latestTasks: any[] = [];
-      if (currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0) {
-        latestTasks = currentEmp.plannedTasks;
-      } else if (typeof window !== "undefined") {
-        try {
-          const saved = localStorage.getItem("workpulse_simple_tasks");
-          if (saved) latestTasks = JSON.parse(saved);
-        } catch {}
-      }
+      const latestTasks: any[] = currentEmp?.plannedTasks || [];
       setTasks(
         latestTasks.map((t, idx) => ({
           id: t.id || `task-modal-${idx}`,

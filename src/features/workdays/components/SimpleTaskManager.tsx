@@ -178,28 +178,9 @@ export function SimpleTaskManager() {
         const empId = currentEmp?.id || (currentUser?.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
         const empEmail = currentEmp?.email?.toLowerCase() || (currentUser?.userEmail?.toLowerCase() || "");
 
-        // 1. First priority: Check localStorage for employee's local unsubmitted / draft tasks & slider state
-        const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
-        const saved =
-          (empId ? localStorage.getItem(key) : null) ||
-          (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
-          localStorage.getItem("workpulse_simple_tasks");
-
-        if (saved !== null) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) {
-              loaded = parsed;
-            }
-          } catch {}
-        }
-
-        // 2. Second priority: Check currentEmp.plannedTasks if loaded is empty
-        if (loaded.length === 0 && currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0) {
-          loaded = currentEmp.plannedTasks;
-        }
-
-        // 3. ALWAYS fetch latest server tasks (especially assigned deliverables by Team Lead)
+        // 1. ALWAYS fetch latest server tasks first (Supabase is source of truth)
+        let serverTasks: any[] = [];
+        let serverFetchSuccess = false;
         if (empId) {
           try {
             const [tasksRes, assignedRes] = await Promise.all([
@@ -207,86 +188,81 @@ export function SimpleTaskManager() {
               fetch(`/api/v1/tasks/assigned?employeeId=${empId}`)
             ]);
 
-            let serverTasks: any[] = [];
             if (tasksRes.ok) {
               const d = await tasksRes.json();
               if (Array.isArray(d.data?.tasks)) {
                 serverTasks = [...serverTasks, ...d.data.tasks];
+                serverFetchSuccess = true;
               }
             }
             if (assignedRes.ok) {
               const d = await assignedRes.json();
               if (Array.isArray(d.data?.tasks)) {
                 serverTasks = [...serverTasks, ...d.data.tasks];
+                serverFetchSuccess = true;
               }
-            }
-
-            // Map all server assigned tasks
-            const serverAssignedMap = new Map<string, any>();
-            for (const st of serverTasks) {
-              if (st.assignedBy || st.assigned_by) {
-                serverAssignedMap.set(st.id, st);
-                if (st.title) serverAssignedMap.set(String(st.title).trim().toLowerCase(), st);
-              }
-            }
-
-            // Remove any assigned tasks from local storage that lead recalled/deleted from server
-            if (serverTasks.length > 0) {
-              loaded = loaded.filter((t: any) => {
-                const isAssigned = Boolean(t.assignedBy || t.assigned_by);
-                if (!isAssigned) return true;
-                return serverAssignedMap.has(t.id) || serverAssignedMap.has(String(t.title || "").trim().toLowerCase());
-              });
-            }
-
-            // Update existing loaded tasks with server state
-            loaded = loaded.map((t: any) => {
-              const st = serverAssignedMap.get(t.id) || serverAssignedMap.get(String(t.title || "").trim().toLowerCase());
-              if (st) {
-                const localProg = Number(t.progress) || 0;
-                const serverProg = Number(st.progress) || 0;
-                // Never downgrade local slider progress! Keep whichever is higher or completed
-                const bestProg = st.status === "COMPLETED" || serverProg === 100 ? 100 : Math.max(localProg, serverProg);
-                const isDone = bestProg === 100;
-                return {
-                  ...t,
-                  id: st.id || t.id,
-                  assignedBy: st.assignedBy || st.assigned_by || t.assignedBy,
-                  assignedAt: st.assignedAt || st.assigned_at || t.assignedAt,
-                  acknowledged: Boolean(t.acknowledged || st.acknowledged),
-                  acknowledgedAt: t.acknowledgedAt || st.acknowledgedAt || st.acknowledged_at,
-                  acknowledgementNote: t.acknowledgementNote || st.acknowledgementNote || st.acknowledgement_note,
-                  category: st.category || t.category,
-                  priority: st.priority || t.priority,
-                  progress: bestProg,
-                  status: isDone ? "COMPLETED" : bestProg > 0 ? "IN_PROGRESS" : t.status,
-                };
-              }
-              return t;
-            });
-
-            // If a server assigned task is not in loaded, prepend it so the employee sees it immediately!
-            const loadedIds = new Set(loaded.map((t: any) => String(t.id || "").trim()));
-            const loadedTitles = new Set(loaded.map((t: any) => String(t.title || "").trim().toLowerCase()));
-
-            for (const st of serverTasks) {
-              if (st.assignedBy || st.assigned_by) {
-                const idMatch = loadedIds.has(String(st.id || "").trim());
-                const titleMatch = loadedTitles.has(String(st.title || "").trim().toLowerCase());
-                if (!idMatch && !titleMatch) {
-                  loaded = [st, ...loaded];
-                  loadedIds.add(String(st.id || "").trim());
-                  loadedTitles.add(String(st.title || "").trim().toLowerCase());
-                }
-              }
-            }
-
-            // If loaded was completely empty, populate with serverTasks
-            if (loaded.length === 0 && serverTasks.length > 0) {
-              loaded = serverTasks;
             }
           } catch (err) {
-            console.warn("Failed to sync server tasks in SimpleTaskManager:", err);
+            console.warn("Failed to fetch server tasks in SimpleTaskManager:", err);
+          }
+        }
+
+        // 2. If server fetch succeeded, Supabase is the SOLE authority
+        if (serverFetchSuccess) {
+          loaded = deduplicateTasks(serverTasks);
+
+          // If local storage has updated in-flight progress for one of these EXACT server tasks, preserve slider state
+          const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
+          const saved =
+            (empId ? localStorage.getItem(key) : null) ||
+            (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
+            localStorage.getItem("workpulse_simple_tasks");
+
+          if (saved && loaded.length > 0) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) {
+                const localMap = new Map<string, any>();
+                for (const lt of parsed) {
+                  if (lt.id) localMap.set(String(lt.id).trim(), lt);
+                  if (lt.title) localMap.set(String(lt.title).trim().toLowerCase(), lt);
+                }
+
+                loaded = loaded.map((st: any) => {
+                  const lt = localMap.get(String(st.id || "").trim()) || localMap.get(String(st.title || "").trim().toLowerCase());
+                  if (lt) {
+                    const localProg = Number(lt.progress) || 0;
+                    const serverProg = Number(st.progress) || 0;
+                    const bestProg = st.status === "COMPLETED" || serverProg === 100 ? 100 : Math.max(localProg, serverProg);
+                    const isDone = bestProg === 100;
+                    return {
+                      ...st,
+                      acknowledged: Boolean(lt.acknowledged || st.acknowledged),
+                      acknowledgedAt: lt.acknowledgedAt || st.acknowledgedAt || st.acknowledged_at,
+                      acknowledgementNote: lt.acknowledgementNote || st.acknowledgementNote || st.acknowledgement_note,
+                      progress: bestProg,
+                      completionPercentage: bestProg,
+                      status: isDone ? "COMPLETED" : bestProg > 0 ? "IN_PROGRESS" : (st.status || "NOT_STARTED"),
+                    };
+                  }
+                  return st;
+                });
+              }
+            } catch {}
+          }
+        } else {
+          // 3. Fallback only when server was unreachable / offline
+          const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
+          const saved =
+            (empId ? localStorage.getItem(key) : null) ||
+            (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
+            localStorage.getItem("workpulse_simple_tasks");
+
+          if (saved !== null) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) loaded = parsed;
+            } catch {}
           }
         }
 
@@ -302,7 +278,6 @@ export function SimpleTaskManager() {
           localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") === "true";
 
         if (rawEodTs && !hasFreshSod && Date.now() - Number(rawEodTs) >= 2 * 60 * 1000) {
-          // On new day before SOD submission: strictly filter out completed tasks (< 100% and not COMPLETED), but preserve unacknowledged assigned tasks
           cleanTasks = cleanTasks.filter((t: any) => {
             if (t.assignedBy && !t.acknowledged) return true;
             const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
@@ -312,7 +287,7 @@ export function SimpleTaskManager() {
 
         if (isMounted) {
           setTasks(cleanTasks);
-          // Keep storage in sync with clean deduplicated tasks
+          // Keep storage strictly in sync with Supabase
           if (resolvedEmpId) {
             localStorage.setItem(`workpulse_simple_tasks_${resolvedEmpId}`, JSON.stringify(cleanTasks));
           }
@@ -321,23 +296,38 @@ export function SimpleTaskManager() {
           }
           localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanTasks));
 
-          // Sync any local un-persisted tasks (e.g. asdsdsc) to Supabase daily_tasks table
-          cleanTasks.forEach((t: any) => {
-            fetch("/api/v1/tasks", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+          // If all tasks were deleted in Supabase, purge stale submission snapshots so they can never restore
+          if (serverFetchSuccess && cleanTasks.length === 0) {
+            if (resolvedEmpId) {
+              localStorage.removeItem(`workpulse_sod_submitted_tasks_${resolvedEmpId}`);
+              localStorage.removeItem(`workpulse_eod_submitted_tasks_${resolvedEmpId}`);
+            }
+            if (empEmail) {
+              localStorage.removeItem(`workpulse_sod_submitted_tasks_${empEmail}`);
+              localStorage.removeItem(`workpulse_eod_submitted_tasks_${empEmail}`);
+            }
+            localStorage.removeItem("workpulse_sod_submitted_tasks");
+            localStorage.removeItem("workpulse_sod_submitted_tasks_emp-sarah");
+            localStorage.removeItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com");
+            localStorage.removeItem("workpulse_eod_submitted_tasks_emp-sarah");
+            localStorage.removeItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com");
+          }
+
+          // Sync shared store employee plannedTasks to reflect Supabase state
+          if (currentEmp?.id) {
+            WorkpulseSharedStore.updateEmployee(currentEmp.id, {
+              plannedTasks: cleanTasks.map((t) => ({
                 id: t.id,
                 title: t.title,
-                category: t.category || "General",
-                priority: t.priority || "MEDIUM",
-                status: t.status || "NOT_STARTED",
-                progress: Number(t.progress) || 0,
+                project: t.category,
+                priority: t.priority,
+                estimatedMinutes: 60,
+                expectedOutput: t.title,
                 completionPercentage: Number(t.progress) || 0,
-                employeeId: resolvedEmpId,
-              }),
-            }).catch(() => {});
-          });
+                status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+              })),
+            });
+          }
         }
       } catch (err) {
         console.warn("Error loading tasks:", err);
@@ -362,7 +352,11 @@ export function SimpleTaskManager() {
           if (
             ev.data?.type === "task:assigned" ||
             ev.data?.type === "task:recalled" ||
-            ev.data?.type === "task:acknowledged"
+            ev.data?.type === "task:acknowledged" ||
+            ev.data?.type === "task:deleted" ||
+            ev.data?.type === "task:changed" ||
+            ev.data?.type === "tasks_changed" ||
+            ev.data?.type === "daily_tasks:changed"
           ) {
             debouncedLoadTasks();
           }
@@ -374,18 +368,38 @@ export function SimpleTaskManager() {
       debouncedLoadTasks();
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        debouncedLoadTasks();
+      }
+    };
+
+    // Periodic polling (every 4s) to ensure direct Supabase deletions are caught immediately
+    const pollInterval = setInterval(() => {
+      if (isMounted) loadTasks();
+    }, 4000);
+
     window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("workpulse:tasks_changed", debouncedLoadTasks);
+    window.addEventListener("workpulse:task_deleted", debouncedLoadTasks);
     window.addEventListener("workpulse:task_assigned", debouncedLoadTasks);
     window.addEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+    window.addEventListener("workpulse_sync", debouncedLoadTasks);
     window.addEventListener("storage", debouncedLoadTasks);
 
     return () => {
       isMounted = false;
+      clearInterval(pollInterval);
       if (loadTimer) clearTimeout(loadTimer);
       if (bc) bc.close();
       window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("workpulse:tasks_changed", debouncedLoadTasks);
+      window.removeEventListener("workpulse:task_deleted", debouncedLoadTasks);
       window.removeEventListener("workpulse:task_assigned", debouncedLoadTasks);
       window.removeEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+      window.removeEventListener("workpulse_sync", debouncedLoadTasks);
       window.removeEventListener("storage", debouncedLoadTasks);
     };
   }, [currentEmp?.id, currentEmp?.email]);
@@ -454,24 +468,9 @@ export function SimpleTaskManager() {
         }
         window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp?.id, tasks: cleanTasks } }));
 
-        // Automatically sync all clean tasks to Supabase daily_tasks table
-        const targetEmpId = currentEmp?.id || (currentUser?.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "emp-sarah");
-        cleanTasks.forEach((t) => {
-          fetch("/api/v1/tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: t.id,
-              title: t.title,
-              category: t.category || "General",
-              priority: t.priority || "MEDIUM",
-              status: t.status || "NOT_STARTED",
-              progress: Number(t.progress) || 0,
-              completionPercentage: Number(t.progress) || 0,
-              employeeId: targetEmpId,
-            }),
-          }).catch(() => {});
-        });
+        // NOTE: We intentionally do NOT mass-POST tasks to Supabase here.
+        // Tasks are created only via handleAddTask, and updated via handleSetTaskProgress/PATCH.
+        // This prevents resurrection of deleted tasks and avoids duplicates.
       } catch {
         // safe fallback
       }

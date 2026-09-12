@@ -1210,40 +1210,6 @@ export const WorkpulseSharedStore = {
       globalHelpRequests = loadFromStorage(STORAGE_KEYS.HELP_REQUESTS, globalHelpRequests);
       globalTeamPresence = loadFromStorage(STORAGE_KEYS.TEAM_PRESENCE, globalTeamPresence);
 
-      // Sync saved simple tasks from localStorage if available
-      if (typeof window !== "undefined" && window.localStorage) {
-        try {
-          const savedSimple = window.localStorage.getItem("workpulse_simple_tasks");
-          if (savedSimple) {
-            const parsed = JSON.parse(savedSimple);
-            // Keep an intentionally empty task list. Falling back to seeded tasks here
-            // makes deleted tasks return when the page is refreshed.
-            if (Array.isArray(parsed)) {
-              globalDepartments = globalDepartments.map((d) => ({
-                ...d,
-                employees: d.employees.map((emp) => {
-                  if (emp.id === "emp-sarah" || emp.email.toLowerCase() === "employee.test@xorstack.com") {
-                    return {
-                      ...emp,
-                      plannedTasks: parsed.map((t: any) => ({
-                        id: t.id,
-                        title: t.title,
-                        project: t.category || t.project || "General",
-                        priority: t.priority || "MEDIUM",
-                        estimatedMinutes: t.estimatedMinutes || 60,
-                        completionPercentage: typeof t.progress === "number" ? t.progress : (t.completionPercentage || 0),
-                        status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-                        expectedOutput: t.title,
-                      })),
-                    };
-                  }
-                  return emp;
-                }),
-              }));
-            }
-          }
-        } catch {}
-      }
 
       listeners.forEach((l) => l());
     } finally {
@@ -1272,19 +1238,45 @@ export const WorkpulseSharedStore = {
           }
         }
 
-        // 2. Sync Leave, WFH Requests, Feedbacks & Workdays directly from Supabase
+        // 2. Sync Leave, WFH Requests, Feedbacks, Workdays & Daily Tasks directly from Supabase
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
 
-        const [lrRes, wfhRes, fbRes, wdRes] = await Promise.all([
+        const [lrRes, wfhRes, fbRes, wdRes, dtRes] = await Promise.all([
           supabase.from("leave_requests").select("*").order("created_at", { ascending: false }),
           supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }),
           supabase.from("feedbacks").select("*").order("created_at", { ascending: false }),
           supabase.from("workdays").select("*").order("created_at", { ascending: false }),
+          supabase.from("daily_tasks").select("*").order("created_at", { ascending: false }),
         ]);
 
         // Supabase is the authority — no client-side deletedIds filtering needed.
         // If a record exists in Supabase, it exists. If it was deleted, it won't be in the response.
+
+        // Index daily_tasks by employee id and email
+        const supaTasksByEmp = new Map<string, any[]>();
+        if (Array.isArray(dtRes.data)) {
+          for (const row of dtRes.data) {
+            const rawEmpId = (row.employee_id || "").trim().toLowerCase();
+            if (!rawEmpId) continue;
+            if (!supaTasksByEmp.has(rawEmpId)) supaTasksByEmp.set(rawEmpId, []);
+            supaTasksByEmp.get(rawEmpId)!.push({
+              id: row.id,
+              title: row.title,
+              project: row.category || "General",
+              category: row.category || "General",
+              priority: row.priority || "MEDIUM",
+              status: row.status || "NOT_STARTED",
+              progress: Number(row.progress) || 0,
+              completionPercentage: Number(row.progress) || 0,
+              estimatedMinutes: 60,
+              expectedOutput: row.title,
+              assignedBy: row.assigned_by,
+              assignedAt: row.assigned_at,
+              acknowledged: Boolean(row.acknowledged),
+            });
+          }
+        }
 
       if (lrRes.data && lrRes.data.length > 0) {
         const mappedLeaves: SharedLeaveRequest[] = lrRes.data
@@ -1375,6 +1367,22 @@ export const WorkpulseSharedStore = {
         globalFeedbacks = mappedFb;
       }
 
+      // Always synchronize employee plannedTasks directly from Supabase daily_tasks
+      if (Array.isArray(dtRes.data)) {
+        globalDepartments = globalDepartments.map((dept) => ({
+          ...dept,
+          employees: dept.employees.map((emp) => {
+            const empIdLower = emp.id.toLowerCase();
+            const empEmailLower = emp.email?.toLowerCase() || "";
+            const supaTasks = supaTasksByEmp.get(empIdLower) || supaTasksByEmp.get(empEmailLower) || [];
+            return {
+              ...emp,
+              plannedTasks: supaTasks,
+            };
+          }),
+        }));
+      }
+
       // Merge Supabase workdays into employee states using a single Map pass for maximum performance
       if (wdRes.data && wdRes.data.length > 0) {
         const workdaysList = wdRes.data.filter((wd) => wd.id !== "wd-sarah-today");
@@ -1385,14 +1393,6 @@ export const WorkpulseSharedStore = {
           }
         }
 
-        let localSavedTasks: any[] | null = null;
-        if (typeof window !== "undefined") {
-          try {
-            const raw = localStorage.getItem("workpulse_simple_tasks");
-            if (raw) localSavedTasks = JSON.parse(raw);
-          } catch {}
-        }
-
         globalDepartments = globalDepartments.map((dept) => ({
           ...dept,
           employees: dept.employees.map((emp) => {
@@ -1401,19 +1401,9 @@ export const WorkpulseSharedStore = {
             const wd = wdMap.get(empIdLower) || wdMap.get(empEmailLower);
             if (!wd) return emp;
 
-            let currentTasks = Array.isArray(wd.planned_tasks) && wd.planned_tasks.length > 0 ? wd.planned_tasks : emp.plannedTasks;
-            if (localSavedTasks && Array.isArray(localSavedTasks) && (emp.id === "emp-sarah" || empEmailLower === "employee.test@xorstack.com")) {
-              currentTasks = localSavedTasks.map((t: any) => ({
-                id: t.id,
-                title: t.title,
-                project: t.category || t.project || "General",
-                priority: t.priority || "MEDIUM",
-                estimatedMinutes: 60,
-                completionPercentage: t.progress || 0,
-                status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-                expectedOutput: t.title,
-              }));
-            }
+            const supaTasks = Array.isArray(dtRes.data)
+              ? (supaTasksByEmp.get(empIdLower) || supaTasksByEmp.get(empEmailLower) || [])
+              : emp.plannedTasks;
 
             return {
               ...emp,
@@ -1429,7 +1419,7 @@ export const WorkpulseSharedStore = {
               eodLeadRating: Number(wd.lead_rating) || emp.eodLeadRating,
               eodLeadComment: wd.lead_feedback_note || emp.eodLeadComment,
               eodLeadActionItem: wd.lead_action_item || emp.eodLeadActionItem,
-              plannedTasks: currentTasks,
+              plannedTasks: supaTasks,
               overallProgress: Number(wd.overall_progress) ?? emp.overallProgress,
               eodAchievements: wd.achievements || emp.eodAchievements,
               eodBlockers: wd.blockers || emp.eodBlockers,

@@ -142,6 +142,40 @@ export function useRealtimeSync() {
               WorkpulseSharedStore.syncWithSupabase();
             }
           )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "daily_tasks" },
+            (payload) => {
+              console.log("[Supabase Realtime] Daily task change received:", payload.eventType);
+              WorkpulseSharedStore.syncWithSupabase(true);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("workpulse:tasks_changed"));
+                window.dispatchEvent(new CustomEvent("workpulse:task_deleted", { detail: payload }));
+                try {
+                  const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+                  bc.postMessage({ type: "daily_tasks:changed", eventType: payload.eventType, timestamp: Date.now() });
+                  bc.close();
+                } catch {}
+              }
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "assigned_tasks" },
+            (payload) => {
+              console.log("[Supabase Realtime] Assigned task change received:", payload.eventType);
+              WorkpulseSharedStore.syncWithSupabase(true);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("workpulse:tasks_changed"));
+                window.dispatchEvent(new CustomEvent("workpulse:task_deleted", { detail: payload }));
+                try {
+                  const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+                  bc.postMessage({ type: "daily_tasks:changed", eventType: payload.eventType, timestamp: Date.now() });
+                  bc.close();
+                } catch {}
+              }
+            }
+          )
           // 4. Supabase Culture & Announcements Live Broadcast Channel
           .on(
             "broadcast",

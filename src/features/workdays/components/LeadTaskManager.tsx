@@ -283,25 +283,59 @@ export function LeadTaskManager() {
   const dynamicTeamMemberIds = dynamicTeamMembers.map(m => m.id).join(',');
 
   useEffect(() => {
+    let isSubscribed = true;
     const fetchAllTasks = async () => {
-      if (!dynamicTeamMembers) return;
+      if (!dynamicTeamMembers || dynamicTeamMembers.length === 0) return;
       const newMap: Record<string, any[]> = {};
       for (const m of dynamicTeamMembers) {
         try {
           const res = await fetch(`/api/v1/tasks?employeeId=${m.id}`);
           if (res.ok) {
             const data = await res.json();
-            if (data.data?.tasks?.length > 0) {
-               newMap[m.id] = deduplicateTasks(data.data.tasks);
-            }
+            newMap[m.id] = deduplicateTasks(data.data?.tasks || []);
           }
         } catch (e) {
           console.warn("Failed to fetch API tasks for", m.id, e);
         }
       }
-      setMemberTasksMap(prev => ({ ...prev, ...newMap }));
+      if (isSubscribed) {
+        setMemberTasksMap(prev => ({ ...prev, ...newMap }));
+      }
     };
+
     if (mounted) fetchAllTasks();
+
+    const debouncedFetch = () => {
+      fetchAllTasks();
+    };
+
+    const interval = setInterval(fetchAllTasks, 5000);
+    window.addEventListener("focus", debouncedFetch);
+    window.addEventListener("workpulse:tasks_changed", debouncedFetch);
+    window.addEventListener("workpulse:task_deleted", debouncedFetch);
+    window.addEventListener("workpulse_sync", debouncedFetch);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.onmessage = (ev) => {
+          if (ev.data?.type === "daily_tasks:changed" || ev.data?.type === "task:deleted" || ev.data?.type === "tasks_changed") {
+            debouncedFetch();
+          }
+        };
+      }
+    } catch {}
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("focus", debouncedFetch);
+      window.removeEventListener("workpulse:tasks_changed", debouncedFetch);
+      window.removeEventListener("workpulse:task_deleted", debouncedFetch);
+      window.removeEventListener("workpulse_sync", debouncedFetch);
+    };
   }, [dynamicTeamMemberIds, feedbackVersion, mounted]);
 
   const [activeTab, setActiveTab] = useState<LeadTaskTab>("TEAM_UPDATES");
@@ -926,11 +960,14 @@ export function LeadTaskManager() {
               const eodLeadComment = member.eodLeadComment || fb?.eodLeadComment || fb?.eodComment || "Great daily execution and sprint deliverables progress!";
               const eodLeadActionItem = member.eodLeadActionItem || fb?.eodLeadActionItem || fb?.actionItem || "Present highlights in tomorrow's sync.";
 
-              // Tasks to display: Loaded when employee has submitted SOD or EOD
+              // Tasks to display: Supabase tasks from memberTasksMap are authoritative
               let tasksToDisplay: any[] = [];
 
-              // 1. If EOD is submitted, check explicit EOD snapshot tasks
-              if (isEodSubmitted && mounted && typeof window !== "undefined") {
+              if (memberTasksMap[member.id] !== undefined) {
+                tasksToDisplay = deduplicateTasks(memberTasksMap[member.id] || []);
+              } else if (member.plannedTasks && member.plannedTasks.length > 0) {
+                tasksToDisplay = deduplicateTasks(member.plannedTasks);
+              } else if (isEodSubmitted && mounted && typeof window !== "undefined") {
                 try {
                   const eodRaw =
                     localStorage.getItem(`workpulse_eod_submitted_tasks_${member.id}`) ||
@@ -938,51 +975,6 @@ export function LeadTaskManager() {
                     (isSpecialSarah ? (localStorage.getItem("workpulse_eod_submitted_tasks_emp-sarah") || localStorage.getItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com")) : null);
                   if (eodRaw) {
                     const parsed = JSON.parse(eodRaw);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                      tasksToDisplay = deduplicateTasks(parsed);
-                    }
-                  }
-                } catch {}
-              }
-
-              // 2. If SOD is submitted, check explicit SOD submitted tasks snapshot (what the employee actually submitted/resubmitted)
-              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted) && mounted && typeof window !== "undefined") {
-                try {
-                  const sodRaw =
-                    localStorage.getItem(`workpulse_sod_submitted_tasks_${member.id}`) ||
-                    (member.email ? localStorage.getItem(`workpulse_sod_submitted_tasks_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? (localStorage.getItem("workpulse_sod_submitted_tasks_emp-sarah") || localStorage.getItem("workpulse_sod_submitted_tasks")) : null);
-                  if (sodRaw) {
-                    const parsed = JSON.parse(sodRaw);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                      tasksToDisplay = deduplicateTasks(parsed);
-                    }
-                  }
-                } catch {}
-              }
-
-              // 3. If SOD snapshot not in localStorage, check plannedTasks from shared store
-              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted) && member.plannedTasks && member.plannedTasks.length > 0) {
-                tasksToDisplay = deduplicateTasks(member.plannedTasks);
-              }
-
-              // 4. API tasks from memberTasksMap fallback
-              if (tasksToDisplay.length === 0 && (isSodSubmitted || isEodSubmitted)) {
-                const rawMapTasks = memberTasksMap[member.id];
-                if (rawMapTasks && rawMapTasks.length > 0) {
-                  tasksToDisplay = deduplicateTasks(rawMapTasks);
-                }
-              }
-
-              // 5. Fallback for unsubmitted tasks (if viewing draft state)
-              if (tasksToDisplay.length === 0 && mounted && typeof window !== "undefined") {
-                try {
-                  const local =
-                    localStorage.getItem(`workpulse_simple_tasks_${member.id}`) ||
-                    (member.email ? localStorage.getItem(`workpulse_simple_tasks_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? (localStorage.getItem("workpulse_simple_tasks_emp-sarah") || localStorage.getItem("workpulse_simple_tasks")) : null);
-                  if (local) {
-                    const parsed = JSON.parse(local);
                     if (Array.isArray(parsed) && parsed.length > 0) {
                       tasksToDisplay = deduplicateTasks(parsed);
                     }

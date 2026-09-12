@@ -136,6 +136,24 @@ export async function DELETE(
     const supabaseAdmin = createAdminClient();
     if (supabaseAdmin) {
       await supabaseAdmin.from("daily_tasks").delete().eq("id", id);
+      await supabaseAdmin.from("assigned_tasks").delete().eq("id", id);
+
+      // Also clean up from any workdays planned_tasks JSON array
+      const { data: wds } = await supabaseAdmin
+        .from("workdays")
+        .select("id, planned_tasks")
+        .not("planned_tasks", "is", null);
+
+      if (wds) {
+        for (const wd of wds) {
+          if (Array.isArray(wd.planned_tasks)) {
+            const filtered = wd.planned_tasks.filter((t: any) => t.id !== id);
+            if (filtered.length !== wd.planned_tasks.length) {
+              await supabaseAdmin.from("workdays").update({ planned_tasks: filtered }).eq("id", wd.id);
+            }
+          }
+        }
+      }
     }
   } catch (err) {
     console.error("[Tasks API] Error deleting task:", err);
