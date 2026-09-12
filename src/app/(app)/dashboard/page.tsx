@@ -86,6 +86,7 @@ export default function DashboardPage() {
 
   const [mounted, setMounted] = useState(false);
   const [syncVersion, setSyncVersion] = useState(0);
+  const [dashboardTasks, setDashboardTasks] = useState<any[] | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -313,19 +314,9 @@ export default function DashboardPage() {
       const isEodSubmitted = Boolean(e.eodStatus === "SUBMITTED" || isEodVerified);
 
       let memberProg = e.overallProgress || 0;
-      if (typeof window !== "undefined") {
-        try {
-          const tKey = `workpulse_simple_tasks_${e.id}`;
-          const tKeyEmail = e.email ? `workpulse_simple_tasks_${e.email.toLowerCase()}` : "";
-          const savedTasks = localStorage.getItem(tKey) || (tKeyEmail ? localStorage.getItem(tKeyEmail) : null);
-          if (savedTasks) {
-            const parsed = JSON.parse(savedTasks);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const doneCount = parsed.filter((t: any) => t.status === "COMPLETED" || (t.progress || t.completionPercentage) === 100).length;
-              memberProg = Math.round((doneCount / parsed.length) * 100);
-            }
-          }
-        } catch {}
+      if (Array.isArray(e.plannedTasks) && e.plannedTasks.length > 0) {
+        const doneCount = e.plannedTasks.filter((t: any) => t.status === "COMPLETED" || (t.progress || t.completionPercentage) === 100).length;
+        memberProg = Math.round((doneCount / e.plannedTasks.length) * 100);
       }
       if (memberProg === 0 && (isSodVerified || isSodSubmitted)) {
         memberProg = isSodVerified ? 100 : 50;
@@ -347,27 +338,69 @@ export default function DashboardPage() {
     });
   }, [allEmployees, mounted, syncVersion]);
 
-  // 3. Real-time Tasks for Logged-In Employee
-  const liveEmployeeTasks = useMemo(() => {
-    if (mounted && typeof window !== "undefined") {
+  // 3. Real-time Tasks for Logged-In Employee (Supabase source of truth)
+  useEffect(() => {
+    if (!mounted) return;
+    let isMounted = true;
+
+    const fetchTasks = async () => {
+      const empId = currentEmp?.id || (user.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
+      if (!empId) return;
+
       try {
-        const key = currentEmp?.id ? `workpulse_simple_tasks_${currentEmp.id}` : "workpulse_simple_tasks";
-        const saved =
-          localStorage.getItem(key) ||
-          (currentEmp?.email ? localStorage.getItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`) : null) ||
-          localStorage.getItem("workpulse_simple_tasks");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+        const res = await fetch(`/api/v1/tasks?employeeId=${empId}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (Array.isArray(d.data?.tasks)) {
+            const fetched = d.data.tasks;
+            if (isMounted) {
+              setDashboardTasks(fetched);
+              if (fetched.length === 0) {
+                // Purge any stale localStorage keys so browser cache is cleaned automatically
+                localStorage.removeItem(`workpulse_simple_tasks_${empId}`);
+                if (currentEmp?.email) {
+                  localStorage.removeItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`);
+                }
+                localStorage.removeItem("workpulse_simple_tasks");
+                localStorage.removeItem("workpulse_simple_tasks_emp-sarah");
+                localStorage.removeItem("workpulse_simple_tasks_employee.test@xorstack.com");
+              }
+            }
+          }
         }
       } catch {}
+    };
+
+    fetchTasks();
+
+    const debouncedFetch = () => {
+      if (isMounted) fetchTasks();
+    };
+
+    window.addEventListener("focus", debouncedFetch);
+    window.addEventListener("workpulse:tasks_changed", debouncedFetch);
+    window.addEventListener("workpulse:task_deleted", debouncedFetch);
+    window.addEventListener("workpulse_sync", debouncedFetch);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", debouncedFetch);
+      window.removeEventListener("workpulse:tasks_changed", debouncedFetch);
+      window.removeEventListener("workpulse:task_deleted", debouncedFetch);
+      window.removeEventListener("workpulse_sync", debouncedFetch);
+    };
+  }, [mounted, currentEmp?.id, currentEmp?.email, user.userEmail, syncVersion]);
+
+  const liveEmployeeTasks = useMemo(() => {
+    if (dashboardTasks !== null) {
+      return dashboardTasks;
     }
     const tasks =
       currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0
         ? currentEmp.plannedTasks
         : [];
     return tasks;
-  }, [mounted, currentEmp, syncVersion]);
+  }, [dashboardTasks, currentEmp]);
 
   const myTasksCount = liveEmployeeTasks.length;
   const myCompletedTasksCount = liveEmployeeTasks.filter(
