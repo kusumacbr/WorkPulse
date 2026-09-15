@@ -207,9 +207,28 @@ export function SimpleTaskManager() {
           }
         }
 
-        // 2. If server fetch succeeded, Supabase is the SOLE authority
+        // 2. If server fetch succeeded, Supabase is the primary authority
         if (serverFetchSuccess) {
           loaded = deduplicateTasks(serverTasks);
+
+          // If server returned 0 tasks during active workday, preserve local active tasks or submitted snapshots
+          if (loaded.length === 0) {
+            const fallbackKey = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
+            const savedFallback =
+              (empId ? localStorage.getItem(fallbackKey) : null) ||
+              (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
+              localStorage.getItem("workpulse_simple_tasks") ||
+              localStorage.getItem(`workpulse_eod_submitted_tasks_${empId}`) ||
+              localStorage.getItem(`workpulse_sod_submitted_tasks_${empId}`);
+            if (savedFallback) {
+              try {
+                const parsedFallback = JSON.parse(savedFallback);
+                if (Array.isArray(parsedFallback) && parsedFallback.length > 0) {
+                  loaded = deduplicateTasks(parsedFallback);
+                }
+              } catch {}
+            }
+          }
 
           // If local storage has updated in-flight progress for one of these EXACT server tasks, preserve slider state
           const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
@@ -268,21 +287,25 @@ export function SimpleTaskManager() {
 
         let cleanTasks = deduplicateTasks(loaded);
         const resolvedEmpId = empId || "emp-sarah";
-        const rawEodTs =
-          localStorage.getItem(`workpulse_eod_timestamp_${resolvedEmpId}`) ||
-          (empEmail ? localStorage.getItem(`workpulse_eod_timestamp_${empEmail}`) : null) ||
-          localStorage.getItem("workpulse_eod_timestamp_emp-sarah");
-        const hasFreshSod =
-          localStorage.getItem(`workpulse_morning_plan_submitted_${resolvedEmpId}`) === "true" ||
-          (empEmail ? localStorage.getItem(`workpulse_morning_plan_submitted_${empEmail}`) === "true" : false) ||
-          localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") === "true";
+        const rawApprovedTs =
+          localStorage.getItem(`workpulse_eod_approved_timestamp_${resolvedEmpId}`) ||
+          (empEmail ? localStorage.getItem(`workpulse_eod_approved_timestamp_${empEmail}`) : null) ||
+          localStorage.getItem("workpulse_eod_approved_timestamp_emp-sarah");
 
-        if (rawEodTs && !hasFreshSod && Date.now() - Number(rawEodTs) >= 2 * 60 * 1000) {
+        // ONLY if Team Lead has approved EOD AND 2 minutes have elapsed post-approval, day resets to New Day:
+        // Delete completed tasks from Supabase and retain only rollover tasks
+        if (rawApprovedTs && Date.now() - Number(rawApprovedTs) >= 2 * 60 * 1000) {
           cleanTasks = cleanTasks.filter((t: any) => {
-            if (t.assignedBy && !t.acknowledged) return true;
             const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
             return p < 100 && t.status !== "COMPLETED";
           });
+          fetch("/api/v1/tasks/cleanup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ employeeId: resolvedEmpId }),
+          }).catch(() => {});
+        } else {
+          cleanTasks = deduplicateTasks(cleanTasks);
         }
 
         if (isMounted) {
@@ -313,20 +336,18 @@ export function SimpleTaskManager() {
             localStorage.removeItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com");
           }
 
-          // Sync shared store employee plannedTasks to reflect Supabase state
-          if (currentEmp?.id) {
-            WorkpulseSharedStore.updateEmployee(currentEmp.id, {
-              plannedTasks: cleanTasks.map((t) => ({
-                id: t.id,
-                title: t.title,
-                project: t.category,
-                priority: t.priority,
-                estimatedMinutes: 60,
-                expectedOutput: t.title,
-                completionPercentage: Number(t.progress) || 0,
-                status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-              })),
-            });
+          // Sync shared store employee plannedTasks in-memory to reflect Supabase state
+          if (currentEmp) {
+            currentEmp.plannedTasks = cleanTasks.map((t) => ({
+              id: t.id,
+              title: t.title,
+              project: t.category,
+              priority: t.priority,
+              estimatedMinutes: 60,
+              expectedOutput: t.title,
+              completionPercentage: Number(t.progress) || 0,
+              status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+            }));
           }
         }
       } catch (err) {
@@ -374,10 +395,10 @@ export function SimpleTaskManager() {
       }
     };
 
-    // Periodic polling (every 4s) to ensure direct Supabase deletions are caught immediately
+    // Periodic polling (every 3s) as fallback
     const pollInterval = setInterval(() => {
       if (isMounted) loadTasks();
-    }, 4000);
+    }, 3000);
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -710,15 +731,6 @@ export function SimpleTaskManager() {
 
         localStorage.setItem(`workpulse_simple_tasks_${currentEmp.id}`, JSON.stringify(cleanList));
         localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanList));
-
-        if ("BroadcastChannel" in window) {
-          const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-          bc.postMessage({ type: "employee:sod_submitted", employeeId: currentEmp.id, timestamp: nowMs });
-          bc.close();
-        }
-        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp.id, tasks: cleanList } }));
-        window.dispatchEvent(new CustomEvent("workday:sod_submitted", { detail: { employeeId: currentEmp.id } }));
-        window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }
 
@@ -733,6 +745,21 @@ export function SimpleTaskManager() {
       expectedOutput: t.title,
     }));
 
+    // Persist all submitted tasks directly to Supabase daily_tasks via API
+    const targetEmpId = currentEmp.id;
+    await Promise.all(
+      formattedTasks.map((t) =>
+        fetch("/api/v1/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...t,
+            employeeId: targetEmpId,
+          }),
+        }).catch(() => {})
+      )
+    );
+
     WorkpulseSharedStore.submitEmployeeMorningPlan(
       currentEmp.id,
       formattedTasks,
@@ -740,6 +767,22 @@ export function SimpleTaskManager() {
         ? `Updated & re-submitted ${cleanList.length} tasks directly from My Tasks`
         : "Submitted daily tasks directly from My Tasks"
     );
+
+    if (typeof window !== "undefined") {
+      try {
+        const nowMs = Date.now();
+        if ("BroadcastChannel" in window) {
+          const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+          bc.postMessage({ type: "employee:sod_submitted", employeeId: currentEmp.id, timestamp: nowMs });
+          bc.postMessage({ type: "daily_tasks:changed", employeeId: currentEmp.id, timestamp: nowMs });
+          bc.postMessage({ type: "tasks_changed", employeeId: currentEmp.id, timestamp: nowMs });
+          bc.close();
+        }
+        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp.id, tasks: cleanList } }));
+        window.dispatchEvent(new CustomEvent("workday:sod_submitted", { detail: { employeeId: currentEmp.id } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
 
     fireSuccessBurst();
     if (isSodSubmitted) {
@@ -793,18 +836,36 @@ export function SimpleTaskManager() {
     const completed = tasks.filter((t) => t.progress === 100 || t.status === "COMPLETED");
     const rollover = tasks.filter((t) => (t.progress || 0) < 100 && t.status !== "COMPLETED");
 
+    const formattedEodTasks = tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      project: t.category || "General",
+      category: t.category || "General",
+      priority: t.priority || "MEDIUM",
+      estimatedMinutes: 60,
+      completionPercentage: t.progress || 0,
+      status: (t.status === "COMPLETED" || t.progress === 100 ? "COMPLETED" : (t.progress || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED") as "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED",
+      expectedOutput: t.title,
+    }));
+
+    // Ensure all submitted tasks with their final progress are persisted directly to Supabase daily_tasks
+    const targetEmpId = currentEmp.id;
+    await Promise.all(
+      formattedEodTasks.map((t) =>
+        fetch("/api/v1/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...t,
+            employeeId: targetEmpId,
+          }),
+        }).catch(() => {})
+      )
+    );
+
     WorkpulseSharedStore.submitEmployeeEveningWrapup(
       currentEmp.id,
-      tasks.map((t) => ({
-        id: t.id,
-        title: t.title,
-        project: t.category,
-        category: t.category,
-        priority: t.priority,
-        estimatedMinutes: 60,
-        completionPercentage: t.progress,
-        status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-      })),
+      formattedEodTasks,
       {
         achievements: `${completed.length} of ${tasks.length} tasks completed today`,
         blockers: "",
@@ -812,12 +873,28 @@ export function SimpleTaskManager() {
       }
     );
 
-    // Keep only partially completed tasks in active queue and persist
-    setTasks(rollover);
-    saveTasks(rollover);
+    // Keep all tasks (including completed 100%) visible throughout the workday until a new day begins
+    setTasks(tasks);
+    saveTasks(tasks);
+
+    if (typeof window !== "undefined") {
+      try {
+        const nowMs = Date.now();
+        if ("BroadcastChannel" in window) {
+          const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+          bc.postMessage({ type: "employee:eod_submitted", employeeId: currentEmp.id, timestamp: nowMs });
+          bc.postMessage({ type: "daily_tasks:changed", employeeId: currentEmp.id, timestamp: nowMs });
+          bc.postMessage({ type: "tasks_changed", employeeId: currentEmp.id, timestamp: nowMs });
+          bc.close();
+        }
+        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp.id, tasks } }));
+        window.dispatchEvent(new CustomEvent("workday:eod_submitted", { detail: { employeeId: currentEmp.id } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      } catch {}
+    }
 
     fireCelebrationConfetti();
-    showToast(`✓ Evening Wrap-Up submitted! 10-minute resubmission window open. ${completed.length} task(s) finalized. ${rollover.length} rolled over.`);
+    showToast(`✓ Evening Wrap-Up submitted to ${assignedLeadName}! ${completed.length} task(s) finalized. ${rollover.length} rolled over.`);
   };
 
   // Counts
@@ -902,31 +979,102 @@ export function SimpleTaskManager() {
   const eodTimestamp = useMemo(() => {
     if (mounted && typeof window !== "undefined") {
       try {
-        const raw = localStorage.getItem(`workpulse_eod_timestamp_${currentEmp?.id}`);
-        if (raw) return Number(raw);
-        if (leadDailyFeedback && leadDailyFeedback.eodTimestamp) {
-          return Number(leadDailyFeedback.eodTimestamp);
+        const isApproved = Boolean(
+          (leadDailyFeedback && (leadDailyFeedback.eodAcknowledged === true || leadDailyFeedback.eodReviewed === true)) ||
+          currentEmp?.eodStatus === "VERIFIED"
+        );
+        if (!isApproved) return null;
+
+        const rawApproved = localStorage.getItem(`workpulse_eod_approved_timestamp_${currentEmp?.id}`);
+        if (rawApproved) return Number(rawApproved);
+        const rawTs = localStorage.getItem(`workpulse_eod_timestamp_${currentEmp?.id}`);
+        if (rawTs) return Number(rawTs);
+        if (leadDailyFeedback && (leadDailyFeedback.eodApprovedTimestamp || leadDailyFeedback.eodTimestamp)) {
+          return Number(leadDailyFeedback.eodApprovedTimestamp || leadDailyFeedback.eodTimestamp);
         }
       } catch {}
     }
     return null;
-  }, [currentEmp?.id, leadDailyFeedback, feedbackVersion, mounted, eveningSubmitted]);
+  }, [currentEmp?.id, currentEmp?.eodStatus, leadDailyFeedback, feedbackVersion, mounted, eveningSubmitted]);
 
-  // 2-Minute EOD Resubmission Window (2 * 60 * 1000 = 120,000 ms)
-  const EOD_WINDOW_MS = 2 * 60 * 1000; // 2-minute resubmission window
+  // 2-Minute EOD Next-Day Window (2 * 60 * 1000 = 120,000 ms) - starts after Lead Approval
+  const EOD_WINDOW_MS = 2 * 60 * 1000;
   const eodElapsedMs = eodTimestamp ? nowTick - eodTimestamp : Infinity;
 
-  // Active during the 2 minutes following EOD submission
-  const isEodWithin10MinWindow = Boolean(
+  const isEodSubmittedPendingLead = Boolean(
+    (eveningSubmitted || currentEmp?.eodStatus === "SUBMITTED") &&
+    !eodTimestamp &&
+    currentEmp?.eodStatus !== "VERIFIED" &&
+    !(leadDailyFeedback && (leadDailyFeedback.eodAcknowledged === true || leadDailyFeedback.eodReviewed === true))
+  );
+
+  // Day is in Day Wrapped Up state strictly within the 2-minute post-Lead-approval window
+  const isDayWrappedUp = Boolean(
     eodTimestamp &&
     (eveningSubmitted || currentEmp?.eodStatus === "SUBMITTED" || currentEmp?.eodStatus === "VERIFIED") &&
     eodElapsedMs < EOD_WINDOW_MS
   );
+
+  // Active during the 2 minutes following Lead EOD Approval
+  const isEodWithin10MinWindow = isDayWrappedUp;
+
   // Show seconds remaining when under 1 minute for precision
   const eodSecondsLeft = eodTimestamp && isEodWithin10MinWindow
     ? Math.max(0, Math.ceil((EOD_WINDOW_MS - eodElapsedMs) / 1000))
     : 0;
   const eodMinutesLeft = Math.ceil(eodSecondsLeft / 60);
+
+  // Auto-reset workday after 2 minutes post Lead Approval have elapsed
+  const hasResetDayRef = useRef(false);
+
+  useEffect(() => {
+    if (!eodTimestamp) {
+      hasResetDayRef.current = false;
+      return;
+    }
+
+    if (eodElapsedMs >= EOD_WINDOW_MS && !hasResetDayRef.current) {
+      hasResetDayRef.current = true;
+
+      // 1. Filter active tasks to keep only rollover tasks (< 100% and not COMPLETED)
+      const rolloverTasks = tasks.filter((t) => {
+        const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+        return p < 100 && t.status !== "COMPLETED";
+      });
+      setTasks(rolloverTasks);
+      saveTasks(rolloverTasks);
+
+      // 2. Reset employee state in store & local storage for next day
+      const targetEmpId = currentEmp?.id || "emp-sarah";
+      WorkpulseSharedStore.startNewWorkday(targetEmpId);
+
+      setEveningSubmitted(false);
+      setMorningSubmitted(false);
+
+      // 3. Delete completed tasks from Supabase daily_tasks
+      fetch("/api/v1/tasks/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: targetEmpId }),
+      }).catch(() => {});
+
+      // 4. Notify BroadcastChannel and events
+      if (typeof window !== "undefined") {
+        if ("BroadcastChannel" in window) {
+          try {
+            const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+            bc.postMessage({ type: "daily_tasks:changed", employeeId: targetEmpId, timestamp: Date.now() });
+            bc.postMessage({ type: "workday:day_reset", employeeId: targetEmpId, timestamp: Date.now() });
+            bc.close();
+          } catch {}
+        }
+        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: targetEmpId, tasks: rolloverTasks } }));
+        window.dispatchEvent(new CustomEvent("workpulse_sync"));
+      }
+
+      showToast("🌅 2 minutes elapsed: Day complete! New workday started with your rollover task(s).");
+    }
+  }, [eodTimestamp, eodElapsedMs, currentEmp?.id, currentEmp?.email, tasks]);
 
   // Check if morning plan was explicitly submitted today
   const isMorningPlanInStorage = useMemo(() => {
@@ -946,18 +1094,14 @@ export function SimpleTaskManager() {
     return false;
   }, [currentEmp?.id, currentEmp?.email, mounted, feedbackVersion, morningSubmitted]);
 
-  // After 10 mins post-EOD (or initially before any EOD), it is a NEW DAY
-  const isNewDay = !eodTimestamp || eodElapsedMs >= EOD_WINDOW_MS;
-
+  // Before EOD is submitted, SOD is active. Once EOD is submitted, the day is wrapped up.
   const isSodSubmitted = Boolean(
-    isNewDay &&
-    !eveningSubmitted &&
+    !isDayWrappedUp &&
     (morningSubmitted || isMorningPlanInStorage)
   );
 
   const isSodVerified = Boolean(
-    isNewDay &&
-    !eveningSubmitted &&
+    !isDayWrappedUp &&
     isSodSubmitted &&
     ((currentEmp?.sodStatus === "VERIFIED") ||
       (leadDailyFeedback &&
@@ -969,8 +1113,9 @@ export function SimpleTaskManager() {
   const sodVerifiedAt = currentEmp?.sodVerifiedAt || leadDailyFeedback?.sodTime || "Today";
   const sodLeadNote = currentEmp?.sodLeadNote || leadDailyFeedback?.sodNote || "Morning plan verified & approved by Team Lead.";
 
+  // EOD feedback from Team Lead remains visible throughout the day once verified
   const isEodVerified = Boolean(
-    isEodWithin10MinWindow &&
+    isDayWrappedUp &&
     (currentEmp?.eodStatus === "VERIFIED" ||
       (leadDailyFeedback && leadDailyFeedback.eodAcknowledged === true))
   );
@@ -1762,7 +1907,7 @@ export function SimpleTaskManager() {
                         : "text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-500/30 bg-amber-100/90 dark:bg-amber-500/10"
                     }`}
                   >
-                    {isEodWithin10MinWindow
+                    {isDayWrappedUp
                       ? "✓ Day Wrapped Up"
                       : isSodVerified
                       ? "✓ Tasks Verified by Lead"
@@ -1772,8 +1917,10 @@ export function SimpleTaskManager() {
                   </Badge>
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
-                  {isEodWithin10MinWindow
-                    ? `Day wrapped up · Next workday starts in ${eodMinutesLeft}m with ${tasks.length} rollover task(s)`
+                  {isDayWrappedUp
+                    ? isEodWithin10MinWindow
+                      ? `Day wrapped up · Resubmissions allowed for ${eodSecondsLeft < 60 ? `${eodSecondsLeft}s` : `${eodMinutesLeft}m`} (${tasks.length} task(s))`
+                      : `Day wrapped up · All tasks finalized for today (${tasks.length} task(s))`
                     : isSodVerified
                     ? `Verified by ${sodVerifiedBy} (${sodVerifiedAt})`
                     : isSodSubmitted
@@ -1786,7 +1933,7 @@ export function SimpleTaskManager() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {isEodWithin10MinWindow ? (
+              {isDayWrappedUp ? (
                 <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground border-border/80 px-2.5 py-1">
                   ✓ Day Wrapped Up
                 </Badge>
@@ -1815,7 +1962,7 @@ export function SimpleTaskManager() {
           </div>
 
           {/* Lead Feedback / Verification on Tasks */}
-          {isSodVerified && !isEodWithin10MinWindow && (
+          {isSodVerified && !isDayWrappedUp && (
             <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-background/80 border border-emerald-200 dark:border-emerald-500/25 text-xs flex items-center justify-between gap-2 animate-in fade-in">
               <span className="text-[11px] text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -1861,8 +2008,10 @@ export function SimpleTaskManager() {
                   <Badge
                     variant="outline"
                     className={`text-[9px] font-bold ${
-                      isEodWithin10MinWindow
-                        ? "text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/30 bg-purple-100/90 dark:bg-purple-500/10 animate-pulse"
+                      isDayWrappedUp
+                        ? "text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/30 bg-purple-100/90 dark:bg-purple-500/10"
+                        : isEodSubmittedPendingLead
+                        ? "text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-500/30 bg-purple-100/90 dark:bg-purple-500/20"
                         : !isSodSubmitted
                         ? "text-slate-600 dark:text-muted-foreground border-slate-200 dark:border-border bg-slate-100/80 dark:bg-muted/40"
                         : !isSodVerified
@@ -1870,8 +2019,10 @@ export function SimpleTaskManager() {
                         : "text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/30 bg-purple-100/90 dark:bg-purple-500/10"
                     }`}
                   >
-                    {isEodWithin10MinWindow
-                      ? "Wrap-Up Sent · Day Completed"
+                    {isDayWrappedUp
+                      ? "Approved · 2-Min Next Day Window"
+                      : isEodSubmittedPendingLead
+                      ? "Wrap-Up Submitted · Awaiting Lead Review"
                       : !isSodSubmitted
                       ? "Locked · Submit SOD First"
                       : !isSodVerified
@@ -1880,8 +2031,10 @@ export function SimpleTaskManager() {
                   </Badge>
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
-                  {isEodWithin10MinWindow
-                    ? `Submitted to ${assignedLeadName} for evening verification`
+                  {isDayWrappedUp
+                    ? `Approved by ${assignedLeadName}! Next workday starts in ${eodSecondsLeft < 60 ? `${eodSecondsLeft}s` : `${eodMinutesLeft}m`}`
+                    : isEodSubmittedPendingLead
+                    ? `Submitted to ${assignedLeadName}. 2-min timer will start once Lead reviews & approves your submission.`
                     : !isSodSubmitted
                     ? "Morning SOD plan must be submitted first before wrap-up is enabled"
                     : !isSodVerified
@@ -1903,6 +2056,21 @@ export function SimpleTaskManager() {
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span>Resubmit Wrap-Up ({eodSecondsLeft < 60 ? `${eodSecondsLeft}s` : `${eodMinutesLeft}m`} left)</span>
                 </Button>
+              ) : isEodSubmittedPendingLead ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleEveningWrapupSubmit}
+                  className="text-xs font-bold h-8 shrink-0 flex items-center gap-1.5 transition-all text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/40 hover:bg-purple-50 dark:hover:bg-purple-500/10 cursor-pointer shadow-sm"
+                  title="Update & re-submit your evening wrap-up before Team Lead review"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Resubmit Wrap-Up</span>
+                </Button>
+              ) : isDayWrappedUp ? (
+                <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5">
+                  ✓ Day Completed
+                </Badge>
               ) : !isSodVerified ? (
                 <Button
                   size="sm"
@@ -1931,12 +2099,20 @@ export function SimpleTaskManager() {
           {isEodWithin10MinWindow && (
             <div className="text-[10px] text-purple-700 dark:text-purple-300/90 flex items-center gap-1 pt-0.5">
               <Clock className="h-3 w-3 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span>Resubmissions allowed for <strong>{eodSecondsLeft < 60 ? `${eodSecondsLeft}s` : `${eodMinutesLeft}m`} more</strong> (2-min window). Workday will reset to New Day after 2 mins.</span>
+              <span>Resubmissions allowed for <strong>{eodSecondsLeft < 60 ? `${eodSecondsLeft}s` : `${eodMinutesLeft}m`} more</strong>. Completed tasks stay active throughout today.</span>
+            </div>
+          )}
+
+          {/* Pending Lead Review Helper Note */}
+          {isEodSubmittedPendingLead && (
+            <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 text-[11px] text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+              <span>Evening wrap-up submitted to <strong>{assignedLeadName}</strong>. Waiting for Team Lead to review & approve. 2-minute timer will start upon Lead approval.</span>
             </div>
           )}
 
           {/* Locked reason helper note when SOD submitted but not verified yet */}
-          {!isEodWithin10MinWindow && isSodSubmitted && !isSodVerified && (
+          {!isDayWrappedUp && !isEodSubmittedPendingLead && isSodSubmitted && !isSodVerified && (
             <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
               <span>Evening wrap-up unlocks once <strong>{assignedLeadName}</strong> verifies your morning task plan.</span>
@@ -1944,7 +2120,7 @@ export function SimpleTaskManager() {
           )}
 
           {/* Lead Feedback on Evening Wrap-Up */}
-          {isEodVerified && isEodWithin10MinWindow && (
+          {isEodVerified && (
             <div className="p-3 rounded-xl bg-emerald-50/90 dark:bg-background/80 border border-emerald-200 dark:border-emerald-500/25 space-y-1 text-xs animate-in fade-in shadow-sm">
               <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-400 font-black text-[11px]">
                 <span className="flex items-center gap-1">

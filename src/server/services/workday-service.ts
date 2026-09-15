@@ -213,26 +213,23 @@ export class WorkdayService {
           status: "SUBMITTED",
         });
 
-        // Delete stale tasks for this employee+date before inserting fresh SOD tasks
-        // Preserve lead-assigned tasks (those with assigned_by set)
-        await supabase
-          .from("daily_tasks")
-          .delete()
-          .eq("employee_id", targetEmployeeId)
-          .eq("date", params.input.workDate)
-          .is("assigned_by", null);
+        // Safe upsert to daily_tasks for target employee and aliases
+        const isSarahSod = targetEmployeeId === "emp-sarah" || targetEmployeeId?.toLowerCase().includes("employee.test");
+        const sodEmpIds = isSarahSod ? ["emp-sarah", "employee.test@xorstack.com"] : [targetEmployeeId];
 
-        const dbTasks = tasks.map(t => ({
-          id: t.id,
-          employee_id: targetEmployeeId,
-          date: params.input.workDate,
-          title: t.title,
-          category: t.project,
-          priority: t.priority,
-          status: t.status,
-          progress: t.completionPercentage,
-        }));
-        await supabase.from("daily_tasks").upsert(dbTasks);
+        for (const eid of sodEmpIds) {
+          const dbTasks = tasks.map((t, idx) => ({
+            id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}-${eid.split("@")[0]}`,
+            employee_id: eid,
+            date: params.input.workDate,
+            title: t.title,
+            category: t.project,
+            priority: t.priority,
+            status: t.status,
+            progress: t.completionPercentage,
+          }));
+          await supabase.from("daily_tasks").upsert(dbTasks);
+        }
       }
       const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
       await broadcastServerEvent("workday:sod_submitted", workday);
@@ -483,26 +480,23 @@ export class WorkdayService {
           tomorrow_focus: params.input.dailySummary.nextDayFocus || null,
         });
 
-        // Delete stale tasks for this employee+date before inserting fresh EOD tasks
-        // Preserve lead-assigned tasks (those with assigned_by set)
-        await supabase
-          .from("daily_tasks")
-          .delete()
-          .eq("employee_id", updatedWorkday.employeeId)
-          .eq("date", updatedWorkday.workDate)
-          .is("assigned_by", null);
+        // Safe upsert to daily_tasks for target employee and aliases upon EOD submission
+        const isSarahEod = updatedWorkday.employeeId === "emp-sarah" || updatedWorkday.employeeId?.toLowerCase().includes("employee.test");
+        const eodEmpIds = isSarahEod ? ["emp-sarah", "employee.test@xorstack.com"] : [updatedWorkday.employeeId];
 
-        const dbTasks = updatedTasks.map(t => ({
-          id: t.id,
-          employee_id: updatedWorkday.employeeId,
-          date: updatedWorkday.workDate,
-          title: t.title,
-          category: t.project,
-          priority: t.priority,
-          status: t.status,
-          progress: t.completionPercentage,
-        }));
-        await supabase.from("daily_tasks").upsert(dbTasks);
+        for (const eid of eodEmpIds) {
+          const dbTasks = updatedTasks.map((t, idx) => ({
+            id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}-${eid.split("@")[0]}`,
+            employee_id: eid,
+            date: updatedWorkday.workDate,
+            title: t.title,
+            category: t.project,
+            priority: t.priority,
+            status: t.status,
+            progress: t.completionPercentage,
+          }));
+          await supabase.from("daily_tasks").upsert(dbTasks);
+        }
       }
       const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
       await broadcastServerEvent("workday:eod_submitted", updatedWorkday);

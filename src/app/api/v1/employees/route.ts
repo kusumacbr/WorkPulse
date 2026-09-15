@@ -8,8 +8,10 @@ import { broadcastServerEvent } from "@/lib/supabase/broadcast";
 export const dynamic = "force-dynamic";
 
 let cachedSupaEmployees: any[] | null = null;
+let cachedTodayWorkdays: any[] | null = null;
+let cachedTodayTasks: any[] | null = null;
 let lastCacheTime = 0;
-const CACHE_TTL_MS = 3000;
+const CACHE_TTL_MS = 300;
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,25 +20,45 @@ export async function GET(req: NextRequest) {
     const deptFilter = searchParams.get("departmentId");
     const searchQuery = searchParams.get("search")?.toLowerCase();
 
+    const supabaseAdmin = createAdminClient();
     let liveEmployees: any[] = [];
     const now = Date.now();
+    const today = new Date().toISOString().split("T")[0]!;
 
     // Query Supabase directly with 3s in-memory cache for maximum performance
     try {
       let supaEmployees: any[] | null = null;
+      let todayWorkdays: any[] = [];
+      let todayTasks: any[] = [];
+
       if (cachedSupaEmployees && now - lastCacheTime < CACHE_TTL_MS) {
         supaEmployees = cachedSupaEmployees;
+        todayWorkdays = cachedTodayWorkdays || [];
+        todayTasks = cachedTodayTasks || [];
       } else {
-        const supabaseAdmin = createAdminClient();
         if (supabaseAdmin) {
-          const { data, error } = await supabaseAdmin
-            .from("employees")
-            .select("*")
-            .neq("status", "ARCHIVED")
-            .order("created_at", { ascending: true });
-          if (!error && data) {
-            supaEmployees = data;
-            cachedSupaEmployees = data;
+          const [empRes, wdRes, tasksRes] = await Promise.all([
+            supabaseAdmin
+              .from("employees")
+              .select("*")
+              .neq("status", "ARCHIVED")
+              .order("created_at", { ascending: true }),
+            supabaseAdmin
+              .from("workdays")
+              .select("*")
+              .eq("date", today),
+            supabaseAdmin
+              .from("daily_tasks")
+              .select("*")
+              .or(`date.eq.${today},status.neq.COMPLETED`),
+          ]);
+          if (!empRes.error && empRes.data) {
+            supaEmployees = empRes.data;
+            todayWorkdays = wdRes.data || [];
+            todayTasks = tasksRes.data || [];
+            cachedSupaEmployees = empRes.data;
+            cachedTodayWorkdays = todayWorkdays;
+            cachedTodayTasks = todayTasks;
             lastCacheTime = now;
           }
         }
@@ -69,6 +91,49 @@ export async function GET(req: NextRequest) {
           const matchingLead = supaEmployees.find((s) => s.id === leadId || (s.email && s.email.toLowerCase() === leadId?.toLowerCase()));
           const leadName = se.manager_name || matchingLead?.name || (deptId === "dept-devops" ? "Marcus Vance" : deptId === "dept-data-processing" ? "Vikram Rao" : deptId === "dept-rd" ? "David Director" : deptId === "dept-hr" ? "David Director" : "Alex Lead");
 
+          const wd = todayWorkdays.find(
+            (w) =>
+              (w.employee_id && w.employee_id.toLowerCase() === se.id?.toLowerCase()) ||
+              (se.email && w.employee_id && w.employee_id.toLowerCase() === se.email.toLowerCase())
+          );
+
+          // Real-time tasks directly from daily_tasks table in Supabase:
+          // Includes today's tasks PLUS incomplete previous day tasks (which roll over until completed)
+          const empTasks = (todayTasks || []).filter(
+            (t: any) => {
+              const matches =
+                (t.employee_id && t.employee_id.toLowerCase() === se.id?.toLowerCase()) ||
+                (se.email && t.employee_id && t.employee_id.toLowerCase() === se.email.toLowerCase());
+              if (!matches) return false;
+
+              const progress = Number(t.progress !== undefined ? t.progress : (t.completion_percentage || 0)) || 0;
+              const isCompleted = t.status === "COMPLETED" || progress >= 100;
+              const taskDate = t.date || today;
+
+              if (taskDate < today && isCompleted) return false;
+              return true;
+            }
+          );
+
+          const plannedTasks = empTasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            category: t.category || "General",
+            project: t.category || "General",
+            priority: t.priority || "MEDIUM",
+            status: t.status || (t.progress === 100 ? "COMPLETED" : t.progress > 0 ? "IN_PROGRESS" : "NOT_STARTED"),
+            progress: Number(t.progress !== undefined ? t.progress : (t.completion_percentage || 0)) || 0,
+            completionPercentage: Number(t.completion_percentage !== undefined ? t.completion_percentage : (t.progress || 0)) || 0,
+            assignedBy: t.assigned_by,
+            assignedAt: t.assigned_at,
+            acknowledged: Boolean(t.acknowledged),
+            acknowledgementNote: t.acknowledgement_note,
+          }));
+
+          const calculatedProgress = plannedTasks.length > 0
+            ? Math.round(plannedTasks.reduce((acc: number, t: any) => acc + (Number(t.progress) || 0), 0) / plannedTasks.length)
+            : 0;
+
           return {
             id: se.id,
             name: se.name,
@@ -88,11 +153,11 @@ export async function GET(req: NextRequest) {
             location: se.location || "Bangalore HQ",
             workLocation: se.location || "Bangalore HQ",
             isLead,
-            sodStatus: "SUBMITTED",
-            sodTime: "10:15 AM",
-            eodStatus: "IN_PROGRESS",
-            overallProgress: 80,
-            plannedTasks: [],
+            sodStatus: wd?.sod_status || "PENDING",
+            sodTime: wd?.sod_time || undefined,
+            eodStatus: wd?.eod_status || "PENDING",
+            overallProgress: calculatedProgress,
+            plannedTasks,
           };
         });
 

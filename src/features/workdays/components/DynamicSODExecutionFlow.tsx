@@ -75,7 +75,7 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
     }
   }, [initialPhase]);
 
-  const [sodSubmittedAt, setSodSubmittedAt] = useState<string>("Today at 10:15 AM");
+  const [sodSubmittedAt, setSodSubmittedAt] = useState<string>("");
 
   const [rolledOverTasks, setRolledOverTasks] = useState<RolledOverTask[]>(INITIAL_ROLLOVER_TASKS);
   const [tasks, setTasks] = useState<ExecutionTask[]>(INITIAL_TODAY_TASKS);
@@ -89,9 +89,9 @@ export function DynamicSODExecutionFlow({ initialPhase = "WORK_EXECUTION" }: Dyn
   const [newOutput, setNewOutput] = useState("");
 
   // EOD Form Inputs
-  const [achievements, setAchievements] = useState("Successfully shipped SOD workflow and code reviews.");
-  const [blockers, setBlockers] = useState("None. All PRs merged cleanly.");
-  const [tomorrowFocus, setTomorrowFocus] = useState("Complete EOD wrap-up automation tests.");
+  const [achievements, setAchievements] = useState("");
+  const [blockers, setBlockers] = useState("");
+  const [tomorrowFocus, setTomorrowFocus] = useState("");
   const [isEodSubmitted, setIsEodSubmitted] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);

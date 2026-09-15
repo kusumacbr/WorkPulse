@@ -218,7 +218,7 @@ export function OrgLiveExecutionMonitor() {
                           <span className="font-bold text-emerald-400 flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" /> SOD Logged
                           </span>
-                          <span className="text-[10px] text-muted-foreground font-mono">{emp.sodTime || "10:15 AM"}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{emp.sodTime || "Logged"}</span>
                         </div>
                       ) : (
                         <div>

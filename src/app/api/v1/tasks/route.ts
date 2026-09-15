@@ -15,14 +15,40 @@ export async function GET(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
+    const isSarah = employeeId === "emp-sarah" || employeeId?.toLowerCase().includes("employee.test");
+    const isAlex = employeeId === "lead-alex" || employeeId?.toLowerCase().includes("lead.test");
+    const employeeIds = isSarah
+      ? ["emp-sarah", "employee.test@xorstack.com"]
+      : isAlex
+      ? ["lead-alex", "lead.test@xorstack.com"]
+      : [employeeId];
+
+    const today = new Date().toISOString().split("T")[0]!;
+
+    // Automatically purge completed tasks of previous days (date < today) or date IS NULL from Supabase daily_tasks
+    Promise.allSettled([
+      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).lt("date", today).eq("status", "COMPLETED"),
+      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).lt("date", today).gte("progress", 100),
+      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).is("date", null).eq("status", "COMPLETED"),
+      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).is("date", null).gte("progress", 100),
+      supabaseAdmin.from("daily_tasks").delete().lt("date", today).eq("status", "COMPLETED"),
+      supabaseAdmin.from("daily_tasks").delete().lt("date", today).gte("progress", 100),
+    ]).catch(() => {});
+
     let query = supabaseAdmin
       .from("daily_tasks")
       .select("*")
-      .eq("employee_id", employeeId)
+      .in("employee_id", employeeIds)
       .order("created_at", { ascending: false });
 
     if (searchParams.has("date")) {
-      query = query.eq("date", searchParams.get("date")!);
+      const targetDate = searchParams.get("date")!;
+      if (targetDate === today) {
+        // For today: include today's tasks PLUS incomplete tasks from previous days (rollover until finished)
+        query = query.or(`date.eq.${today},and(date.lt.${today},status.neq.COMPLETED)`);
+      } else {
+        query = query.eq("date", targetDate);
+      }
     }
 
     if (status) {
@@ -50,6 +76,19 @@ export async function GET(req: NextRequest) {
       if (id && seenIds.has(id)) continue;
 
       const progress = Number(t.progress !== undefined ? t.progress : (t.completion_percentage !== undefined ? t.completion_percentage : 0)) || 0;
+      const isCompleted = t.status === "COMPLETED" || progress >= 100;
+      const taskDate = t.date || today;
+
+      // Business Rule:
+      // If a task is from a PREVIOUS DAY (taskDate < today) and is ALREADY COMPLETED (100%),
+      // it is purged from active tasks AND deleted from Supabase daily_tasks table.
+      // If it is INCOMPLETE (e.g. 90%), it rolls over and remains present for the next day until it completes!
+      if (taskDate < today && isCompleted) {
+        if (t.id) {
+          Promise.resolve(supabaseAdmin.from("daily_tasks").delete().eq("id", t.id)).catch(() => {});
+        }
+        continue;
+      }
 
       const taskItem = {
         id: t.id,

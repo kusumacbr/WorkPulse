@@ -23,17 +23,23 @@ export async function GET(req: NextRequest) {
     }
     let workdaysToday: any[] = [];
     let punchesToday: any[] = [];
+    let liveTasksToday: any[] = [];
 
     // Query live from Supabase if available
     if (supabaseAdmin) {
       try {
-        const [empRes, leaveRes, wfhRes, wdRes, punchRes] = await Promise.allSettled([
+        const [empRes, leaveRes, wfhRes, wdRes, punchRes, taskRes] = await Promise.allSettled([
           supabaseAdmin.from("employees").select("*").neq("status", "ARCHIVED"),
           supabaseAdmin.from("leave_requests").select("*").order("created_at", { ascending: false }),
           supabaseAdmin.from("wfh_requests").select("*").order("created_at", { ascending: false }),
           supabaseAdmin.from("workdays").select("*").eq("date", today),
           supabaseAdmin.from("biometric_punches").select("*").order("created_at", { ascending: false }),
+          supabaseAdmin.from("daily_tasks").select("*").or(`date.eq.${today},status.neq.COMPLETED`),
         ]);
+
+        if (taskRes.status === "fulfilled" && taskRes.value.data) {
+          liveTasksToday = taskRes.value.data;
+        }
 
         if (empRes.status === "fulfilled" && empRes.value.data && empRes.value.data.length > 0) {
           // Employee data
@@ -156,6 +162,24 @@ export async function GET(req: NextRequest) {
 
     const myRemainingLeaveBalance = matchedEmp?.remainingLeaveBalance ?? 11.0;
 
+    const myTasks = liveTasksToday.filter(
+      (t: any) => {
+        const matches =
+          (t.employee_id && t.employee_id.toLowerCase() === actor.employeeId?.toLowerCase()) ||
+          (user.email && t.employee_id && t.employee_id.toLowerCase() === user.email.toLowerCase());
+        if (!matches) return false;
+
+        const progress = Number(t.progress !== undefined ? t.progress : (t.completion_percentage || 0)) || 0;
+        const isCompleted = t.status === "COMPLETED" || progress >= 100;
+        const taskDate = t.date || today;
+
+        if (taskDate < today && isCompleted) return false;
+        return true;
+      }
+    );
+    const effectiveTasksCount = myTasks.length;
+    const effectiveTasksCompleted = myTasks.filter((t: any) => t.status === "COMPLETED" || Number(t.progress) === 100).length;
+
     return apiSuccess({
       role: isHR ? "HR" : isLead ? "MANAGER" : "EMPLOYEE",
       today,
@@ -185,8 +209,8 @@ export async function GET(req: NextRequest) {
       employeeMetrics: {
         attendanceStatus: myWorkday?.sod_status === "SUBMITTED" || myPunches.length > 0 ? "Present" : "Pending Check-in",
         checkInTime: myWorkday?.sod_time || (myPunches[0] ? new Date(myPunches[0].punch_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "10:08 AM"),
-        tasksCount: Array.isArray(myWorkday?.planned_tasks) ? myWorkday.planned_tasks.length : 2,
-        tasksCompletedCount: Array.isArray(myWorkday?.planned_tasks) ? myWorkday.planned_tasks.filter((t: any) => t.status === "COMPLETED").length : 1,
+        tasksCount: effectiveTasksCount,
+        tasksCompletedCount: effectiveTasksCompleted,
         remainingLeaveBalance: myRemainingLeaveBalance,
         myLeaves,
         myWfhs,

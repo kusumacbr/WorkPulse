@@ -106,26 +106,20 @@ export function LeadTaskManager() {
         if (Array.isArray(data.data?.tasks)) {
           setAssignedTasksLog(data.data.tasks);
           if (typeof window !== "undefined") {
-            localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(data.data.tasks));
+            if (data.data.tasks.length === 0) {
+              localStorage.removeItem("workpulse_assigned_tasks_log");
+            } else {
+              localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(data.data.tasks));
+            }
           }
           return;
         }
       }
     } catch {}
-    // Fallback to localStorage
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("workpulse_assigned_tasks_log");
-        if (raw !== null) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            setAssignedTasksLog(parsed);
-            return;
-          }
-        }
-      } catch {}
-    }
     setAssignedTasksLog([]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("workpulse_assigned_tasks_log");
+    }
   };
 
   React.useEffect(() => {
@@ -204,7 +198,7 @@ export function LeadTaskManager() {
   const EOD_WINDOW_MS = 2 * 60 * 1000;
 
   // Returns { eodSubmitted, newDayStarted, eodTimestamp }
-  // newDayStarted = EOD was submitted today but 2-min window already elapsed → new workday
+  // newDayStarted = EOD was submitted today, approved by lead, and 2-min window already elapsed → new workday
   const getEodNewDayState = React.useCallback((memberId: string, memberEmail?: string) => {
     if (!mounted || typeof window === "undefined") return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
 
@@ -212,22 +206,30 @@ export function LeadTaskManager() {
     const hasFlag = (id: string) =>
       localStorage.getItem(`workpulse_eod_submitted_${id}_${todayKey}`) === "true";
 
-    const eodSubmitted = (
+    const storeEmp = allEmployees.find(
+      (e) => e.id.toLowerCase() === memberId.toLowerCase() || (memberEmail && e.email.toLowerCase() === memberEmail.toLowerCase())
+    );
+
+    const eodSubmitted = Boolean(
       hasFlag(memberId) ||
       (memberEmail ? hasFlag(memberEmail.toLowerCase()) : false) ||
       ((memberId === "emp-sarah" || memberEmail?.toLowerCase() === "employee.test@xorstack.com") &&
-        (hasFlag("emp-sarah") || hasFlag("employee.test@xorstack.com")))
+        (hasFlag("emp-sarah") || hasFlag("employee.test@xorstack.com"))) ||
+      storeEmp?.eodStatus === "SUBMITTED" ||
+      storeEmp?.eodStatus === "VERIFIED"
     );
 
     if (!eodSubmitted) return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
 
-    // Read timestamp to check if 2-min window has elapsed
+    // Read timestamp to check if 2-min window has elapsed (only active if approved)
     const rawTs =
+      localStorage.getItem(`workpulse_eod_approved_timestamp_${memberId}`) ||
       localStorage.getItem(`workpulse_eod_timestamp_${memberId}`) ||
-      (memberEmail ? localStorage.getItem(`workpulse_eod_timestamp_${memberEmail.toLowerCase()}`) : null);
+      (memberEmail ? localStorage.getItem(`workpulse_eod_approved_timestamp_${memberEmail.toLowerCase()}`) : null);
     const eodTimestamp = rawTs ? Number(rawTs) : null;
     const elapsed = eodTimestamp ? nowTick - eodTimestamp : Infinity;
-    const newDayStarted = elapsed >= EOD_WINDOW_MS;
+    const isApproved = storeEmp?.eodStatus === "VERIFIED" || Boolean(eodTimestamp);
+    const newDayStarted = isApproved && elapsed >= EOD_WINDOW_MS;
 
     // If the employee already submitted a fresh SOD for the new day,
     // treat this as a completely clean slate — no previous day's EOD data shown
@@ -249,7 +251,7 @@ export function LeadTaskManager() {
     }
 
     return { eodSubmitted, newDayStarted, eodTimestamp };
-  }, [mounted, nowTick, feedbackVersion]);
+  }, [mounted, nowTick, feedbackVersion, allEmployees]);
 
   const leadFeedbackMap = useMemo(() => {
     if (mounted && typeof window !== "undefined") {
@@ -289,30 +291,48 @@ export function LeadTaskManager() {
       const newMap: Record<string, any[]> = {};
       for (const m of dynamicTeamMembers) {
         try {
-          const res = await fetch(`/api/v1/tasks?employeeId=${m.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            newMap[m.id] = deduplicateTasks(data.data?.tasks || []);
+          const [tasksRes, assignedRes] = await Promise.all([
+            fetch(`/api/v1/tasks?employeeId=${m.id}`),
+            fetch(`/api/v1/tasks/assigned?employeeId=${m.id}`)
+          ]);
+          let memberTasks: any[] = [];
+          if (tasksRes.ok) {
+            const data = await tasksRes.json();
+            if (Array.isArray(data.data?.tasks)) {
+              memberTasks = [...memberTasks, ...data.data.tasks];
+            }
           }
+          if (assignedRes.ok) {
+            const data = await assignedRes.json();
+            if (Array.isArray(data.data?.tasks)) {
+              memberTasks = [...memberTasks, ...data.data.tasks];
+            }
+          }
+          newMap[m.id] = deduplicateTasks(memberTasks);
         } catch (e) {
           console.warn("Failed to fetch API tasks for", m.id, e);
+          newMap[m.id] = [];
         }
       }
       if (isSubscribed) {
-        setMemberTasksMap(prev => ({ ...prev, ...newMap }));
+        setMemberTasksMap(newMap);
       }
     };
 
-    if (mounted) fetchAllTasks();
-
+    let fetchTimer: any = null;
     const debouncedFetch = () => {
-      fetchAllTasks();
+      if (fetchTimer) clearTimeout(fetchTimer);
+      fetchTimer = setTimeout(() => {
+        if (isSubscribed) fetchAllTasks();
+      }, 300);
     };
 
-    const interval = setInterval(fetchAllTasks, 5000);
+    const interval = setInterval(fetchAllTasks, 3000);
     window.addEventListener("focus", debouncedFetch);
     window.addEventListener("workpulse:tasks_changed", debouncedFetch);
     window.addEventListener("workpulse:task_deleted", debouncedFetch);
+    window.addEventListener("workday:sod_submitted", debouncedFetch);
+    window.addEventListener("employee:sod_submitted", debouncedFetch);
     window.addEventListener("workpulse_sync", debouncedFetch);
 
     let bc: BroadcastChannel | null = null;
@@ -320,7 +340,15 @@ export function LeadTaskManager() {
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
         bc.onmessage = (ev) => {
-          if (ev.data?.type === "daily_tasks:changed" || ev.data?.type === "task:deleted" || ev.data?.type === "tasks_changed") {
+          if (
+            ev.data?.type === "daily_tasks:changed" ||
+            ev.data?.type === "task:deleted" ||
+            ev.data?.type === "tasks_changed" ||
+            ev.data?.type === "employee:sod_submitted" ||
+            ev.data?.type === "employee:tasks_updated" ||
+            ev.data?.type === "workday:sod_submitted" ||
+            ev.data?.type === "workpulse_sync"
+          ) {
             debouncedFetch();
           }
         };
@@ -334,6 +362,8 @@ export function LeadTaskManager() {
       window.removeEventListener("focus", debouncedFetch);
       window.removeEventListener("workpulse:tasks_changed", debouncedFetch);
       window.removeEventListener("workpulse:task_deleted", debouncedFetch);
+      window.removeEventListener("workday:sod_submitted", debouncedFetch);
+      window.removeEventListener("employee:sod_submitted", debouncedFetch);
       window.removeEventListener("workpulse_sync", debouncedFetch);
     };
   }, [dynamicTeamMemberIds, feedbackVersion, mounted]);
@@ -439,9 +469,17 @@ export function LeadTaskManager() {
       actionItem,
     });
 
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({ type: "workday:eod_approved", employeeId: empId, timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
+
     setActiveComments((prev) => ({ ...prev, [empId]: "" }));
     fireCelebrationConfetti();
-    showToast(`✓ Evening wrap-up for ${empName} verified & feedback sent!`);
+    showToast(`✓ Evening wrap-up for ${empName} verified & feedback sent! 2-min next-day countdown started.`);
   };
 
   // Assign deliverable (Tab 2)
@@ -905,18 +943,25 @@ export function LeadTaskManager() {
                    localStorage.getItem("workpulse_morning_plan_submitted_employee.test@xorstack.com") === "true"))
               );
 
-              // isEodSubmitted: employee has submitted today's EOD (window may or may not have expired)
-              const isEodSubmitted = isLocalEodSubmitted;
+              // isEodSubmitted: employee has submitted today's EOD
+              const isEodSubmitted = !isNewDayForMember && (
+                isLocalEodSubmitted ||
+                member.eodStatus === "SUBMITTED" ||
+                member.eodStatus === "VERIFIED"
+              );
 
               // SOD is submitted if employee submitted today, or if EOD was submitted (which implies work was done)
               const isSodSubmitted = !isNewDayForMember && (
                 hasLocalSodFlag ||
                 isEodSubmitted ||
-                (!isSpecialSarah && (member.sodStatus === "SUBMITTED" || member.sodStatus === "VERIFIED"))
+                member.sodStatus === "SUBMITTED" ||
+                member.sodStatus === "VERIFIED"
               );
 
               const isSodVerified = Boolean(
-                (isSodSubmitted || isEodSubmitted) && (member.sodStatus === "VERIFIED" || (fb && fb.sodAcknowledged === true))
+                !isNewDayForMember &&
+                (isSodSubmitted || isEodSubmitted) &&
+                (member.sodStatus === "VERIFIED" || (fb && fb.sodAcknowledged === true))
               );
 
               // Exact submission timestamp (no real-time ticks)
@@ -953,7 +998,7 @@ export function LeadTaskManager() {
               const sodLeadNote = member.sodLeadNote || fb?.sodNote || "Morning plan verified & approved by Team Lead.";
 
               // isEodVerified: lead has acknowledged the EOD in the feedback store
-              const isEodVerified = isLocalEodSubmitted && Boolean(fb && fb.eodAcknowledged === true);
+              const isEodVerified = !isNewDayForMember && isEodSubmitted && Boolean(fb && fb.eodAcknowledged === true);
               const eodVerifiedBy = member.eodVerifiedBy || fb?.eodVerifiedBy || fb?.leadName || leadName;
               const eodVerifiedAt = member.eodVerifiedAt || fb?.eodTime || displayEodTime || "Today";
               const eodLeadRating = member.eodLeadRating || fb?.eodLeadRating || fb?.rating || 5;
@@ -963,18 +1008,24 @@ export function LeadTaskManager() {
               // Tasks to display: Supabase tasks from memberTasksMap are authoritative
               let tasksToDisplay: any[] = [];
 
-              if (memberTasksMap[member.id] !== undefined) {
-                tasksToDisplay = deduplicateTasks(memberTasksMap[member.id] || []);
+              const memTasks = memberTasksMap[member.id];
+              if (memTasks !== undefined && memTasks.length > 0) {
+                tasksToDisplay = memTasks;
               } else if (member.plannedTasks && member.plannedTasks.length > 0) {
                 tasksToDisplay = deduplicateTasks(member.plannedTasks);
-              } else if (isEodSubmitted && mounted && typeof window !== "undefined") {
+              } else if (memTasks !== undefined) {
+                tasksToDisplay = memTasks;
+              }
+
+              // Fallback to submitted EOD snapshot if member is in EOD submitted state
+              if (tasksToDisplay.length === 0 && (isEodSubmitted || isSodSubmitted) && mounted && typeof window !== "undefined") {
                 try {
-                  const eodRaw =
+                  const savedEodRaw =
                     localStorage.getItem(`workpulse_eod_submitted_tasks_${member.id}`) ||
                     (member.email ? localStorage.getItem(`workpulse_eod_submitted_tasks_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? (localStorage.getItem("workpulse_eod_submitted_tasks_emp-sarah") || localStorage.getItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com")) : null);
-                  if (eodRaw) {
-                    const parsed = JSON.parse(eodRaw);
+                    (isSpecialSarah ? localStorage.getItem("workpulse_eod_submitted_tasks_emp-sarah") : null);
+                  if (savedEodRaw) {
+                    const parsed = JSON.parse(savedEodRaw);
                     if (Array.isArray(parsed) && parsed.length > 0) {
                       tasksToDisplay = deduplicateTasks(parsed);
                     }
@@ -982,23 +1033,7 @@ export function LeadTaskManager() {
                 } catch {}
               }
 
-              // 6. Quaternary source (for EOD): Completed tasks history
-              if (tasksToDisplay.length === 0 && isEodSubmitted && mounted && typeof window !== "undefined") {
-                try {
-                  const histRaw =
-                    localStorage.getItem(`workpulse_completed_tasks_history_${member.id}`) ||
-                    (member.email ? localStorage.getItem(`workpulse_completed_tasks_history_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? localStorage.getItem("workpulse_completed_tasks_history_emp-sarah") : null);
-                  if (histRaw) {
-                    const parsed = JSON.parse(histRaw);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                      tasksToDisplay = deduplicateTasks(parsed);
-                    }
-                  }
-                } catch {}
-              }
-
-              // Always ensure assigned deliverables for this member are merged into their task execution list
+              // Merge active assigned deliverables for this member from server log
               const memberAssigned = assignedTasksLog.filter(
                 (at) =>
                   at.targetEmployeeId === member.id ||

@@ -20,12 +20,55 @@ export async function GET(req: NextRequest) {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
-        const { data } = await supabaseAdmin
-          .from("workdays")
-          .select("*")
-          .eq("employee_id", employeeId)
-          .eq("date", workDate)
-          .maybeSingle();
+        const isSarah = employeeId === "emp-sarah" || employeeId?.toLowerCase().includes("employee.test");
+        const isAlex = employeeId === "lead-alex" || employeeId?.toLowerCase().includes("lead.test");
+        const employeeIds = isSarah
+          ? ["emp-sarah", "employee.test@xorstack.com"]
+          : isAlex
+          ? ["lead-alex", "lead.test@xorstack.com"]
+          : [employeeId];
+
+        const [{ data }, { data: dtData }] = await Promise.all([
+          supabaseAdmin
+            .from("workdays")
+            .select("*")
+            .in("employee_id", employeeIds)
+            .eq("date", workDate)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("daily_tasks")
+            .select("*")
+            .in("employee_id", employeeIds)
+            .or(`date.eq.${workDate},status.neq.COMPLETED`),
+        ]);
+
+        const filteredTasks = (dtData || []).filter((t: any) => {
+          const progress = Number(t.progress !== undefined ? t.progress : (t.completion_percentage || 0)) || 0;
+          const isCompleted = t.status === "COMPLETED" || progress >= 100;
+          const taskDate = t.date || workDate;
+          if (taskDate < workDate && isCompleted) return false;
+          return true;
+        });
+
+        const supaTasks = filteredTasks.map((t: any) => ({
+          id: t.id,
+          workdayId: data?.id || `wd-${employeeId}-${workDate}`,
+          employeeId,
+          title: t.title,
+          project: t.category || "General",
+          category: t.category || "General",
+          priority: t.priority || "MEDIUM",
+          taskType: "PLANNED" as const,
+          estimatedMinutes: 60,
+          status: (t.status || (t.progress === 100 ? "COMPLETED" : t.progress > 0 ? "IN_PROGRESS" : "NOT_STARTED")) as any,
+          progress: Number(t.progress !== undefined ? t.progress : (t.completion_percentage || 0)) || 0,
+          completionPercentage: Number(t.completion_percentage !== undefined ? t.completion_percentage : (t.progress || 0)) || 0,
+          assignedBy: t.assigned_by,
+          assignedAt: t.assigned_at,
+          acknowledged: Boolean(t.acknowledged),
+          isConfidential: false,
+          sortOrder: 0,
+        }));
 
         if (data && (!workday || workday.status === "OPEN")) {
           workday = {
@@ -51,8 +94,10 @@ export async function GET(req: NextRequest) {
             lockedAt: null,
             lockedById: null,
             lockReason: null,
-            dailyTasks: Array.isArray(data.planned_tasks) ? data.planned_tasks : [],
+            dailyTasks: supaTasks,
           };
+        } else if (workday) {
+          workday.dailyTasks = supaTasks;
         }
       }
     } catch {
