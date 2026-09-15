@@ -41,8 +41,8 @@ export function HRTopLevelSummary({
     pendingLeaves.length + pendingWfhs.length + pendingProbationsCount + pendingPipReviewsCount;
 
   // Live attendance aggregates based on department roster
-  const onLeaveCount = leaveRequests.filter((r) => r.status === "APPROVED").length || 2;
-  const wfhCount = wfhRequests.filter((r) => r.status === "APPROVED" || r.status === "FORWARDED_TO_HR").length || 3;
+  const onLeaveCount = leaveRequests.filter((r) => r.status === "APPROVED").length;
+  const wfhCount = wfhRequests.filter((r) => r.status === "APPROVED" || r.status === "FORWARDED_TO_HR").length;
   const inOfficeCount = Math.max(0, totalEmployeesCount - onLeaveCount - wfhCount);
   const absentCount = 0;
 

@@ -7,6 +7,33 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabaseAdmin = createAdminClient();
+    if (supabaseAdmin) {
+      const { data, error } = await supabaseAdmin
+        .from("goals")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!error && data) {
+        return apiSuccess({
+          goal: {
+            id: data.id,
+            title: data.title,
+            category: data.category || "ENGINEERING",
+            progressPercentage: Number(data.progress) || 0,
+            status: data.status || "IN_PROGRESS",
+            targetDate: data.target_date || "This Month",
+          },
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[Weekly Goals GET by ID] Supabase query error:", err);
+  }
+
   const goal = workpulseSharedStore.getState().weeklyGoals.find((g: any) => g.id === id);
   if (!goal) return apiError(`Goal '${id}' not found`, 404, "NOT_FOUND");
   return apiSuccess({ goal });
@@ -31,28 +58,28 @@ export async function PATCH(
 
     state.weeklyGoals[idx] = updated;
 
-    // Persist to Supabase
+    // Persist to Supabase goals table
     try {
       const { createAdminClient } = await import("@/lib/supabase/admin");
       const supabaseAdmin = createAdminClient();
       if (supabaseAdmin) {
         const progress = Number(updated.progressPercentage ?? updated.progress) || 0;
-        await supabaseAdmin.from("feedbacks").upsert({
-          id: `fb-${id}`,
+        await supabaseAdmin.from("goals").upsert({
+          id: id,
           employee_id: updated.employeeId || "emp-sarah",
-          employee_name: updated.employeeName || "Sarah Dev",
-          lead_id: "lead-alex",
-          lead_name: "Alex Lead",
-          date: new Date().toISOString().split("T")[0]!,
-          rating: progress >= 100 ? 5 : progress >= 50 ? 4 : 3,
-          sentiment: updated.status === "COMPLETED" ? "EXCELLENT" : "GOOD",
-          notes: `[GOAL - ${updated.category || "ENGINEERING"}] ${updated.title}: ${updated.description || ""} (Progress: ${progress}%)`,
-          action_item: `Target: ${updated.measurableOutcome || "Deliverables"}`,
+          title: updated.title,
+          category: updated.category || "Operations",
+          progress: progress,
+          status: updated.status || "IN_PROGRESS",
+          target_date: updated.targetDate || "This Month",
+          updated_at: new Date().toISOString(),
         });
       }
-    } catch {}
+    } catch (err: any) {
+      console.warn("[Weekly Goals PATCH] Supabase goals upsert error:", err?.message);
+    }
 
-    return apiSuccess({ goal: updated, message: "Weekly goal updated." });
+    return apiSuccess({ goal: updated, message: "Weekly goal updated in Supabase goals table." });
   } catch {
     return apiError("Invalid request body", 400, "BAD_REQUEST");
   }
@@ -70,9 +97,9 @@ export async function DELETE(
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabaseAdmin = createAdminClient();
     if (supabaseAdmin) {
-      await supabaseAdmin.from("feedbacks").delete().eq("id", `fb-${id}`);
+      await supabaseAdmin.from("goals").delete().eq("id", id);
     }
   } catch {}
 
-  return apiSuccess({ success: true, message: `Goal '${id}' deleted.` });
+  return apiSuccess({ success: true, message: `Goal '${id}' deleted from Supabase goals table.` });
 }

@@ -94,52 +94,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
       designation: "Engineering Lead · Development",
       avatar: "AL",
     },
-    employees: [
-      {
-        id: "emp-sarah",
-        name: "Sarah Dev",
-        email: "employee.test@xorstack.com",
-        designation: "Senior Backend Engineer",
-        departmentId: "dept-development",
-        departmentName: "Development",
-        teamLeadId: "lead-alex",
-        teamLeadName: "Alex Lead",
-        avatar: "SD",
-        workMode: "OFFICE",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 11.0,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-      {
-        id: "emp-rohit",
-        name: "Rohit Sharma",
-        email: "rohit.sharma@xorstack.com",
-        designation: "Frontend Engineer (UI/UX)",
-        departmentId: "dept-development",
-        departmentName: "Development",
-        teamLeadId: "lead-alex",
-        teamLeadName: "Alex Lead",
-        avatar: "RS",
-        workMode: "OFFICE",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 10.0,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-    ],
+    employees: [],
   },
 
   // 2. DevOps
@@ -159,30 +114,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
       designation: "DevOps & SRE Practice Lead",
       avatar: "MV",
     },
-    employees: [
-      {
-        id: "emp-karthik",
-        name: "Karthik Raja",
-        email: "karthik.raja@xorstack.com",
-        designation: "DevOps & Cloud Engineer",
-        departmentId: "dept-devops",
-        departmentName: "Devops",
-        teamLeadId: "lead-marcus",
-        teamLeadName: "Marcus Vance",
-        avatar: "KR",
-        workMode: "OFFICE",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 11.5,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-    ],
+    employees: [],
   },
 
   // 3. Data Processing
@@ -202,30 +134,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
       designation: "Data Architecture & Analytics Lead",
       avatar: "VR",
     },
-    employees: [
-      {
-        id: "emp-sneha",
-        name: "Sneha Kapoor",
-        email: "sneha.kapoor@xorstack.com",
-        designation: "Data Analytics Engineer",
-        departmentId: "dept-data-processing",
-        departmentName: "Data processing",
-        teamLeadId: "lead-vikram",
-        teamLeadName: "Vikram Rao",
-        avatar: "SK",
-        workMode: "OFFICE",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 9.0,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-    ],
+    employees: [],
   },
 
   // 4. R & D
@@ -245,30 +154,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
       designation: "VP of Engineering & SuperAdmin",
       avatar: "DD",
     },
-    employees: [
-      {
-        id: "emp-priya",
-        name: "Priya QA",
-        email: "priya.qa@xorstack.com",
-        designation: "QA & Test Automation Lead Engineer",
-        departmentId: "dept-rd",
-        departmentName: "R & D",
-        teamLeadId: "admin-david",
-        teamLeadName: "David Director",
-        avatar: "PQ",
-        workMode: "WFH",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 9.0,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-    ],
+    employees: [],
   },
 
   // 5. Service Providers (ConfigTap)
@@ -287,30 +173,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
       designation: "Engineering Lead · Development",
       avatar: "AL",
     },
-    employees: [
-      {
-        id: "emp-ananya",
-        name: "Ananya Sen",
-        email: "ananya.sen@xorstack.com",
-        designation: "Automation & Embedded QA Engineer",
-        departmentId: "dept-configtap",
-        departmentName: "Service Providers (ConfigTap)",
-        teamLeadId: "lead-alex",
-        teamLeadName: "Alex Lead",
-        avatar: "AS",
-        workMode: "OFFICE",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 10.0,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-    ],
+    employees: [],
   },
 
   // 6. Human Resources
@@ -329,30 +192,7 @@ export const XORSTACK_DEPARTMENTS: OrgDepartment[] = [
       designation: "Head of People Operations",
       avatar: "RH",
     },
-    employees: [
-      {
-        id: "hr-rachel",
-        name: "Rachel HR",
-        email: "hr.test@xorstack.com",
-        designation: "Head of People Operations",
-        departmentId: "dept-hr",
-        departmentName: "Human Resources",
-        teamLeadId: "admin-david",
-        teamLeadName: "David Director",
-        avatar: "RH",
-        workMode: "OFFICE",
-        sodStatus: "PENDING",
-        sodTime: undefined,
-        eodStatus: "PENDING",
-        eodTime: undefined,
-        overallProgress: 0,
-        remainingLeaveBalance: 15.0,
-        plannedTasks: [],
-        eodAchievements: undefined,
-        eodBlockers: undefined,
-        eodTomorrowFocus: undefined,
-      },
-    ],
+    employees: [],
   },
 ];
 
@@ -383,40 +223,7 @@ export interface SharedEODFeedback {
   isToday?: boolean;
 }
 
-const DEFAULT_FEEDBACKS: SharedEODFeedback[] = [
-  {
-    id: "df-yesterday",
-    employeeId: "emp-sarah",
-    employeeName: "Sarah Dev",
-    departmentName: "Development",
-    date: "Yesterday (Aug 19, 2026)",
-    dayName: "Wednesday",
-    employeeEodSummary: "Configured brand color tokens across UI layout, built Week/Month switcher layout, and fixed authorization scope isolation.",
-    tasksCompleted: "3 of 3 Planned Tasks (100%)",
-    hoursLogged: 8.2,
-    leadFeedbackTime: "06:10 PM",
-    leadFeedbackNote: "The brand extraction and dark mode contrast tokens look super polished. Really appreciate you picking up the authorization test assertions proactively.",
-    leadRating: 5,
-    leadSentiment: "EXCELLENT",
-    leadActionItem: "Align with Rohit on mobile responsive drawer components.",
-  },
-  {
-    id: "df-tue",
-    employeeId: "emp-sarah",
-    employeeName: "Sarah Dev",
-    departmentName: "Development",
-    date: "Aug 18, 2026",
-    dayName: "Tuesday",
-    employeeEodSummary: "Refactored Prisma migrations and role policies, fixed typecheck strict boundaries.",
-    tasksCompleted: "4 of 4 Planned Tasks (100%)",
-    hoursLogged: 8.0,
-    leadFeedbackTime: "06:30 PM",
-    leadFeedbackNote: "Thorough database schema updates and clean documentation.",
-    leadRating: 5,
-    leadSentiment: "EXCELLENT",
-    leadActionItem: "Monitor CI/CD staging deploy logs.",
-  },
-];
+const DEFAULT_FEEDBACKS: SharedEODFeedback[] = [];
 
 // ==========================================
 // 3. 2-STAGE LEAVE & WFH REQUEST STORE
@@ -454,6 +261,7 @@ export interface SharedLeaveRequest {
   status: RequestStageStatus;
   rejectionReason?: string;
   createdAt: string;
+  _isOptimistic?: boolean;
 }
 
 export interface SharedWfhRequest {
@@ -481,169 +289,11 @@ export interface SharedWfhRequest {
   status: RequestStageStatus;
   rejectionReason?: string;
   createdAt: string;
+  _isOptimistic?: boolean;
 }
 
-const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [
-  {
-    id: "leave-req-101",
-    employeeId: "emp-sarah",
-    employeeName: "Sarah Dev",
-    departmentId: "dept-development",
-    departmentName: "Development",
-    designation: "Senior Backend Engineer",
-    leaveType: "CASUAL",
-    startDate: "2026-08-28",
-    endDate: "2026-08-28",
-    daysCount: 1.0,
-    reason: "Family festival celebration and personal commitments",
-    handoverNotes: "Sprint deliverables completed. Alex Lead briefed on PR reviews.",
-    backupPersonName: "Rohit Sharma (Frontend)",
-    remainingBalance: 11.0,
-    tlApproverName: "Alex Lead (Engineering Lead · Development)",
-    tlApprovedAt: "Today at 10:15 AM",
-    tlComment: "Approved by Development Lead. All sprint deliverables are green. Forwarded to HR.",
-    status: "FORWARDED_TO_HR",
-    createdAt: "2026-08-20T09:00:00Z",
-  },
-  {
-    id: "leave-req-102",
-    employeeId: "emp-priya",
-    employeeName: "Priya QA",
-    departmentId: "dept-rd",
-    departmentName: "R & D",
-    designation: "QA & Automation Lead",
-    leaveType: "CASUAL",
-    startDate: "2026-09-02",
-    endDate: "2026-09-04",
-    daysCount: 3.0,
-    reason: "Out-of-town travel for family wedding",
-    handoverNotes: "Automated regression suite scheduled to run in CI/CD pipeline.",
-    backupPersonName: "Ananya Sen (ConfigTap)",
-    remainingBalance: 9.0,
-    tlApproverName: "David Director (VP of Eng & SuperAdmin)",
-    tlApprovedAt: "Yesterday at 04:30 PM",
-    tlComment: "Approved by Executive Lead David Director. Regression test coverage is verified. Forwarded to HR.",
-    status: "FORWARDED_TO_HR",
-    createdAt: "2026-08-19T14:00:00Z",
-  },
-  {
-    id: "leave-req-103",
-    employeeId: "emp-rohit",
-    employeeName: "Rohit Sharma",
-    departmentId: "dept-development",
-    departmentName: "Development",
-    designation: "Frontend Engineer (UI/UX)",
-    leaveType: "SICK",
-    startDate: "2026-08-25",
-    endDate: "2026-08-25",
-    daysCount: 1.0,
-    reason: "Routine medical consultation and health checkup",
-    handoverNotes: "UI styling tokens merged to main branch.",
-    backupPersonName: "Sarah Dev (Backend)",
-    remainingBalance: 10.0,
-    status: "PENDING_TL_STAGE_1",
-    createdAt: "2026-08-20T10:30:00Z",
-  },
-  {
-    id: "leave-req-104",
-    employeeId: "emp-karthik",
-    employeeName: "Karthik Raja",
-    departmentId: "dept-devops",
-    departmentName: "Devops",
-    designation: "DevOps & Cloud Engineer",
-    leaveType: "CASUAL",
-    startDate: "2026-08-29",
-    endDate: "2026-08-29",
-    daysCount: 1.0,
-    reason: "Personal family commitment",
-    handoverNotes: "Marcus Vance briefed on deployment on-call rotation.",
-    backupPersonName: "Marcus Vance (DevOps)",
-    remainingBalance: 11.5,
-    tlApproverName: "Marcus Vance (DevOps Lead)",
-    tlApprovedAt: "Today at 10:00 AM",
-    tlComment: "Approved by DevOps Lead. On-call coverage secured. Forwarded to HR.",
-    status: "FORWARDED_TO_HR",
-    createdAt: "2026-08-20T08:30:00Z",
-  },
-  {
-    id: "leave-req-105",
-    employeeId: "emp-ananya",
-    employeeName: "Ananya Sen",
-    departmentId: "dept-configtap",
-    departmentName: "Service Providers (ConfigTap)",
-    designation: "Automation & Embedded QA Engineer",
-    leaveType: "CASUAL",
-    startDate: "2026-09-01",
-    endDate: "2026-09-01",
-    daysCount: 1.0,
-    reason: "Embedded ECU certification exam",
-    handoverNotes: "Autosar CAN conformity test suite completed.",
-    backupPersonName: "Priya QA (QA Lead)",
-    remainingBalance: 10.0,
-    status: "PENDING_TL_STAGE_1",
-    createdAt: "2026-08-20T11:30:00Z",
-  },
-];
-
-const DEFAULT_WFH_REQUESTS: SharedWfhRequest[] = [
-  {
-    id: "wfh-req-201",
-    employeeId: "emp-sarah",
-    employeeName: "Sarah Dev",
-    departmentId: "dept-development",
-    departmentName: "Development",
-    designation: "Senior Backend Engineer",
-    startDate: "2026-08-26",
-    endDate: "2026-08-26",
-    daysCount: 1.0,
-    reason: "Focus day for deep performance indexing and complex database migrations",
-    availabilityHours: "10:00 AM – 07:00 PM",
-    contactMethod: "Slack #dev-team & Google Meet",
-    plannedDeliverables: "Complete index optimization on attendance audit logs and verify latency benchmark.",
-    tlApproverName: "Alex Lead (Engineering Lead · Development)",
-    tlApprovedAt: "Today at 10:20 AM",
-    tlComment: "Approved by Development Lead. High-priority focus day for indexing. Forwarded to HR.",
-    status: "FORWARDED_TO_HR",
-    createdAt: "2026-08-20T09:30:00Z",
-  },
-  {
-    id: "wfh-req-202",
-    employeeId: "emp-rohit",
-    employeeName: "Rohit Sharma",
-    departmentId: "dept-development",
-    departmentName: "Development",
-    designation: "Frontend Engineer (UI/UX)",
-    startDate: "2026-08-27",
-    endDate: "2026-08-27",
-    daysCount: 1.0,
-    reason: "Quiet focus environment for mobile responsive drawer animations",
-    availabilityHours: "10:00 AM – 07:00 PM",
-    contactMethod: "Slack @rohit & Zoom",
-    plannedDeliverables: "Implement CSS transition optimizations across mobile viewports.",
-    status: "PENDING_TL_STAGE_1",
-    createdAt: "2026-08-20T11:00:00Z",
-  },
-  {
-    id: "wfh-req-203",
-    employeeId: "emp-sneha",
-    employeeName: "Sneha Kapoor",
-    departmentId: "dept-data-processing",
-    departmentName: "Data processing",
-    designation: "Data Analytics Engineer",
-    startDate: "2026-08-28",
-    endDate: "2026-08-28",
-    daysCount: 1.0,
-    reason: "High-compute query optimization on large batch telemetry dataset",
-    availabilityHours: "10:00 AM – 07:00 PM",
-    contactMethod: "Slack #data-team & Meet",
-    plannedDeliverables: "Optimize Spark telemetry job memory allocations.",
-    tlApproverName: "Vikram Rao (Data Processing Lead)",
-    tlApprovedAt: "Today at 10:45 AM",
-    tlComment: "Approved by Data Lead. Forwarded to HR.",
-    status: "FORWARDED_TO_HR",
-    createdAt: "2026-08-20T10:00:00Z",
-  },
-];
+export const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [];
+export const DEFAULT_WFH_REQUESTS: SharedWfhRequest[] = [];
 
 // ==========================================
 // 4. SHARED HR PROFILE QUERY STORE
@@ -658,10 +308,10 @@ export interface SharedProfileQuery {
   departmentName: string;
   category: string;
   requestedChange: string;
-  reason?: string;
+  reason: string;
+  hrRemarks?: string;
   status: "PENDING_HR_REVIEW" | "APPROVED" | "REJECTED";
   submittedAt: string;
-  hrRemarks?: string;
   resolvedAt?: string;
 }
 
@@ -701,89 +351,48 @@ export interface SharedTeamPresence {
   verifiedBy?: string;
 }
 
-export const DEFAULT_SHARED_TEAM_PRESENCE: SharedTeamPresence[] = [
-  {
-    id: "emp-sarah",
-    name: "Sarah Dev",
-    role: "Senior Backend Engineer",
-    avatar: "SD",
-    workMode: "OFFICE",
-    firstIn: "10:08 AM",
-    location: "Bangalore HQ · Floor 4",
-    status: "ON_TIME",
-    grossHours: 4.5,
-    verified: true,
-    verifiedAt: "10:15 AM",
-    verifiedBy: "Alex Lead",
-  },
-  {
-    id: "emp-rohit",
-    name: "Rohit Sharma",
-    role: "Frontend Engineer",
-    avatar: "RS",
-    workMode: "WFH",
-    firstIn: "09:55 AM",
-    location: "Remote (Approved WFH)",
-    status: "ON_TIME",
-    grossHours: 4.75,
-    verified: false,
-  },
-  {
-    id: "emp-priya",
-    name: "Priya Patel",
-    role: "QA Engineer",
-    avatar: "PP",
-    workMode: "OFFICE",
-    firstIn: "10:02 AM",
-    location: "Bangalore HQ · Floor 4",
-    status: "ON_TIME",
-    grossHours: 4.6,
-    verified: false,
-  },
-  {
-    id: "emp-arjun",
-    name: "Arjun Kumar",
-    role: "Junior Developer",
-    avatar: "AK",
-    workMode: "OFFICE",
-    firstIn: "10:14 AM",
-    location: "Bangalore HQ · Floor 4",
-    status: "GRACE_WINDOW",
-    grossHours: 4.4,
-    verified: false,
-  },
-];
+export const DEFAULT_SHARED_TEAM_PRESENCE: SharedTeamPresence[] = [];
 
 const DEFAULT_HELP_REQUESTS: SharedLeadHelpRequest[] = [];
 
-const DEFAULT_PROFILE_QUERIES: SharedProfileQuery[] = [
-  {
-    id: "qry-initial-1",
-    ticketNumber: "HR-REQ-2041",
-    employeeId: "emp-sarah",
-    employeeName: "Sarah Dev",
-    employeeEmail: "employee.test@xorstack.com",
-    departmentName: "Development",
-    category: "Personal Contact Details (Phone, Mobile)",
-    requestedChange: "Update contact phone number to +91 98450 12345",
-    reason: "New primary company SIM card.",
-    status: "PENDING_HR_REVIEW",
-    submittedAt: "Yesterday at 04:30 PM",
-  },
-];
+const DEFAULT_PROFILE_QUERIES: SharedProfileQuery[] = [];
 
 // Storage keys for browser persistence across page reloads & refreshes
 const STORAGE_KEYS = {
   DEPARTMENTS: "workpulse_departments_v5_supabase",
   FEEDBACKS: "workpulse_feedbacks_v5_supabase",
-  LEAVE: "workpulse_leave_v5_supabase",
-  WFH: "workpulse_wfh_v5_supabase",
+  LEAVE: "workpulse_leave_v6_authoritative",
+  WFH: "workpulse_wfh_v6_authoritative",
   PROFILE_QUERIES: "workpulse_profile_queries_v5_supabase",
   HELP_REQUESTS: "workpulse_help_requests_v5",
   TEAM_PRESENCE: "workpulse_team_presence_v5",
-  DELETED_LEAVE_IDS: "workpulse_deleted_leave_ids",
+  DELETED_LEAVE_IDS: "workpulse_deleted_leave_ids_v6",
   DELETED_EMPLOYEE_IDS: "workpulse_deleted_employee_ids",
 };
+
+// Safe migration cleanup: purge legacy localStorage keys from prior versions containing mock requests
+if (typeof window !== "undefined") {
+  try {
+    const legacyKeysToPurge = [
+      STORAGE_KEYS.LEAVE,
+      STORAGE_KEYS.WFH,
+      "workpulse_leave_v6_authoritative",
+      "workpulse_wfh_v6_authoritative",
+      "workpulse_leave_v5_supabase",
+      "workpulse_wfh_v5_supabase",
+      "workpulse_leave_v4",
+      "workpulse_wfh_v4",
+      "workpulse_leave_v3",
+      "workpulse_wfh_v3",
+      "workpulse_leave_requests",
+      "workpulse_wfh_requests",
+      "workpulse_deleted_leave_ids",
+    ];
+    for (const k of legacyKeysToPurge) {
+      window.localStorage.removeItem(k);
+    }
+  } catch {}
+}
 
 const serverDeletedLeaveIds = new Set<string>();
 const serverDeletedEmployeeIds = new Set<string>();
@@ -833,10 +442,29 @@ export function deepSanitizePod<T>(data: T): T {
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === "undefined" || !window.localStorage) return deepSanitizePod(fallback);
+  // Supabase is the sole authority for Leave & WFH requests. Never load them from localStorage.
+  if (key === STORAGE_KEYS.LEAVE || key === STORAGE_KEYS.WFH) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {}
+    return deepSanitizePod(fallback);
+  }
   try {
     const saved = window.localStorage.getItem(key);
     if (saved) {
-      return deepSanitizePod(JSON.parse(saved));
+      let parsed = JSON.parse(saved);
+      // Filter out any legacy mock leave/wfh IDs that might linger
+      if (Array.isArray(parsed)) {
+        parsed = parsed.filter((item: any) => {
+          if (!item || !item.id) return true;
+          const id = String(item.id);
+          if (id.startsWith("leave-req-10") || id.startsWith("wfh-req-20")) {
+            return false;
+          }
+          return true;
+        });
+      }
+      return deepSanitizePod(parsed);
     }
   } catch (e) {
     console.warn(`[WorkpulseStore] Error loading ${key} from localStorage:`, e);
@@ -846,6 +474,31 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 
 function saveToStorage<T>(key: string, value: T): void {
   if (typeof window === "undefined" || !window.localStorage) return;
+  // Supabase is the sole authority for Leave & WFH requests. Never save them to localStorage.
+  if (key === STORAGE_KEYS.LEAVE || key === STORAGE_KEYS.WFH) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {}
+    return;
+  }
+  // When saving departments, strip out plannedTasks so tasks are strictly loaded from Supabase daily_tasks
+  if (key === STORAGE_KEYS.DEPARTMENTS && Array.isArray(value)) {
+    try {
+      const cleanDepts = (value as any[]).map((dept) => ({
+        ...dept,
+        employees: Array.isArray(dept.employees)
+          ? dept.employees.map((emp: any) => ({
+              ...emp,
+              plannedTasks: [],
+            }))
+          : [],
+      }));
+      window.localStorage.setItem(key, JSON.stringify(deepSanitizePod(cleanDepts)));
+    } catch (e) {
+      console.warn(`[WorkpulseStore] Error saving ${key} to localStorage:`, e);
+    }
+    return;
+  }
   try {
     window.localStorage.setItem(key, JSON.stringify(deepSanitizePod(value)));
   } catch (e) {
@@ -856,8 +509,8 @@ function saveToStorage<T>(key: string, value: T): void {
 // Global in-memory shared state (defaults on initial SSR and initial client mount)
 let globalDepartments: OrgDepartment[] = JSON.parse(JSON.stringify(XORSTACK_DEPARTMENTS));
 let globalFeedbacks: SharedEODFeedback[] = [...DEFAULT_FEEDBACKS];
-let globalLeaveRequests: SharedLeaveRequest[] = [...DEFAULT_LEAVE_REQUESTS];
-let globalWfhRequests: SharedWfhRequest[] = [...DEFAULT_WFH_REQUESTS];
+let globalLeaveRequests: SharedLeaveRequest[] = [];
+let globalWfhRequests: SharedWfhRequest[] = [];
 let globalProfileQueries: SharedProfileQuery[] = [...DEFAULT_PROFILE_QUERIES];
 let globalHelpRequests: SharedLeadHelpRequest[] = [...DEFAULT_HELP_REQUESTS];
 let globalTeamPresence: SharedTeamPresence[] = [...DEFAULT_SHARED_TEAM_PRESENCE];
@@ -868,6 +521,8 @@ let activeSyncPromise: Promise<void> | null = null;
 let lastSyncTimestamp = 0;
 let isHydrating = false;
 let supabaseHydrated = false; // True once Supabase data has been fetched — prevents hardcoded defaults from overriding
+let supabaseSyncedLeave = false; // True once Supabase leave data has been fetched — prevents localStorage from overriding
+let supabaseSyncedWfh = false; // True once Supabase WFH data has been fetched — prevents localStorage from overriding
 let notifyTimer: any = null;
 
 export function subscribeToSharedStore(listener: () => void) {
@@ -1168,26 +823,23 @@ export const WorkpulseSharedStore = {
       const deletedLeaveIds = getDeletedLeaveIds();
       const deletedEmployeeIds = getDeletedEmployeeIds();
 
-      const loadedLeaves = loadFromStorage<SharedLeaveRequest[] | null>(STORAGE_KEYS.LEAVE, null);
-      if (loadedLeaves !== null && Array.isArray(loadedLeaves)) {
-        globalLeaveRequests = loadedLeaves.filter((r) => !deletedLeaveIds.has(r.id) && !deletedEmployeeIds.has(r.employeeId));
-      } else {
-        globalLeaveRequests = globalLeaveRequests.filter((r) => !deletedLeaveIds.has(r.id) && !deletedEmployeeIds.has(r.employeeId));
-      }
-
-      const loadedWfh = loadFromStorage<SharedWfhRequest[] | null>(STORAGE_KEYS.WFH, null);
-      if (loadedWfh !== null && Array.isArray(loadedWfh)) {
-        globalWfhRequests = loadedWfh.filter((r) => !deletedEmployeeIds.has(r.employeeId));
-      } else {
-        globalWfhRequests = globalWfhRequests.filter((r) => !deletedEmployeeIds.has(r.employeeId));
-      }
+      // Supabase is the sole authority for Leave & WFH requests.
+      // Do NOT reload old cached requests from localStorage on page hydration,
+      // as that restores phantom requests. Only preserve in-flight optimistic requests from this active session.
+      globalLeaveRequests = globalLeaveRequests.filter((r) => r._isOptimistic && !deletedLeaveIds.has(r.id));
+      globalWfhRequests = globalWfhRequests.filter((r) => r._isOptimistic && !deletedEmployeeIds.has(r.employeeId));
 
       const loadedDepartments = loadFromStorage<OrgDepartment[] | null>(STORAGE_KEYS.DEPARTMENTS, null);
       if (loadedDepartments && Array.isArray(loadedDepartments) && loadedDepartments.length > 0) {
         globalDepartments = loadedDepartments.map((dept: OrgDepartment) => ({
           ...dept,
           employees: Array.isArray(dept.employees)
-            ? dept.employees.filter((e) => !deletedEmployeeIds.has(e.id) && !deletedEmployeeIds.has(e.email?.toLowerCase()))
+            ? dept.employees
+                .filter((e) => !deletedEmployeeIds.has(e.id) && !deletedEmployeeIds.has(e.email?.toLowerCase()))
+                .map((e) => ({
+                  ...e,
+                  plannedTasks: supabaseHydrated ? (e.plannedTasks || []) : [],
+                }))
             : [],
         }));
       } else if (!supabaseHydrated) {
@@ -1196,7 +848,12 @@ export const WorkpulseSharedStore = {
         globalDepartments = globalDepartments.map((dept: OrgDepartment) => ({
           ...dept,
           employees: Array.isArray(dept.employees)
-            ? dept.employees.filter((e) => !deletedEmployeeIds.has(e.id) && !deletedEmployeeIds.has(e.email?.toLowerCase()))
+            ? dept.employees
+                .filter((e) => !deletedEmployeeIds.has(e.id) && !deletedEmployeeIds.has(e.email?.toLowerCase()))
+                .map((e) => ({
+                  ...e,
+                  plannedTasks: [],
+                }))
             : [],
         }));
       }
@@ -1279,6 +936,7 @@ export const WorkpulseSharedStore = {
         }
 
       if (lrRes.data && lrRes.data.length > 0) {
+        supabaseSyncedLeave = true;
         const mappedLeaves: SharedLeaveRequest[] = lrRes.data
           .map((r) => ({
             id: r.id,
@@ -1305,14 +963,20 @@ export const WorkpulseSharedStore = {
             rejectionReason: r.rejection_reason,
             createdAt: r.created_at,
           }));
-        globalLeaveRequests = mappedLeaves;
+        const pendingOptimisticLeaves = globalLeaveRequests.filter(
+          (l) => l._isOptimistic && !mappedLeaves.some((r) => r.id === l.id)
+        );
+        globalLeaveRequests = [...pendingOptimisticLeaves, ...mappedLeaves];
         saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
       } else if (lrRes.data && lrRes.data.length === 0) {
-        globalLeaveRequests = [];
+        supabaseSyncedLeave = true;
+        const pendingOptimisticLeaves = globalLeaveRequests.filter((l) => l._isOptimistic);
+        globalLeaveRequests = pendingOptimisticLeaves;
         saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
       }
 
       if (wfhRes.data && wfhRes.data.length > 0) {
+        supabaseSyncedWfh = true;
         const mappedWfh: SharedWfhRequest[] = wfhRes.data
           .map((r) => ({
             id: r.id,
@@ -1338,10 +1002,15 @@ export const WorkpulseSharedStore = {
             rejectionReason: r.rejection_reason,
             createdAt: r.created_at,
           }));
-        globalWfhRequests = mappedWfh;
+        const pendingOptimisticWfh = globalWfhRequests.filter(
+          (w) => w._isOptimistic && !mappedWfh.some((r) => r.id === w.id)
+        );
+        globalWfhRequests = [...pendingOptimisticWfh, ...mappedWfh];
         saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
       } else if (wfhRes.data && wfhRes.data.length === 0) {
-        globalWfhRequests = [];
+        supabaseSyncedWfh = true;
+        const pendingOptimisticWfh = globalWfhRequests.filter((w) => w._isOptimistic);
+        globalWfhRequests = pendingOptimisticWfh;
         saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
       }
 
@@ -1365,6 +1034,8 @@ export const WorkpulseSharedStore = {
             isToday: true,
           }));
         globalFeedbacks = mappedFb;
+      } else if (fbRes.data && fbRes.data.length === 0) {
+        globalFeedbacks = [];
       }
 
       // Always synchronize employee plannedTasks directly from Supabase daily_tasks
@@ -1668,15 +1339,22 @@ export const WorkpulseSharedStore = {
   },
   resetToDefaults: () => {
     globalDepartments = JSON.parse(JSON.stringify(XORSTACK_DEPARTMENTS));
-    globalFeedbacks = [...DEFAULT_FEEDBACKS];
-    globalLeaveRequests = [...DEFAULT_LEAVE_REQUESTS];
-    globalWfhRequests = [...DEFAULT_WFH_REQUESTS];
+    globalFeedbacks = [];
+    globalLeaveRequests = [];
+    globalWfhRequests = [];
+    globalProfileQueries = [];
+    globalHelpRequests = [];
+    globalTeamPresence = [];
     if (typeof window !== "undefined" && window.localStorage) {
       window.localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
       window.localStorage.removeItem(STORAGE_KEYS.FEEDBACKS);
       window.localStorage.removeItem(STORAGE_KEYS.LEAVE);
       window.localStorage.removeItem(STORAGE_KEYS.WFH);
+      window.localStorage.removeItem(STORAGE_KEYS.PROFILE_QUERIES);
+      window.localStorage.removeItem(STORAGE_KEYS.HELP_REQUESTS);
+      window.localStorage.removeItem(STORAGE_KEYS.TEAM_PRESENCE);
       window.localStorage.removeItem(STORAGE_KEYS.DELETED_EMPLOYEE_IDS);
+      window.localStorage.removeItem(STORAGE_KEYS.DELETED_LEAVE_IDS);
     }
     notify();
   },
@@ -3538,34 +3216,21 @@ export const WorkpulseSharedStore = {
 
   // Leave Requests
   getLeaveRequests: () => {
-    if (typeof window !== "undefined") {
-      const deletedIds = getDeletedLeaveIds();
-      const saved = loadFromStorage<SharedLeaveRequest[] | null>(STORAGE_KEYS.LEAVE, null);
-      if (saved !== null && Array.isArray(saved)) {
-        globalLeaveRequests = saved.filter((r) => !deletedIds.has(r.id));
-      } else {
-        globalLeaveRequests = globalLeaveRequests.filter((r) => !deletedIds.has(r.id));
-      }
-    }
     return globalLeaveRequests;
   },
+  isSupabaseSyncedLeave: () => supabaseSyncedLeave,
   setLeaveRequestsFromSupabase: (requests: SharedLeaveRequest[]) => {
     if (Array.isArray(requests)) {
+      supabaseSyncedLeave = true; // Mark Supabase as authoritative for leave data
       const deletedIds = getDeletedLeaveIds();
-      // Keep any optimistic local requests that haven't synced to Supabase yet
-      const optimisticPending = globalLeaveRequests.filter(
+      // Supabase is authoritative. Only preserve active optimistic requests from the current session that have _isOptimistic === true and are not yet in requests.
+      const pendingOptimistic = globalLeaveRequests.filter(
         (localReq) =>
+          localReq._isOptimistic &&
           !deletedIds.has(localReq.id) &&
-          !requests.some(
-            (r) =>
-              r.id === localReq.id ||
-              (r.employeeId === localReq.employeeId &&
-                r.startDate === localReq.startDate &&
-                r.endDate === localReq.endDate &&
-                r.leaveType === localReq.leaveType)
-          )
+          !requests.some((r) => r.id === localReq.id)
       );
-      globalLeaveRequests = [...optimisticPending, ...requests].filter((r) => !deletedIds.has(r.id));
+      globalLeaveRequests = [...pendingOptimistic, ...requests].filter((r) => !deletedIds.has(r.id));
       saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
       notify();
     }
@@ -3726,6 +3391,7 @@ export const WorkpulseSharedStore = {
       remainingBalance: 11.0,
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
+      _isOptimistic: true,
     };
     globalLeaveRequests = [newReq, ...globalLeaveRequests];
     saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
@@ -3804,6 +3470,23 @@ export const WorkpulseSharedStore = {
     } catch {}
   },
 
+  removeLeaveRequestFromRealtime: (requestId: string) => {
+    serverDeletedLeaveIds.add(requestId);
+    globalLeaveRequests = globalLeaveRequests.filter((req) => req.id !== requestId);
+    if (typeof window !== "undefined") {
+      try {
+        const deleted = Array.from(getDeletedLeaveIds());
+        if (!deleted.includes(requestId)) deleted.push(requestId);
+        window.localStorage.setItem(STORAGE_KEYS.DELETED_LEAVE_IDS, JSON.stringify(deleted));
+        saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+      } catch {}
+    }
+    notify();
+    try {
+      realtimeEventBus.emit("leave:deleted", { id: requestId });
+    } catch {}
+  },
+
   addWfhRequest: (req: {
     id?: string;
     employeeId?: string;
@@ -3835,6 +3518,7 @@ export const WorkpulseSharedStore = {
       plannedDeliverables: req.plannedDeliverables || "Complete assigned sprint tasks",
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
+      _isOptimistic: true,
     };
 
     globalWfhRequests = [newReq, ...globalWfhRequests];
@@ -3870,24 +3554,30 @@ export const WorkpulseSharedStore = {
     }
   },
 
+  removeWfhRequestFromRealtime: (requestId: string) => {
+    globalWfhRequests = globalWfhRequests.filter((req) => req.id !== requestId);
+    saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+    notify();
+    try {
+      realtimeEventBus.emit("wfh:deleted", { id: requestId });
+    } catch {}
+  },
+
   // WFH Requests
   getWfhRequests: () => {
     return globalWfhRequests;
   },
+  isSupabaseSyncedWfh: () => supabaseSyncedWfh,
   setWfhRequestsFromSupabase: (requests: SharedWfhRequest[]) => {
     if (Array.isArray(requests)) {
-      // Preserve optimistic local requests that haven't synced to Supabase yet
-      const optimisticPending = globalWfhRequests.filter(
+      supabaseSyncedWfh = true; // Mark Supabase as authoritative for WFH data
+      // Supabase is authoritative. Only preserve active optimistic requests from the current session that have _isOptimistic === true and are not yet in requests.
+      const pendingOptimistic = globalWfhRequests.filter(
         (localReq) =>
-          !requests.some(
-            (r) =>
-              r.id === localReq.id ||
-              (r.employeeId === localReq.employeeId &&
-                r.startDate === localReq.startDate &&
-                r.endDate === localReq.endDate)
-          )
+          localReq._isOptimistic &&
+          !requests.some((r) => r.id === localReq.id)
       );
-      globalWfhRequests = [...optimisticPending, ...requests];
+      globalWfhRequests = [...pendingOptimistic, ...requests];
       saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
       notify();
     }
@@ -4228,67 +3918,13 @@ export const WorkpulseSharedStore = {
 // React hook for consuming shared state
 export { useWorkpulseSharedStore } from "./use-workpulse-store";
 
-const globalWeeklyGoals: any[] = [
-  {
-    id: "goal-1",
-    title: "Ship 99.9% Reliable Biometric Pipeline",
-    category: "ENGINEERING",
-    measurableOutcome: "Zero data loss during offline network outages",
-    weightage: 50,
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    progressPercentage: 80,
-    currentValue: 80,
-    targetValue: 100,
-    evidenceRequired: true,
-  },
-  {
-    id: "goal-2",
-    title: "100% Automated Acceptance Test Suite",
-    category: "QUALITY",
-    measurableOutcome: "All 91 specification criteria automated with Vitest",
-    weightage: 50,
-    priority: "HIGH",
-    status: "IN_PROGRESS",
-    progressPercentage: 75,
-    currentValue: 75,
-    targetValue: 100,
-    evidenceRequired: false,
-  },
-];
+const globalWeeklyGoals: any[] = [];
 
-const globalWeeklyReviews: any[] = [
-  {
-    id: "rev-sprint34",
-    employeeId: "emp-sarah",
-    employeeName: "Sarah Dev",
-    period: "This Week (Aug 18 - Aug 22, 2026)",
-    status: "APPROVED",
-    selfSummary: "Completed REST route handlers and enhanced biometric edge connectors.",
-    managerFeedback: "Exceptional architecture work and timely delivery.",
-    leadRating: 5,
-    calculatedScore: 94.5,
-    approvedAt: "2026-08-22T11:00:00Z",
-  },
-];
+const globalWeeklyReviews: any[] = [];
 
-const globalMyPunches: any[] = [
-  {
-    id: "punch-1",
-    employeeId: "emp-sarah",
-    time: "10:08 AM",
-    direction: "IN",
-    method: "BIOMETRIC",
-    location: "Bangalore HQ - Main Entrance",
-    status: "VERIFIED",
-  },
-];
+const globalMyPunches: any[] = [];
 
-const globalLeaveBalances: any[] = [
-  { leaveType: "CASUAL", total: 12.0, used: 1.0, remaining: 11.0 },
-  { leaveType: "SICK", total: 10.0, used: 0.0, remaining: 10.0 },
-  { leaveType: "PRIVILEGE", total: 15.0, used: 0.0, remaining: 15.0 },
-];
+const globalLeaveBalances: any[] = [];
 
 export const workpulseSharedStore = {
   getState: () => ({

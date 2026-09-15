@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError } from "@/server/api-helpers";
 import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   req: NextRequest,
@@ -31,6 +32,20 @@ export async function POST(
         const total = emp.plannedTasks.length;
         const sum = emp.plannedTasks.reduce((acc: number, t: any) => acc + (t.completionPercentage || 0), 0);
         emp.overallProgress = total > 0 ? Math.round(sum / total) : 0;
+
+        // Persist to Supabase
+        try {
+          const supabaseAdmin = createAdminClient();
+          if (supabaseAdmin) {
+            const updatePayload: Record<string, any> = {
+              progress: task.completionPercentage,
+              status: task.status,
+            };
+            await supabaseAdmin.from("daily_tasks").update(updatePayload).eq("id", id);
+          }
+        } catch (dbErr) {
+          console.error("[Tasks Progress API] Failed to sync progress to Supabase", dbErr);
+        }
 
         return apiSuccess({ task, message: "Task progress recorded." });
       }

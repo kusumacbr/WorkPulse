@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useMemo } from "react";
 import { RoleType } from "@/lib/authorization/types";
-import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { useWorkpulseSharedStore, WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export interface UserContextValue {
   userName: string;
@@ -44,6 +44,12 @@ export function UserProvider({
       }
     }
   }, [user.userEmail, tabEmail]);
+
+  React.useEffect(() => {
+    if (tabEmail) {
+      WorkpulseSharedStore.syncWithSupabase(true);
+    }
+  }, [tabEmail]);
 
   // Sync dev session when tab gets focus so API requests from this tab match its persona
   React.useEffect(() => {

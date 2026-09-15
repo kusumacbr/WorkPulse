@@ -28,64 +28,9 @@ export interface FeedbackNote {
   sentiment: "EXCELLENT" | "GREAT" | "GOOD";
 }
 
-const DEFAULT_FEEDBACK_NOTES: FeedbackNote[] = [
-  {
-    id: "fb-1",
-    date: "Aug 20, 2026",
-    managerName: "Alex Lead",
-    rating: 5,
-    sentiment: "EXCELLENT",
-    note: "Outstanding delivery on this week's priorities. The team appreciated your clear walkthrough and thorough preparation. Great momentum heading into next week!",
-    actionItem: "Share your project organization tips in our team sync.",
-  },
-  {
-    id: "fb-2",
-    date: "Aug 18, 2026",
-    managerName: "Alex Lead",
-    rating: 5,
-    sentiment: "EXCELLENT",
-    note: "Proactive communication during yesterday's planning session helped resolve roadblocks early. Clean execution across the board.",
-    actionItem: "Follow up with the operations team on milestone sign-offs.",
-  },
-  {
-    id: "fb-3",
-    date: "Aug 14, 2026",
-    managerName: "Alex Lead",
-    rating: 4.8,
-    sentiment: "GREAT",
-    note: "Solid turnaround on weekly deliverables. Documentation was organized and easy for everyone to follow.",
-  },
-];
+const DEFAULT_FEEDBACK_NOTES: FeedbackNote[] = [];
 
-const PAST_REVIEWS = [
-  {
-    id: "rev-q3",
-    cycle: "Q3 2026 Performance Review",
-    period: "Jul 2026 – Sep 2026",
-    score: 92,
-    status: "Approved",
-    reviewer: "Alex Lead",
-    summary: "Consistent high performance, excellent team collaboration, and proactive problem solving.",
-  },
-  {
-    id: "rev-q2",
-    cycle: "Q2 2026 Performance Review",
-    period: "Apr 2026 – Jun 2026",
-    score: 88,
-    status: "Completed",
-    reviewer: "Alex Lead",
-    summary: "Exceeded all planned project milestones. Strong growth in cross-team coordination.",
-  },
-  {
-    id: "rev-q1",
-    cycle: "Q1 2026 Performance Review",
-    period: "Jan 2026 – Mar 2026",
-    score: 86,
-    status: "Completed",
-    reviewer: "Alex Lead",
-    summary: "Successfully onboarded to core team initiatives and completed initial certification.",
-  },
-];
+const PAST_REVIEWS: any[] = [];
 
 const COMPETENCY_RATINGS = [
   { label: "Work Quality & Excellence", score: 5.0, stars: 5, note: "Consistently delivers polished, reliable work" },
@@ -101,15 +46,9 @@ export function SimpleReviewsManager() {
   const [activeTab, setActiveTab] = useState<ReviewTab>("OVERVIEW");
 
   // Self-assessment form state
-  const [achievements, setAchievements] = useState(
-    "Completed all scheduled deliverables on time, supported team members during onboarding, and organized project templates."
-  );
-  const [improvements, setImprovements] = useState(
-    "I want to expand my skills in project management tools and cross-functional leadership."
-  );
-  const [supportNeeded, setSupportNeeded] = useState(
-    "Opportunities to shadow client presentation meetings and participate in leadership workshops."
-  );
+  const [achievements, setAchievements] = useState("");
+  const [improvements, setImprovements] = useState("");
+  const [supportNeeded, setSupportNeeded] = useState("");
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -336,7 +275,13 @@ export function SimpleReviewsManager() {
       {/* TAB 2: MANAGER FEEDBACK */}
       {activeTab === "FEEDBACK" && (
         <div className="space-y-3">
-          {DEFAULT_FEEDBACK_NOTES.map((fb) => (
+          {DEFAULT_FEEDBACK_NOTES.length === 0 ? (
+            <div className="p-8 text-center rounded-xl border border-dashed border-border bg-card/40 text-muted-foreground space-y-2">
+              <p className="text-sm font-semibold">No feedback notes recorded yet</p>
+              <p className="text-xs">Feedback from your manager will appear here.</p>
+            </div>
+          ) : (
+            DEFAULT_FEEDBACK_NOTES.map((fb) => (
             <div
               key={fb.id}
               className="p-5 rounded-xl border border-border/70 bg-card hover:border-primary/40 transition-all space-y-3 shadow-sm"
@@ -368,14 +313,20 @@ export function SimpleReviewsManager() {
                 </div>
               )}
             </div>
-          ))}
+          )))}
         </div>
       )}
 
       {/* TAB 3: REVIEW HISTORY */}
       {activeTab === "HISTORY" && (
         <div className="space-y-3">
-          {PAST_REVIEWS.map((rev) => (
+          {PAST_REVIEWS.length === 0 ? (
+            <div className="p-8 text-center rounded-xl border border-dashed border-border bg-card/40 text-muted-foreground space-y-2">
+              <p className="text-sm font-semibold">No past reviews found</p>
+              <p className="text-xs">Completed review cycles will be archived here.</p>
+            </div>
+          ) : (
+            PAST_REVIEWS.map((rev) => (
             <div
               key={rev.id}
               className="p-5 rounded-xl border border-border/70 bg-card hover:border-primary/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
@@ -396,7 +347,7 @@ export function SimpleReviewsManager() {
                 <span className="text-xl font-black text-purple-300 font-mono">{rev.score} / 100</span>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       )}
 

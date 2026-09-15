@@ -18,35 +18,18 @@ export async function PATCH(
 
     const supabase = createAdminClient();
     if (supabase) {
-      // 1. Update goals table
-      try {
-        const updateData: any = {
-          updated_at: nowIso,
-        };
-        if (typeof progress === "number") updateData.progress = progress;
-        if (status) updateData.status = status;
-        if (body.title) updateData.title = body.title;
-        if (body.category) updateData.category = body.category;
-        if (body.targetDate) updateData.target_date = body.targetDate;
-        if (body.description !== undefined) updateData.description = body.description;
+      const updateData: any = {
+        updated_at: nowIso,
+      };
+      if (typeof progress === "number") updateData.progress = progress;
+      if (status) updateData.status = status;
+      if (body.title) updateData.title = body.title;
+      if (body.category) updateData.category = body.category;
+      if (body.targetDate) updateData.target_date = body.targetDate;
 
-        await supabase.from("goals").update(updateData).eq("id", id);
-      } catch (e) {
-        console.warn("[Goals API PATCH] Supabase goals update warning:", e);
-      }
-
-      // 2. Update feedbacks backup table
-      try {
-        await supabase
-          .from("feedbacks")
-          .update({
-            rating: Math.min(5.0, Math.max(0.0, Number((progress / 20).toFixed(1)))),
-            sentiment: status,
-            notes: JSON.stringify({ progress, status, title: body.title, category: body.category }),
-          })
-          .eq("id", id);
-      } catch (e) {
-        console.warn("[Goals API PATCH] Supabase feedbacks backup warning:", e);
+      const { error } = await supabase.from("goals").update(updateData).eq("id", id);
+      if (error) {
+        console.error("[Goals API PATCH] Supabase goals update error:", error.message);
       }
     }
 
@@ -63,7 +46,7 @@ export async function PATCH(
       });
     } catch {}
 
-    return apiSuccess({ message: "Goal updated successfully in Supabase", id, progress, status }, 200);
+    return apiSuccess({ message: "Goal updated successfully in Supabase goals table", id, progress, status }, 200);
   } catch (err: any) {
     return apiError(err.message || "Failed to update goal progress", 400);
   }
@@ -79,15 +62,13 @@ export async function DELETE(
 
     const supabase = createAdminClient();
     if (supabase) {
-      try {
-        await supabase.from("goals").delete().eq("id", id);
-      } catch {}
-      try {
-        await supabase.from("feedbacks").delete().eq("id", id);
-      } catch {}
+      const { error } = await supabase.from("goals").delete().eq("id", id);
+      if (error) {
+        console.error("[Goals API DELETE] Supabase goals delete error:", error.message);
+      }
     }
 
-    return apiSuccess({ message: "Goal deleted successfully from Supabase", id }, 200);
+    return apiSuccess({ message: "Goal deleted successfully from Supabase goals table", id }, 200);
   } catch (err: any) {
     return apiError(err.message || "Failed to delete goal", 500);
   }

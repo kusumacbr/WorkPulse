@@ -20,11 +20,8 @@ export async function GET(req: NextRequest) {
             query = query.eq("employee_id", employeeId);
           }
         }
-        const { data, error }: any = await Promise.race([
-          query,
-          new Promise((resolve) => setTimeout(() => resolve({ data: null, error: new Error("DB_TIMEOUT") }), 500)),
-        ]);
-        if (!error && data) {
+        const { data, error } = await query;
+        if (!error && Array.isArray(data)) {
           const deletedIds = getDeletedLeaveIds();
           const requests = data
             .map((r: any) => ({
@@ -81,7 +78,22 @@ export async function GET(req: NextRequest) {
       // safe fallback
     }
 
-    // Fallback to in-memory store
+    // Fallback: return empty when Supabase is configured but the query failed
+    const supabaseCheck = createAdminClient();
+    if (supabaseCheck) {
+      const balance = {
+        employeeId,
+        year: new Date().getFullYear(),
+        leaveType: "CASUAL",
+        annualAllotment: 12.0,
+        usedDays: 0,
+        pendingDays: 0,
+        remainingDays: 12.0,
+      };
+      return apiSuccess({ requests: [], balance });
+    }
+
+    // Only use in-memory store when Supabase is completely unconfigured
     const requests = WorkpulseSharedStore.getLeaveRequests();
     const balance = {
       employeeId,

@@ -15,8 +15,12 @@ export async function GET(req: NextRequest) {
     const isLead = !isHR && actor.roles.includes("MANAGER");
 
     const allEmployees = WorkpulseSharedStore.getAllEmployees();
-    let leaveRequests = WorkpulseSharedStore.getLeaveRequests();
-    let wfhRequests = WorkpulseSharedStore.getWfhRequests();
+    let leaveRequests: any[] = [];
+    let wfhRequests: any[] = [];
+    if (!supabaseAdmin) {
+      leaveRequests = WorkpulseSharedStore.getLeaveRequests();
+      wfhRequests = WorkpulseSharedStore.getWfhRequests();
+    }
     let workdaysToday: any[] = [];
     let punchesToday: any[] = [];
 

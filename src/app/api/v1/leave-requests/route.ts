@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
-import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { workpulseSharedStore, getDeletedLeaveIds, WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,66 @@ export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const status = searchParams.get("status");
 
+  try {
+    const supabaseAdmin = createAdminClient();
+    if (supabaseAdmin) {
+      let query = supabaseAdmin.from("leave_requests").select("*").order("created_at", { ascending: false });
+      if (!actor.roles.includes("HR")) {
+        if (!actor.roles.includes("MANAGER")) {
+          query = query.eq("employee_id", actor.employeeId);
+        }
+      }
+      if (status) {
+        query = query.eq("status", status);
+      }
+      const { data, error } = await query;
+      if (!error && Array.isArray(data)) {
+        const deletedIds = getDeletedLeaveIds();
+        const requests = data
+          .map((r: any) => ({
+            id: r.id,
+            employeeId: r.employee_id,
+            employeeName: r.employee_name,
+            departmentId: r.department_id || "dept-development",
+            departmentName: r.department_name || "Development",
+            designation: r.designation || "Engineer",
+            leaveType: r.leave_type || "CASUAL",
+            startDate: r.start_date,
+            endDate: r.end_date,
+            daysCount: Number(r.days_count) || 1,
+            reason: r.reason,
+            handoverNotes: r.handover_notes,
+            backupPersonName: r.backup_person_name,
+            remainingBalance: Number(r.remaining_balance) || 11.0,
+            status: r.status,
+            tlApproverName: r.tl_approver_name,
+            tlApprovedAt: r.tl_approved_at,
+            tlComment: r.tl_comment,
+            hrApproverName: r.hr_approver_name,
+            hrApprovedAt: r.hr_approved_at,
+            hrComment: r.hr_comment,
+            rejectionReason: r.rejection_reason,
+            createdAt: r.created_at,
+          }))
+          .filter((r: any) => !deletedIds.has(r.id));
+
+        WorkpulseSharedStore.setLeaveRequestsFromSupabase(requests);
+        const state = workpulseSharedStore.getState();
+        return apiSuccess({ requests, balances: state.leaveBalances, total: requests.length });
+      }
+    }
+  } catch (err) {
+    console.warn("[Leave-Requests API GET] Supabase fetch error:", err);
+  }
+
+  // Fallback: return empty when Supabase is configured (it was attempted above but failed)
+  // This prevents stale in-memory data from being served when Supabase is the intended authority
+  const supabaseAdmin = createAdminClient();
+  if (supabaseAdmin) {
+    return apiSuccess({ requests: [], balances: [], total: 0 });
+  }
+
+  // Only use in-memory store when Supabase is completely unconfigured
   const state = workpulseSharedStore.getState();
   let requests = state.leaveRequests;
 

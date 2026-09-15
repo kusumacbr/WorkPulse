@@ -35,72 +35,7 @@ export interface TeamEvaluation {
   status: "EVALUATED" | "PENDING_REVIEW";
 }
 
-const DEFAULT_TEAM_EVALUATIONS: TeamEvaluation[] = [
-  {
-    id: "pe-1",
-    name: "Sarah Dev",
-    role: "Senior Backend Engineer",
-    avatar: "SD",
-    avatarBg: "bg-gradient-to-tr from-purple-500 to-pink-500 text-white shadow-purple-500/20 shadow-sm",
-    cardBorder: "border-purple-500/30 hover:border-purple-500/50",
-    score: 92,
-    quality: 5.0,
-    timeliness: 4.8,
-    communication: 4.7,
-    teamwork: 4.9,
-    initiative: 4.8,
-    leadNotes: "Exceptional technical execution on the platform architecture. Consistently reliable with zero regressions.",
-    status: "EVALUATED",
-  },
-  {
-    id: "pe-2",
-    name: "Rohit Sharma",
-    role: "Frontend Engineer",
-    avatar: "RS",
-    avatarBg: "bg-gradient-to-tr from-cyan-500 to-blue-600 text-white shadow-cyan-500/20 shadow-sm",
-    cardBorder: "border-cyan-500/30 hover:border-cyan-500/50",
-    score: 88,
-    quality: 4.8,
-    timeliness: 4.6,
-    communication: 4.8,
-    teamwork: 4.7,
-    initiative: 4.6,
-    leadNotes: "Great turnaround on component library polish and mobile responsiveness. Highly collaborative.",
-    status: "EVALUATED",
-  },
-  {
-    id: "pe-3",
-    name: "Priya Patel",
-    role: "QA & Test Lead",
-    avatar: "PP",
-    avatarBg: "bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-amber-500/20 shadow-sm",
-    cardBorder: "border-amber-500/30 hover:border-amber-500/50",
-    score: 94,
-    quality: 5.0,
-    timeliness: 5.0,
-    communication: 4.9,
-    teamwork: 4.9,
-    initiative: 4.9,
-    leadNotes: "Thorough regression testing and automated test coverage. Catches boundary edge cases proactively.",
-    status: "EVALUATED",
-  },
-  {
-    id: "pe-4",
-    name: "Arjun Kumar",
-    role: "Fullstack Developer",
-    avatar: "AK",
-    avatarBg: "bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-emerald-500/20 shadow-sm",
-    cardBorder: "border-emerald-500/30 hover:border-emerald-500/50",
-    score: 86,
-    quality: 4.5,
-    timeliness: 4.4,
-    communication: 4.6,
-    teamwork: 4.8,
-    initiative: 4.5,
-    leadNotes: "Showing fast learning speed on database migrations and backend schemas. Positive team attitude.",
-    status: "EVALUATED",
-  },
-];
+const DEFAULT_TEAM_EVALUATIONS: TeamEvaluation[] = [];
 
 type LeadReviewTab =
   | "TEAM_EVALUATIONS"
@@ -323,7 +258,13 @@ export function LeadReviewsManager() {
       {activeTab === "TEAM_EVALUATIONS" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {evaluations.map((member) => (
+            {evaluations.length === 0 ? (
+              <div className="col-span-full p-8 text-center rounded-2xl border border-dashed border-border bg-card/40 text-muted-foreground space-y-2">
+                <p className="text-sm font-semibold">No team evaluations submitted yet</p>
+                <p className="text-xs">Evaluations will appear here once performance reviews are conducted.</p>
+              </div>
+            ) : (
+              evaluations.map((member) => (
               <div
                 key={member.id}
                 className={`p-5 rounded-2xl border bg-card space-y-3.5 transition-all shadow-sm ${member.cardBorder}`}
@@ -387,7 +328,7 @@ export function LeadReviewsManager() {
                   </button>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
         </div>
       )}

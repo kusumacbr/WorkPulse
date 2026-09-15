@@ -21,24 +21,6 @@ import {
 
 type FeedbackTimeframe = "day" | "week" | "month";
 
-interface DailyFeedbackItem {
-  id: string;
-  employeeId?: string;
-  employeeName?: string;
-  departmentName?: string;
-  date: string;
-  dayName: string;
-  employeeEodSummary: string;
-  tasksCompleted: string;
-  hoursLogged: number;
-  leadFeedbackTime: string;
-  leadFeedbackNote: string;
-  leadRating: number;
-  leadSentiment: "EXCELLENT" | "GREAT" | "ON_TRACK";
-  leadActionItem?: string;
-  isToday?: boolean;
-}
-
 interface WeeklySprintReviewItem {
   id: string;
   sprintName: string;
@@ -70,60 +52,6 @@ interface MonthlyCalibrationItem {
   coreCompetenciesAverage: number;
   keyMilestonesAcknowledged: string[];
 }
-
-const DAILY_FEEDBACKS: DailyFeedbackItem[] = [
-  {
-    id: "df-today",
-    date: "Today (Aug 20, 2026)",
-    dayName: "Thursday",
-    employeeEodSummary: "Implemented dedicated SOD Carryover section with rollover deck, updated role dashboards, and conducted code review on Stage-2 Leave PRs.",
-    tasksCompleted: "2 of 2 Planned Deliverables (100%)",
-    hoursLogged: 8.5,
-    leadFeedbackTime: "05:45 PM",
-    leadFeedbackNote: "Outstanding work on the SOD state machine and role streamlining today, Sara. Code review comments on PR #42 were addressed cleanly and test coverage remained 100%. Great pace heading into tomorrow's sprint review.",
-    leadRating: 5,
-    leadSentiment: "EXCELLENT",
-    leadActionItem: "Prepare demo recording of the SOD rollover flow for tomorrow's team sync.",
-    isToday: true,
-  },
-  {
-    id: "df-yesterday",
-    date: "Yesterday (Aug 19, 2026)",
-    dayName: "Wednesday",
-    employeeEodSummary: "Configured brand color tokens across UI layout, built Week/Month switcher layout, and fixed authorization scope isolation.",
-    tasksCompleted: "3 of 3 Planned Tasks (100%)",
-    hoursLogged: 8.2,
-    leadFeedbackTime: "06:10 PM",
-    leadFeedbackNote: "The brand extraction and dark mode contrast tokens look super polished. Really appreciate you picking up the authorization test assertions proactively.",
-    leadRating: 5,
-    leadSentiment: "EXCELLENT",
-    leadActionItem: "Align with Rohit on mobile responsive drawer components.",
-  },
-  {
-    id: "df-tue",
-    date: "Aug 18, 2026",
-    dayName: "Tuesday",
-    employeeEodSummary: "Refactored PostgreSQL migration resilience scripts and hardened WebAuthn passkey assertion verification.",
-    tasksCompleted: "4 of 4 Planned Tasks (100%)",
-    hoursLogged: 8.0,
-    leadFeedbackTime: "05:30 PM",
-    leadFeedbackNote: "Solid engineering rigor on the database fallback handling. The zero-downtime schema check was a great architectural addition.",
-    leadRating: 4.8,
-    leadSentiment: "GREAT",
-  },
-  {
-    id: "df-mon",
-    date: "Aug 17, 2026",
-    dayName: "Monday",
-    employeeEodSummary: "Weekly kickoff planning, initial Better Auth role schema design, and unit testing strategy setup.",
-    tasksCompleted: "3 of 3 Planned Tasks (100%)",
-    hoursLogged: 8.5,
-    leadFeedbackTime: "06:00 PM",
-    leadFeedbackNote: "Good start to the week. Clear deliverables outlined in your morning SOD with well-defined weights.",
-    leadRating: 4.6,
-    leadSentiment: "ON_TRACK",
-  },
-];
 
 const WEEKLY_REVIEWS: WeeklySprintReviewItem[] = [
   {
@@ -222,7 +150,7 @@ export function LeadEODFeedbackDeck() {
   const [timeframe, setTimeframe] = useState<FeedbackTimeframe>("day");
   const [selectedSprint, setSelectedSprint] = useState<WeeklySprintReviewItem>(WEEKLY_REVIEWS[0]!);
   const { feedbacks } = useWorkpulseSharedStore();
-  const displayFeedbacks = feedbacks.length > 0 ? feedbacks : DAILY_FEEDBACKS;
+  const displayFeedbacks = feedbacks;
 
   return (
     <div className="space-y-6">
@@ -344,7 +272,14 @@ export function LeadEODFeedbackDeck() {
             </div>
 
             <div className="space-y-4">
-              {displayFeedbacks.map((df) => (
+              {displayFeedbacks.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl border border-dashed border-border bg-card/40 text-muted-foreground space-y-2">
+                  <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                  <p className="text-sm font-semibold">No manager feedback recorded yet</p>
+                  <p className="text-xs">Feedback submitted by your Team Lead will appear here automatically from Supabase.</p>
+                </div>
+              ) : (
+                displayFeedbacks.map((df) => (
                 <Interactive3DCard
                   key={df.id}
                   className={`p-5 md:p-6 border space-y-4 transition-all ${
@@ -429,7 +364,7 @@ export function LeadEODFeedbackDeck() {
                     )}
                   </div>
                 </Interactive3DCard>
-              ))}
+              )))}
             </div>
           </div>
         )}

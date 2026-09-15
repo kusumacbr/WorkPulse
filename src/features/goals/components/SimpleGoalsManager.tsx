@@ -36,44 +36,7 @@ export interface SimpleGoalItem {
   description?: string;
 }
 
-export const DEFAULT_FRIENDLY_GOALS: SimpleGoalItem[] = [
-  {
-    id: "goal-1",
-    title: "Improve customer inquiry response time",
-    category: "Customer Service",
-    progress: 75,
-    status: "IN_PROGRESS",
-    targetDate: "End of Quarter",
-    description: "Aim to respond to all client questions within 2 hours.",
-  },
-  {
-    id: "goal-2",
-    title: "Complete quarterly team training program",
-    category: "Professional Growth",
-    progress: 60,
-    status: "IN_PROGRESS",
-    targetDate: "This Month",
-    description: "Finish all 4 modules of the leadership and communication workshop.",
-  },
-  {
-    id: "goal-3",
-    title: "Streamline monthly invoice approvals",
-    category: "Operations",
-    progress: 100,
-    status: "COMPLETED",
-    targetDate: "This Week",
-    description: "Reduced average vendor invoice processing time from 5 days to 1 day.",
-  },
-  {
-    id: "goal-4",
-    title: "Update team documentation & knowledge base",
-    category: "Organization",
-    progress: 40,
-    status: "IN_PROGRESS",
-    targetDate: "Next Month",
-    description: "Organize shared templates, FAQs, and onboarding checklists.",
-  },
-];
+export const DEFAULT_FRIENDLY_GOALS: SimpleGoalItem[] = [];
 
 export interface CompanyOKRItem {
   id: string;
@@ -83,29 +46,7 @@ export interface CompanyOKRItem {
   department: string;
 }
 
-const COMPANY_OKRS: CompanyOKRItem[] = [
-  {
-    id: "okr-1",
-    objective: "Deliver Outstanding Customer Service",
-    keyResult: "Achieve 98%+ client satisfaction score across all service touchpoints.",
-    progress: 85,
-    department: "Organization Wide",
-  },
-  {
-    id: "okr-2",
-    objective: "Operational Excellence & Speed",
-    keyResult: "Reduce approval turnaround time to under 24 hours.",
-    progress: 90,
-    department: "Operations & HR",
-  },
-  {
-    id: "okr-3",
-    objective: "Empower People & Team Growth",
-    keyResult: "100% of staff participate in quarterly skill-building workshops.",
-    progress: 70,
-    department: "All Teams",
-  },
-];
+const COMPANY_OKRS: CompanyOKRItem[] = [];
 
 type GoalTab = "ALL" | "IN_PROGRESS" | "COMPLETED";
 

@@ -37,11 +37,16 @@ export function Stage2LeaveApprovalQueue() {
   const pendingWfhQueue = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
   const completedWfhQueue = wfhRequests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED");
 
-  const handleApproveLeave = (id: string, name: string) => {
+  const handleApproveLeave = async (id: string, name: string) => {
     const comment = hrCommentInputs[id] || "Final HR sign-off granted by Rachel HR.";
     hrApproveLeave(id, comment);
     setToastMsg(`Final Stage-2 HR approval granted for ${name}'s leave request! 🎉`);
     try {
+      await fetch(`/api/v1/leave/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
@@ -52,11 +57,16 @@ export function Stage2LeaveApprovalQueue() {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  const handleRejectLeave = (id: string, name: string) => {
+  const handleRejectLeave = async (id: string, name: string) => {
     const reason = hrCommentInputs[id] || "Rejected during final HR compliance check.";
     hrRejectLeave(id, reason);
     setToastMsg(`Leave request for ${name} rejected by HR.`);
     try {
+      await fetch(`/api/v1/leave/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
@@ -67,11 +77,16 @@ export function Stage2LeaveApprovalQueue() {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  const handleApproveWfh = (id: string, name: string) => {
+  const handleApproveWfh = async (id: string, name: string) => {
     const comment = hrCommentInputs[id] || "Final HR approval granted for remote workday.";
     hrApproveWfh(id, comment);
     setToastMsg(`Final Stage-2 HR approval granted for ${name}'s WFH request! 🏠`);
     try {
+      await fetch(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
@@ -82,11 +97,16 @@ export function Stage2LeaveApprovalQueue() {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  const handleRejectWfh = (id: string, name: string) => {
+  const handleRejectWfh = async (id: string, name: string) => {
     const reason = hrCommentInputs[id] || "Rejected during HR policy check.";
     hrRejectWfh(id, reason);
     setToastMsg(`WFH request for ${name} rejected by HR.`);
     try {
+      await fetch(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",

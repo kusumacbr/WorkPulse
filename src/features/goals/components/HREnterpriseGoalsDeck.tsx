@@ -27,40 +27,7 @@ export interface SimpleHRGoal {
   status: "IN_PROGRESS" | "COMPLETED";
 }
 
-const DEFAULT_GOALS: SimpleHRGoal[] = [
-  {
-    id: "goal-1",
-    title: "Accelerate Technical Hiring & Candidate Turnaround",
-    category: "Talent Acquisition",
-    target: "Time-to-Hire < 21 Days",
-    progress: 92,
-    status: "IN_PROGRESS",
-  },
-  {
-    id: "goal-2",
-    title: "Shift Punctuality & Biometric Attendance Adherence",
-    category: "Attendance & Compliance",
-    target: "Adherence > 98%",
-    progress: 98,
-    status: "IN_PROGRESS",
-  },
-  {
-    id: "goal-3",
-    title: "Foster Inclusive Culture, Team Engagement & Low Attrition",
-    category: "Culture & Retention",
-    target: "eNPS Score >= 85",
-    progress: 94,
-    status: "IN_PROGRESS",
-  },
-  {
-    id: "goal-4",
-    title: "Stage-2 Leave Sign-offs & Checkpoint SLA Compliance",
-    category: "Operations",
-    target: "100% On-Time Sign-offs",
-    progress: 100,
-    status: "COMPLETED",
-  },
-];
+const DEFAULT_GOALS: SimpleHRGoal[] = [];
 
 const DEFAULT_CATEGORY_STYLE = {
   bg: "bg-purple-500/15",

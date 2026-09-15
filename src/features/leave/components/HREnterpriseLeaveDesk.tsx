@@ -27,6 +27,9 @@ export function HREnterpriseLeaveDesk() {
     hrRejectLeave,
     hrApproveWfh,
     hrRejectWfh,
+    setLeaveRequestsFromSupabase,
+    setWfhRequestsFromSupabase,
+    syncWithSupabase,
   } = useWorkpulseSharedStore();
 
   const [activeSubTab, setActiveSubTab] = useState<"queue" | "ledger" | "wfh" | "forecaster">("queue");
@@ -35,13 +38,26 @@ export function HREnterpriseLeaveDesk() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   React.useEffect(() => {
+    syncWithSupabase(true);
     fetch("/api/v1/leave")
       .then((res) => res.json())
+      .then((json) => {
+        const reqs = json?.data?.requests || json?.requests;
+        if (Array.isArray(reqs)) {
+          setLeaveRequestsFromSupabase(reqs);
+        }
+      })
       .catch(() => {});
     fetch("/api/v1/leave/wfh")
       .then((res) => res.json())
+      .then((json) => {
+        const reqs = json?.data?.requests || json?.requests;
+        if (Array.isArray(reqs)) {
+          setWfhRequestsFromSupabase(reqs);
+        }
+      })
       .catch(() => {});
-  }, []);
+  }, [syncWithSupabase, setLeaveRequestsFromSupabase, setWfhRequestsFromSupabase]);
 
   // Filter pending stage-2 requests
   const pendingLeaves = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");

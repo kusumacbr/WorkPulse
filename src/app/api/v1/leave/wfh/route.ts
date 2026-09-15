@@ -19,11 +19,8 @@ export async function GET(req: NextRequest) {
             query = query.eq("employee_id", actor.employeeId);
           }
         }
-        const { data, error }: any = await Promise.race([
-          query,
-          new Promise((resolve) => setTimeout(() => resolve({ data: null, error: new Error("DB_TIMEOUT") }), 500)),
-        ]);
-        if (!error && data) {
+        const { data, error } = await query;
+        if (!error && Array.isArray(data)) {
           const requests = data
             .map((r: any) => ({
               id: r.id,
@@ -60,7 +57,13 @@ export async function GET(req: NextRequest) {
       // safe fallback
     }
 
-    // Fallback to in-memory
+    // Fallback: return empty when Supabase is configured but the query failed
+    const supabaseCheck = createAdminClient();
+    if (supabaseCheck) {
+      return apiSuccess({ requests: [] });
+    }
+
+    // Only use in-memory store when Supabase is completely unconfigured
     const requests = WorkpulseSharedStore.getWfhRequests();
     return apiSuccess({ requests });
   } catch (err: any) {

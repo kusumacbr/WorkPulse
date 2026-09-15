@@ -18,7 +18,7 @@ import {
 
 export default function WorkModePage() {
   const user = useCurrentUser();
-  const { wfhRequests, addWfhRequest } = useWorkpulseSharedStore();
+  const { wfhRequests, addWfhRequest, setWfhRequestsFromSupabase, syncWithSupabase } = useWorkpulseSharedStore();
 
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]!);
   const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]!);
@@ -29,10 +29,17 @@ export default function WorkModePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    syncWithSupabase(true);
     fetch("/api/v1/leave/wfh")
       .then((res) => res.json())
+      .then((json) => {
+        const reqs = json?.data?.requests || json?.requests;
+        if (Array.isArray(reqs)) {
+          setWfhRequestsFromSupabase(reqs);
+        }
+      })
       .catch(() => {});
-  }, []);
+  }, [syncWithSupabase, setWfhRequestsFromSupabase]);
 
   const myWfhRequests = wfhRequests.filter(
     (w) =>

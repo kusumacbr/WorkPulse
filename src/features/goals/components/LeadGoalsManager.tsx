@@ -43,38 +43,7 @@ export interface TeamSprintGoal {
   description: string;
 }
 
-const DEFAULT_TEAM_SPRINT_GOALS: TeamSprintGoal[] = [
-  {
-    id: "tsg-1",
-    title: "Deliver Core Platform Engine & Role Isolation",
-    leadOwner: "Alex Lead",
-    category: "Architecture",
-    progress: 80,
-    status: "IN_PROGRESS",
-    targetDate: "This Week",
-    description: "Ensure clean role segregation and instant persona transitions across all application layers.",
-  },
-  {
-    id: "tsg-2",
-    title: "Automated Regression & Visual Component Suite",
-    leadOwner: "Alex Lead",
-    category: "Quality & Testing",
-    progress: 65,
-    status: "IN_PROGRESS",
-    targetDate: "This Week",
-    description: "Achieve 100% automated test pass rate with zero visual regression defects.",
-  },
-  {
-    id: "tsg-3",
-    title: "Central Authorization Library & Audit Trails",
-    leadOwner: "Alex Lead",
-    category: "Security",
-    progress: 100,
-    status: "COMPLETED",
-    targetDate: "Last Week",
-    description: "Successfully merged central authorization layer with zero security vulnerabilities.",
-  },
-];
+const DEFAULT_TEAM_SPRINT_GOALS: TeamSprintGoal[] = [];
 
 export interface DirectReportMember {
   id: string;
@@ -85,123 +54,7 @@ export interface DirectReportMember {
   avatarBg: string;
 }
 
-const DEFAULT_DIRECT_REPORTS: DirectReportMember[] = [
-  {
-    id: "emp-sarah",
-    name: "Sarah Dev",
-    email: "employee.test@xorstack.com",
-    role: "Senior Backend Engineer",
-    avatar: "SD",
-    avatarBg: "bg-gradient-to-tr from-purple-500 to-pink-500 text-white",
-  },
-  {
-    id: "emp-rohit",
-    name: "Rohit Sharma",
-    email: "rohit.test@xorstack.com",
-    role: "Frontend Engineer",
-    avatar: "RS",
-    avatarBg: "bg-gradient-to-tr from-cyan-500 to-blue-600 text-white",
-  },
-  {
-    id: "emp-api",
-    name: "API Test User",
-    email: "api.test@xorstack.com",
-    role: "Platform Engineer",
-    avatar: "AT",
-    avatarBg: "bg-gradient-to-tr from-amber-500 to-orange-500 text-white",
-  },
-  {
-    id: "emp-test",
-    name: "Test Engineer User",
-    email: "test.test@xorstack.com",
-    role: "Software Engineer II",
-    avatar: "TE",
-    avatarBg: "bg-gradient-to-tr from-emerald-500 to-teal-500 text-white",
-  },
-];
-
-const DEFAULT_MEMBER_GOALS: Record<string, SimpleGoalItem[]> = {
-  "emp-sarah": [
-    {
-      id: "mg-1",
-      title: "Task Carryover State Machine & Local Cache",
-      category: "Architecture",
-      progress: 80,
-      status: "IN_PROGRESS",
-      targetDate: "This Week",
-      description: "Implement robust carryover state transition and optimistic cache invalidation.",
-    },
-    {
-      id: "mg-5",
-      title: "Database Query Optimization & Indexing",
-      category: "Operations",
-      progress: 60,
-      status: "IN_PROGRESS",
-      targetDate: "Next Week",
-      description: "Optimize execution plans for employee workload and attendance history queries.",
-    },
-  ],
-  "emp-rohit": [
-    {
-      id: "mg-2",
-      title: "Mobile Responsiveness & Component UI Polish",
-      category: "Customer Service",
-      progress: 50,
-      status: "IN_PROGRESS",
-      targetDate: "This Week",
-      description: "Ensure pixel-perfect mobile drawer layouts and smooth responsive animations.",
-    },
-    {
-      id: "mg-6",
-      title: "Design System & Dark Mode Consistency",
-      category: "Professional Growth",
-      progress: 100,
-      status: "COMPLETED",
-      targetDate: "Last Week",
-      description: "Standardized tokenized color variables across all dashboard widgets.",
-    },
-  ],
-  "emp-api": [
-    {
-      id: "mg-3",
-      title: "REST Endpoints & Performance Tuning",
-      category: "Architecture",
-      progress: 90,
-      status: "IN_PROGRESS",
-      targetDate: "This Week",
-      description: "Tune JSON response payloads and add gzip compression headers.",
-    },
-    {
-      id: "mg-7",
-      title: "Auth Middleware & Token Revocation Queue",
-      category: "Security",
-      progress: 75,
-      status: "IN_PROGRESS",
-      targetDate: "This Month",
-      description: "Integrate stateless JWT verification with Redis token blacklist queue.",
-    },
-  ],
-  "emp-test": [
-    {
-      id: "mg-4",
-      title: "Daily SOD Verification & Feedback Flow",
-      category: "Organization",
-      progress: 70,
-      status: "IN_PROGRESS",
-      targetDate: "This Week",
-      description: "Enhance manager review dialogs and real-time SOD approval notifications.",
-    },
-    {
-      id: "mg-8",
-      title: "Automated Cypress E2E Integration Suite",
-      category: "Quality & Testing",
-      progress: 85,
-      status: "IN_PROGRESS",
-      targetDate: "Next Week",
-      description: "Cover core employee & lead workflows with automated headless browser tests.",
-    },
-  ],
-};
+const DEFAULT_DIRECT_REPORTS: DirectReportMember[] = [];
 
 interface TeamCategoryStyle {
   icon: React.ComponentType<{ className?: string }>;
@@ -385,14 +238,7 @@ export function LeadGoalsManager() {
         } catch {}
       }
 
-      // 3. Fallback to default seed goals
-      if (loaded.length === 0) {
-        loaded = DEFAULT_MEMBER_GOALS[emp.id] ?? DEFAULT_MEMBER_GOALS["emp-sarah"] ?? [];
-        try {
-          localStorage.setItem(`workpulse_simple_goals_${emp.id}`, JSON.stringify(loaded));
-          localStorage.setItem(`workpulse_simple_goals_${emp.email}`, JSON.stringify(loaded));
-        } catch {}
-      }
+      updatedMap[emp.id] = loaded;
 
       updatedMap[emp.id] = loaded;
     }

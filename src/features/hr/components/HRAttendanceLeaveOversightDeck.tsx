@@ -134,28 +134,64 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
   const pendingWfhs = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
   const totalPending = pendingLeaves.length + pendingWfhs.length;
 
-  const handleApproveLeave = (id: string, name: string) => {
+  const handleApproveLeave = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Authorized by HR People Operations with standard balance deduction.";
     hrApproveLeave(id, comment);
     showToast(`Stage-2 Leave for ${name} approved and finalized! ✓`);
+    try {
+      await fetch(`/api/v1/leave/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR leave approval to API:", e);
+    }
   };
 
-  const handleRejectLeave = (id: string, name: string) => {
+  const handleRejectLeave = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Rejected during HR policy review.";
     hrRejectLeave(id, comment);
     showToast(`Leave application for ${name} rejected.`);
+    try {
+      await fetch(`/api/v1/leave/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR leave rejection to API:", e);
+    }
   };
 
-  const handleApproveWfh = (id: string, name: string) => {
+  const handleApproveWfh = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Authorized WFH session. Shift 10:00 AM - 07:00 PM.";
     hrApproveWfh(id, comment);
     showToast(`Stage-2 WFH for ${name} authorized! ✓`);
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR WFH approval to API:", e);
+    }
   };
 
-  const handleRejectWfh = (id: string, name: string) => {
+  const handleRejectWfh = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Rejected during HR policy check.";
     hrRejectWfh(id, comment);
     showToast(`WFH application for ${name} rejected.`);
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist HR WFH rejection to API:", e);
+    }
   };
 
   // Build leave ledger

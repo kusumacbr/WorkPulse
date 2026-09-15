@@ -11,6 +11,7 @@ function setupGlobalWindowListeners() {
 
   const handleRealtimeUpdate = () => {
     WorkpulseSharedStore.hydrateFromStorage();
+    WorkpulseSharedStore.syncWithSupabase(true);
   };
 
   const events = [
@@ -65,6 +66,7 @@ export function useWorkpulseSharedStore() {
   useEffect(() => {
     setupGlobalWindowListeners();
     WorkpulseSharedStore.hydrateFromStorage();
+    WorkpulseSharedStore.syncWithSupabase();
     const unsubscribe = subscribeToSharedStore(() => setTick((t) => t + 1));
     return () => {
       unsubscribe();

@@ -334,60 +334,30 @@ export async function POST(req: NextRequest) {
 
         const goalId = goal.id;
         const title = goal.title || "Goal";
-        const desc = goal.description || "";
         const targetEmp = goal.employeeId || employeeId || "emp-sarah";
-        const empName = goal.employeeName || "Sarah Dev";
         const status = goal.status || "IN_PROGRESS";
         const progress = Number(goal.progressPercentage ?? goal.progress) || 0;
-        const category = goal.category || "ENGINEERING";
-        const outcome = goal.measurableOutcome || "Achieve target deliverables";
+        const category = goal.category || "Operations";
+        const targetDate = goal.targetDate || "This Month";
 
-        // Persist goal to public.feedbacks with type/sentiment GOAL for executive tracking
-        await supabaseAdmin.from("feedbacks").upsert({
-          id: `fb-${goalId}`,
-          employee_id: targetEmp,
-          employee_name: empName,
-          lead_id: "lead-alex",
-          lead_name: "Alex Lead",
-          date: new Date().toISOString().split("T")[0]!,
-          rating: progress >= 100 ? 5 : progress >= 50 ? 4 : 3,
-          sentiment: status === "COMPLETED" ? "EXCELLENT" : "GOOD",
-          notes: `[GOAL - ${category}] ${title}: ${desc} (Progress: ${progress}%)`,
-          action_item: `Outcome Target: ${outcome}`,
-        });
-
-        // Also persist in today's workday goals snapshot
-        const today = new Date().toISOString().split("T")[0]!;
-        const { data: existingWd } = await supabaseAdmin
-          .from("workdays")
-          .select("planned_tasks")
-          .match({ employee_id: targetEmp, date: today })
-          .maybeSingle();
-
-        const currentTasks: any[] = existingWd?.planned_tasks || [];
-        const filteredTasks = currentTasks.filter((t) => t.id !== goalId && t.id !== `goal-${goalId}`);
-        filteredTasks.push({
+        // Persist directly to Supabase public.goals table
+        const { error: goalErr } = await supabaseAdmin.from("goals").upsert({
           id: goalId,
-          title: `[GOAL] ${title}`,
-          description: desc,
-          project: category,
-          priority: goal.priority || "HIGH",
-          taskType: "GOAL",
-          status: status,
-          completionPercentage: progress,
-          expectedOutput: outcome,
-        });
-
-        await supabaseAdmin.from("workdays").upsert({
-          id: `wd-${targetEmp}-${today}`,
           employee_id: targetEmp,
-          employee_name: empName,
-          date: today,
-          work_mode: "OFFICE",
-          planned_tasks: filteredTasks,
+          title: title,
+          category: category,
+          progress: progress,
+          status: status,
+          target_date: targetDate,
+          updated_at: new Date().toISOString(),
         });
 
-        return apiSuccess({ success: true, message: `Goal '${goalId}' permanently synced to Supabase.` });
+        if (goalErr) {
+          console.error("[Supabase Admin Sync] Goal upsert error:", goalErr.message);
+          return apiError(`Failed to sync goal: ${goalErr.message}`, 500);
+        }
+
+        return apiSuccess({ success: true, message: `Goal '${goalId}' permanently synced to Supabase goals table.` });
       }
 
       case "purge_leaves": {
@@ -418,8 +388,8 @@ export async function POST(req: NextRequest) {
         const notif = record;
         if (!notif) return apiError("Missing notification record", 400);
 
-        await Promise.allSettled([
-          supabaseAdmin.from("notifications").insert({
+        try {
+          await supabaseAdmin.from("notifications").insert({
             id: notif.id,
             user_id: notif.userId || notif.user_id,
             actor_id: notif.actorId || notif.actor_id,
@@ -430,86 +400,53 @@ export async function POST(req: NextRequest) {
             announcement_id: notif.announcementId || notif.announcement_id,
             read: Boolean(notif.read),
             created_at: notif.createdAt || notif.created_at || new Date().toISOString(),
-          }),
-          supabaseAdmin.from("feedbacks").upsert({
-            id: notif.id,
-            employee_id: notif.userId || notif.user_id || "all",
-            employee_name: notif.title,
-            lead_id: "NOTIFICATION",
-            lead_name: notif.actorId || notif.actor_id || "HR - People Operations",
-            date: (notif.createdAt || new Date().toISOString()).split("T")[0],
-            rating: notif.read ? 1.0 : 0.0,
-            sentiment: notif.type,
-            notes: notif.message,
-            action_item: JSON.stringify({
-              announcementId: notif.announcementId || notif.announcement_id,
-              linkUrl: notif.linkUrl || notif.link_url,
-              read: Boolean(notif.read),
-              createdAt: notif.createdAt || new Date().toISOString(),
-              type: notif.type,
-              userId: notif.userId || notif.user_id,
-              title: notif.title,
-              message: notif.message,
-            }),
-          }),
-        ]);
+          });
+        } catch {}
 
-        return apiSuccess({ success: true, message: `Notification '${notif.id}' broadcasted and synced to Supabase.` });
+        return apiSuccess({ success: true, message: `Notification '${notif.id}' broadcasted.` });
       }
 
       case "update_notification": {
         const notifId = id || record?.id;
         if (!notifId) return apiError("Missing notification 'id'", 400);
 
-        const fbUpdates: any = {};
-        if (record.title !== undefined) fbUpdates.employee_name = record.title;
-        if (record.message !== undefined) fbUpdates.notes = record.message;
-        if (record.read !== undefined) fbUpdates.rating = record.read ? 1.0 : 0.0;
-        if (record.type !== undefined) fbUpdates.sentiment = record.type;
-
-        await Promise.allSettled([
-          supabaseAdmin.from("feedbacks").update(fbUpdates).eq("id", notifId),
-          supabaseAdmin.from("notifications").update({
+        try {
+          await supabaseAdmin.from("notifications").update({
             title: record.title,
             message: record.message,
             read: record.read,
             type: record.type,
             link_url: record.linkUrl || record.link_url,
-          }).eq("id", notifId),
-        ]);
+          }).eq("id", notifId);
+        } catch {}
 
-        return apiSuccess({ success: true, message: `Notification '${notifId}' updated in Supabase.` });
+        return apiSuccess({ success: true, message: `Notification '${notifId}' updated.` });
       }
 
       case "delete_notification": {
         const notifId = id || record?.id;
         if (!notifId) return apiError("Missing notification 'id'", 400);
 
-        await Promise.allSettled([
-          supabaseAdmin.from("feedbacks").delete().eq("id", notifId),
-          supabaseAdmin.from("notifications").delete().eq("id", notifId),
-        ]);
+        try {
+          await supabaseAdmin.from("notifications").delete().eq("id", notifId);
+        } catch {}
 
-        return apiSuccess({ success: true, message: `Notification '${notifId}' deleted from Supabase.` });
+        return apiSuccess({ success: true, message: `Notification '${notifId}' deleted.` });
       }
 
       case "delete_all_notifications": {
         const targetUser = employeeId || id || body.userId;
         if (!targetUser) return apiError("Missing target user id", 400);
 
-        await Promise.allSettled([
-          supabaseAdmin
-            .from("feedbacks")
-            .delete()
-            .eq("lead_id", "NOTIFICATION")
-            .or(`employee_id.eq.${targetUser},employee_id.eq.all`),
-          supabaseAdmin
+        // Only delete notifications specifically targeted to this user; preserve broadcast notifications ('all') for other users
+        try {
+          await supabaseAdmin
             .from("notifications")
             .delete()
-            .or(`user_id.eq.${targetUser},user_id.eq.all`),
-        ]);
+            .eq("user_id", targetUser);
+        } catch {}
 
-        return apiSuccess({ success: true, message: `All notifications for '${targetUser}' deleted from Supabase.` });
+        return apiSuccess({ success: true, message: `Notifications for '${targetUser}' deleted.` });
       }
 
       default:

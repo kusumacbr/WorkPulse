@@ -23,18 +23,36 @@ export function TeamLeadWfhApprovals() {
   const pendingRequests = wfhRequests.filter((r) => r.status === "PENDING_TL_STAGE_1");
   const processedRequests = wfhRequests.filter((r) => r.status !== "PENDING_TL_STAGE_1");
 
-  const handleApprove = (id: string, name: string) => {
+  const handleApprove = async (id: string, name: string) => {
     const comment = commentInputs[id] || "Approved by Team Lead (Alex Lead). Forwarded to HR.";
     tlApproveWfh(id, comment);
     setToastMsg(`WFH request for ${name} approved & forwarded to HR for final sign-off! 🏠`);
     setTimeout(() => setToastMsg(null), 3500);
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist lead WFH approval to API:", e);
+    }
   };
 
-  const handleReject = (id: string, name: string) => {
+  const handleReject = async (id: string, name: string) => {
     const reason = commentInputs[id] || "Rejected by Team Lead due to on-site sprint requirements.";
     tlRejectWfh(id, reason);
     setToastMsg(`WFH request for ${name} rejected.`);
     setTimeout(() => setToastMsg(null), 3500);
+    try {
+      await fetch(`/api/v1/leave/wfh/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist lead WFH rejection to API:", e);
+    }
   };
 
   return (

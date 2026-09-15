@@ -227,7 +227,10 @@ export function NotificationDropdown() {
           handleIncomingNotification(data);
         })
         .on("broadcast", { event: "notification:read" }, (payload) => {
-          const targetId = payload.payload?.id || payload.id;
+          const data = payload.payload || payload;
+          const targetId = data?.id;
+          const evtUser = data?.userKey || data?.userEmail;
+          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
           if (targetId) {
             setNotifications((prev) =>
               prev.map((n) => (n.id === targetId ? { ...n, read: true } : n))
@@ -235,19 +238,36 @@ export function NotificationDropdown() {
             setUnreadCount((c) => Math.max(0, c - 1));
           }
         })
-        .on("broadcast", { event: "notification:read_all" }, () => {
+        .on("broadcast", { event: "notification:read_all" }, (payload) => {
+          const data = payload.payload || payload;
+          const evtUser = data?.userKey || data?.userEmail;
+          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
           setUnreadCount(0);
         })
         .on("broadcast", { event: "notification:deleted" }, (payload) => {
           const data = payload.payload || payload;
           const announcementId = data?.announcementId;
+          const evtUser = data?.userKey || data?.userEmail;
           if (announcementId) {
             setNotifications((prev) => prev.filter((n) =>
               n.id !== `notif-ann-${announcementId}` &&
               !data.notificationIds?.includes(n.id) &&
               (!data.title || n.title !== data.title)
             ));
+          } else if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+            const targetId = data?.id;
+            if (targetId) {
+              setNotifications((prev) => prev.filter((n) => n.id !== targetId));
+            }
+          }
+        })
+        .on("broadcast", { event: "notification:deleted_all" }, (payload) => {
+          const data = payload.payload || payload;
+          const evtUser = data?.userKey || data?.userEmail;
+          if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+            setNotifications([]);
+            setUnreadCount(0);
           }
         })
         .subscribe();
@@ -266,7 +286,10 @@ export function NotificationDropdown() {
           } else if (event.type === "announcement:broadcast") {
             handleIncomingNotification(event.payload);
           } else if (event.type === "notification:read") {
-            const targetId = event.payload?.id;
+            const data = event.payload || {};
+            const evtUser = data.userKey || data.userEmail;
+            if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+            const targetId = data.id;
             if (targetId) {
               setNotifications((prev) =>
                 prev.map((n) => (n.id === targetId ? { ...n, read: true } : n))
@@ -274,6 +297,9 @@ export function NotificationDropdown() {
               setUnreadCount((c) => Math.max(0, c - 1));
             }
           } else if (event.type === "notification:read_all") {
+            const data = event.payload || {};
+            const evtUser = data.userKey || data.userEmail;
+            if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
             setUnreadCount(0);
           } else if (event.type === "notification:deleted") {
@@ -300,6 +326,8 @@ export function NotificationDropdown() {
         if (type === "notification:new" || type === "NEW_ANNOUNCEMENT") {
           handleIncomingNotification(item);
         } else if (type === "notification:read") {
+          const evtUser = item?.userKey || item?.userEmail;
+          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
           const targetId = item?.id;
           if (targetId) {
             setNotifications((prev) =>
@@ -308,16 +336,30 @@ export function NotificationDropdown() {
             setUnreadCount((c) => Math.max(0, c - 1));
           }
         } else if (type === "notification:read_all") {
+          const evtUser = item?.userKey || item?.userEmail;
+          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
           setUnreadCount(0);
+        } else if (type === "notification:deleted_all") {
+          const evtUser = item?.userKey || item?.userEmail;
+          if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+            setNotifications([]);
+            setUnreadCount(0);
+          }
         } else if (type === "notification:deleted") {
           const announcementId = item?.announcementId;
+          const evtUser = item?.userKey || item?.userEmail;
           if (announcementId) {
             setNotifications((prev) => prev.filter((n) =>
               n.id !== `notif-ann-${announcementId}` &&
               !item.notificationIds?.includes(n.id) &&
               (!item.title || n.title !== item.title)
             ));
+          } else if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+            const targetId = item?.id;
+            if (targetId) {
+              setNotifications((prev) => prev.filter((n) => n.id !== targetId));
+            }
           }
         }
       };
@@ -328,7 +370,7 @@ export function NotificationDropdown() {
       if (eventSource) eventSource.close();
       if (broadcastChannel) broadcastChannel.close();
     };
-  }, [handleIncomingNotification]);
+  }, [handleIncomingNotification, userKey, user?.userEmail]);
 
   // Mark all as read with Real-Time sync
   const markAllAsRead = async () => {
@@ -346,13 +388,13 @@ export function NotificationDropdown() {
       await channel.send({
         type: "broadcast",
         event: "notification:read_all",
-        payload: { at: new Date().toISOString() },
+        payload: { at: new Date().toISOString(), userEmail: user?.userEmail, userKey },
       });
 
       // Cross-tab broadcast
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:read_all" });
+        bc.postMessage({ type: "notification:read_all", payload: { userEmail: user?.userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -382,13 +424,13 @@ export function NotificationDropdown() {
       await channel.send({
         type: "broadcast",
         event: "notification:read",
-        payload: { id },
+        payload: { id, userEmail: user?.userEmail, userKey },
       });
 
       // Cross-tab broadcast
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:read", payload: { id } });
+        bc.postMessage({ type: "notification:read", payload: { id, userEmail: user?.userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -412,12 +454,12 @@ export function NotificationDropdown() {
       await channel.send({
         type: "broadcast",
         event: "notification:deleted",
-        payload: { id },
+        payload: { id, userEmail: user?.userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:deleted", payload: { id } });
+        bc.postMessage({ type: "notification:deleted", payload: { id, userEmail: user?.userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -437,12 +479,12 @@ export function NotificationDropdown() {
       await channel.send({
         type: "broadcast",
         event: "notification:deleted_all",
-        payload: { at: new Date().toISOString() },
+        payload: { at: new Date().toISOString(), userEmail: user?.userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:deleted_all" });
+        bc.postMessage({ type: "notification:deleted_all", payload: { userEmail: user?.userEmail, userKey } });
         bc.close();
       }
     } catch {}

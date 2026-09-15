@@ -115,7 +115,16 @@ export function useRealtimeSync() {
             { event: "*", schema: "public", table: "leave_requests" },
             (payload) => {
               console.log("[Supabase Realtime] Leave request change received:", payload.eventType);
-              WorkpulseSharedStore.syncWithSupabase();
+              if (payload.eventType === "DELETE") {
+                const deletedId = (payload.old as any)?.id;
+                if (deletedId) {
+                  WorkpulseSharedStore.removeLeaveRequestFromRealtime(deletedId);
+                } else {
+                  WorkpulseSharedStore.syncWithSupabase(true);
+                }
+              } else {
+                WorkpulseSharedStore.syncWithSupabase(true);
+              }
             }
           )
           .on(
@@ -123,7 +132,16 @@ export function useRealtimeSync() {
             { event: "*", schema: "public", table: "wfh_requests" },
             (payload) => {
               console.log("[Supabase Realtime] WFH request change received:", payload.eventType);
-              WorkpulseSharedStore.syncWithSupabase();
+              if (payload.eventType === "DELETE") {
+                const deletedId = (payload.old as any)?.id;
+                if (deletedId) {
+                  WorkpulseSharedStore.removeWfhRequestFromRealtime(deletedId);
+                } else {
+                  WorkpulseSharedStore.syncWithSupabase(true);
+                }
+              } else {
+                WorkpulseSharedStore.syncWithSupabase(true);
+              }
             }
           )
           .on(
