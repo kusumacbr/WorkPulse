@@ -211,7 +211,7 @@ export function LeadGoalsManager() {
     for (const emp of directReports) {
       let loaded: SimpleGoalItem[] = [];
 
-      // 1. Try Supabase API
+      // Try Supabase API
       try {
         const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(emp.id)}`);
         if (res.ok) {
@@ -221,24 +221,6 @@ export function LeadGoalsManager() {
           }
         }
       } catch {}
-
-      // 2. Fallback to localStorage
-      if (loaded.length === 0) {
-        try {
-          const savedEmp = localStorage.getItem(`workpulse_simple_goals_${emp.id}`);
-          const savedEmail = localStorage.getItem(`workpulse_simple_goals_${emp.email}`);
-          const savedDefault = emp.id === "emp-sarah" ? localStorage.getItem("workpulse_simple_goals") : null;
-          const raw = savedEmp || savedEmail || savedDefault;
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              loaded = parsed;
-            }
-          }
-        } catch {}
-      }
-
-      updatedMap[emp.id] = loaded;
 
       updatedMap[emp.id] = loaded;
     }
@@ -260,43 +242,17 @@ export function LeadGoalsManager() {
           const data = await res.json();
           if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
             setGoals(data.data.goals);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("workpulse_lead_team_goals", JSON.stringify(data.data.goals));
-            }
           }
         }
       } catch {}
 
-      try {
-        const saved = localStorage.getItem("workpulse_lead_team_goals");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setGoals(parsed);
-          }
-        }
-      } catch {}
-
-      // Load Company OKRs managed by HR
+      // Load Company OKRs managed by HR from Supabase
       try {
         const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
         if (resOkrs.ok) {
           const okrsData = await resOkrs.json();
           if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
             setCompanyOkrs(okrsData.data.goals);
-            return;
-          }
-        }
-      } catch {}
-
-      try {
-        const savedCompany = localStorage.getItem("workpulse_company_okrs");
-        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
-        const rawOkrs = savedCompany || savedHr;
-        if (rawOkrs) {
-          const parsedOkrs = JSON.parse(rawOkrs);
-          if (Array.isArray(parsedOkrs) && parsedOkrs.length > 0) {
-            setCompanyOkrs(parsedOkrs);
           }
         }
       } catch {}
@@ -320,13 +276,11 @@ export function LeadGoalsManager() {
       } catch {}
 
       try {
-        const savedCompany = localStorage.getItem("workpulse_company_okrs");
-        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
-        const rawOkrs = savedCompany || savedHr;
-        if (rawOkrs) {
-          const parsedOkrs = JSON.parse(rawOkrs);
-          if (Array.isArray(parsedOkrs)) {
-            setCompanyOkrs(parsedOkrs);
+        const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
+        if (resOkrs.ok) {
+          const okrsData = await resOkrs.json();
+          if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
+            setCompanyOkrs(okrsData.data.goals);
           }
         }
       } catch {}
@@ -345,10 +299,7 @@ export function LeadGoalsManager() {
   const saveGoals = async (updated: TeamSprintGoal[]) => {
     setGoals(updated);
     if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("workpulse_lead_team_goals", JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent("workpulse_sync"));
-      } catch {}
+      window.dispatchEvent(new CustomEvent("workpulse_sync"));
     }
     // Sync Team Sprint Goals to Supabase
     try {
@@ -363,14 +314,7 @@ export function LeadGoalsManager() {
   const saveMemberGoals = async (empId: string, empEmail: string, updatedGoals: SimpleGoalItem[]) => {
     setMemberGoalsMap((prev) => ({ ...prev, [empId]: updatedGoals }));
     if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(updatedGoals));
-        localStorage.setItem(`workpulse_simple_goals_${empEmail}`, JSON.stringify(updatedGoals));
-        if (empId === "emp-sarah" || empEmail === "employee.test@xorstack.com") {
-          localStorage.setItem("workpulse_simple_goals", JSON.stringify(updatedGoals));
-        }
-        window.dispatchEvent(new CustomEvent("workpulse_sync"));
-      } catch {}
+      window.dispatchEvent(new CustomEvent("workpulse_sync"));
     }
     // Sync Direct Report member goals to Supabase
     try {

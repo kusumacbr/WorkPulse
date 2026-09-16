@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,39 +40,6 @@ export function AdminUserIdentityDeck() {
   const [managerOverrides, setManagerOverrides] = useState<
     Record<string, { id: string; name: string }>
   >({});
-  const isHydratedRef = React.useRef(false);
-
-  useEffect(() => {
-    try {
-      const r = localStorage.getItem("workpulse_admin_role_overrides");
-      if (r) setRoleOverrides(JSON.parse(r));
-      const s = localStorage.getItem("workpulse_admin_status_overrides");
-      if (s) setStatusOverrides(JSON.parse(s));
-      const m = localStorage.getItem("workpulse_admin_manager_overrides");
-      if (m) setManagerOverrides(JSON.parse(m));
-    } catch {
-      // safe fallback
-    }
-    isHydratedRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (isHydratedRef.current && typeof window !== "undefined") {
-      localStorage.setItem("workpulse_admin_role_overrides", JSON.stringify(roleOverrides));
-    }
-  }, [roleOverrides]);
-
-  useEffect(() => {
-    if (isHydratedRef.current && typeof window !== "undefined") {
-      localStorage.setItem("workpulse_admin_status_overrides", JSON.stringify(statusOverrides));
-    }
-  }, [statusOverrides]);
-
-  useEffect(() => {
-    if (isHydratedRef.current && typeof window !== "undefined") {
-      localStorage.setItem("workpulse_admin_manager_overrides", JSON.stringify(managerOverrides));
-    }
-  }, [managerOverrides]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState<string>("ALL");

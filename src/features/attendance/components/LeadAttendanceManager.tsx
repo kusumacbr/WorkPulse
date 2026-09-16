@@ -35,22 +35,10 @@ export function LeadAttendanceManager() {
   const [punchTime, setPunchTime] = useState<string>("--");
   const [toastMsg] = useState<string | null>(null);
 
-  // Fetch real-time punch state & sync with global events
+  // Fetch real-time punch state & sync with global events from Supabase
   React.useEffect(() => {
     const fetchLatestPunch = async () => {
       try {
-        if (typeof window !== "undefined") {
-          const storedHeaderState = localStorage.getItem("workpulse_header_punch_state");
-          if (storedHeaderState) {
-            const parsed = JSON.parse(storedHeaderState);
-            if (parsed.status === "IN") {
-              setPunchStatus("IN");
-              setPunchTime(parsed.punchInTimeStr || "10:00 AM");
-              return;
-            }
-          }
-        }
-
         const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(leadEmail)}`);
         if (res.ok) {
           const data = await res.json();
@@ -73,13 +61,11 @@ export function LeadAttendanceManager() {
     window.addEventListener("attendance:punched", handleSync);
     window.addEventListener("workpulse_sync", handleSync);
     window.addEventListener("workday:biometric_uploaded", handleSync);
-    window.addEventListener("storage", handleSync);
 
     return () => {
       window.removeEventListener("attendance:punched", handleSync);
       window.removeEventListener("workpulse_sync", handleSync);
       window.removeEventListener("workday:biometric_uploaded", handleSync);
-      window.removeEventListener("storage", handleSync);
     };
   }, [leadEmail]);
 

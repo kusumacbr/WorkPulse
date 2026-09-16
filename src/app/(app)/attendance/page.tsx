@@ -52,11 +52,6 @@ export default function AttendancePage() {
       user.primaryRole === "MANAGER" ||
       user.userEmail.toLowerCase().includes("lead"));
 
-  const userEmailKey = (user?.userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const punchStateKey = `workpulse_header_punch_state_${userEmailKey}`;
-  const virtualPunchesKey = `workpulse_virtual_punches_${userEmailKey}`;
-  const attendanceTabKey = `workpulse_attendance_tab_${userEmailKey}`;
-
   const [activeTab, setActiveTab] = useState<"hr_oversight" | "directory" | "punches" | "holidays">("punches");
   const [biometricLogs, setBiometricLogs] = useState<any[]>([]);
   const [virtualLogs, setVirtualLogs] = useState<any[]>([]);
@@ -72,33 +67,17 @@ export default function AttendancePage() {
     roleLabel: "Core Member",
   });
 
-  // Ensure active tab strictly defaults to HR oversight for HR, or remembers chosen tab per role
+  // Ensure active tab strictly defaults to HR oversight for HR, or punches for members
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const savedTab = localStorage.getItem(attendanceTabKey);
-      if (savedTab && ["hr_oversight", "directory", "punches", "holidays"].includes(savedTab)) {
-        if (isHR || savedTab !== "hr_oversight") {
-          setActiveTab(savedTab as any);
-          return;
-        }
-      }
-    } catch {}
-
     if (isHR) {
       setActiveTab("hr_oversight");
     } else {
       setActiveTab("punches");
     }
-  }, [isHR, attendanceTabKey]);
+  }, [isHR]);
 
   const handleTabChange = (tab: "hr_oversight" | "directory" | "punches" | "holidays") => {
     setActiveTab(tab);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(attendanceTabKey, tab);
-      } catch {}
-    }
   };
 
   const formatRunningTimer = (totalSeconds: number): string => {
@@ -109,50 +88,46 @@ export default function AttendancePage() {
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
   };
 
-  // Load punches: 1. Biometric CSV/Terminal logs; 2. Role-specific Virtual Punches
+  // Load punches from Supabase API: 1. Biometric logs; 2. Role-specific Virtual Punches
   useEffect(() => {
     const loadPunches = async () => {
       try {
-        // --- 1. BIOMETRIC PUNCH LOGS (HR Biometric CSV File & Physical Terminals) ---
-        let allBiometricRecords: any[] = SAMPLE_BIOMETRIC_PUNCHES;
-
-        if (typeof window !== "undefined") {
-          try {
-            const rawCsv = localStorage.getItem("workpulse_uploaded_biometric_punches");
-            if (rawCsv) {
-              const parsed = JSON.parse(rawCsv);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                allBiometricRecords = parsed;
-              }
-            }
-          } catch {}
+        const empId = user?.userEmail || "emp-sarah";
+        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(empId)}`);
+        let fetchedPunches: any[] = [];
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data?.punches) && data.data.punches.length > 0) {
+            fetchedPunches = data.data.punches;
+          }
         }
+
+        let allBiometricRecords: any[] = fetchedPunches.length > 0 ? fetchedPunches : SAMPLE_BIOMETRIC_PUNCHES;
 
         const currEmail = (user?.userEmail || "").toLowerCase();
         const currName = (user?.userName || "").toLowerCase();
 
         // Match biometric records for active user
         let matchedRecords = allBiometricRecords.filter((r: any) => {
-          const empId = (r.employeeId || "").toLowerCase();
+          const rEmpId = (r.employeeId || "").toLowerCase();
           const empName = (r.employeeName || "").toLowerCase();
 
           if (currEmail.includes("sarah") || currEmail.includes("employee") || currName.includes("sara")) {
-            return empId === "emp-sarah" || empName.includes("sara");
+            return rEmpId === "emp-sarah" || empName.includes("sara");
           }
           if (currEmail.includes("alex") || currEmail.includes("lead") || currName.includes("alex")) {
-            return empId === "lead-alex" || empName.includes("alex");
+            return rEmpId === "lead-alex" || empName.includes("alex");
           }
           if (currEmail.includes("rachel") || currEmail.includes("hr") || currName.includes("rachel")) {
-            return empId === "emp-rachel" || empName.includes("rachel");
+            return rEmpId === "emp-rachel" || empName.includes("rachel");
           }
           if (currEmail.includes("rohit") || currName.includes("rohit")) {
-            return empId === "emp-rohit" || empName.includes("rohit");
+            return rEmpId === "emp-rohit" || empName.includes("rohit");
           }
-          return empId === currEmail || empName.includes(currName);
+          return rEmpId === currEmail || empName.includes(currName);
         });
 
         if (matchedRecords.length === 0) {
-          // Fallback to sample matching or first records if no direct email hit
           matchedRecords = [
             {
               id: "biom-fallback-1",
@@ -183,66 +158,65 @@ export default function AttendancePage() {
         const formattedBiometric = matchedRecords.map((r: any, idx: number) => {
           const d = new Date((r.date || "2026-09-10") + "T00:00:00");
           const dayName = isNaN(d.getDay()) ? "Thu" : dayNames[d.getDay()];
-          const worked = calculateWorkedHoursFromTimeStrings(r.firstIn || "09:58 AM", r.lastOut || "07:12 PM");
+          const worked = calculateWorkedHoursFromTimeStrings(r.firstIn || r.time || "09:58 AM", r.lastOut || "07:12 PM");
 
           return {
             id: r.id || `biom-formatted-${idx}`,
             date: r.date || new Date().toISOString().split("T")[0],
             dayName,
-            workMode: r.workMode || "OFFICE",
-            firstIn: r.firstIn || "09:58 AM",
+            workMode: r.workMode || r.work_mode || "OFFICE",
+            firstIn: r.firstIn || r.time || "09:58 AM",
             lastOut: r.lastOut || "07:12 PM",
             workedHours: worked,
-            terminalId: r.terminalId || "TERM-BLR-GATE2",
+            terminalId: r.terminalId || r.terminal_id || "TERM-BLR-GATE2",
             status: r.status || "ON_TIME",
           };
         });
 
         setBiometricLogs(formattedBiometric);
 
-        // --- 2. VIRTUAL PUNCH LOGS (Role Header Bar Login & Logout Time) ---
-        if (typeof window !== "undefined") {
-          try {
-            // Active session state for this role
-            const storedState = localStorage.getItem(punchStateKey);
-            if (storedState) {
-              const parsedState = JSON.parse(storedState);
-              if (parsedState.status === "IN" && parsedState.startTimeMs) {
-                const diffSecs = Math.floor((Date.now() - parsedState.startTimeMs) / 1000);
-                setActiveVirtualSession({
-                  isLive: true,
-                  loginTimeStr: parsedState.punchInTimeStr || "10:00 AM",
-                  elapsedSeconds: diffSecs,
-                  roleLabel: parsedState.roleLabel || "Active Role",
-                });
-              } else {
-                setActiveVirtualSession({
-                  isLive: false,
-                  loginTimeStr: "--",
-                  elapsedSeconds: 0,
-                  roleLabel: "Active Role",
-                });
-              }
-            } else {
-              setActiveVirtualSession({
-                isLive: false,
-                loginTimeStr: "--",
-                elapsedSeconds: 0,
-                roleLabel: "Active Role",
-              });
-            }
+        // --- 2. VIRTUAL PUNCH LOGS & ACTIVE SESSION ---
+        if (fetchedPunches.length > 0) {
+          const latest = fetchedPunches[0];
+          const isLatestIn = latest.direction === "IN" || latest.punch_type === "IN";
+          if (isLatestIn) {
+            const startTime = new Date(latest.punch_time || latest.time).getTime();
+            const diffSecs = !isNaN(startTime) ? Math.floor((Date.now() - startTime) / 1000) : 0;
+            setActiveVirtualSession({
+              isLive: true,
+              loginTimeStr: latest.time || "10:00 AM",
+              elapsedSeconds: Math.max(0, diffSecs),
+              roleLabel: isHR ? "HR Operations" : isLead ? "Team Lead" : "Core Member",
+            });
+          } else {
+            setActiveVirtualSession({
+              isLive: false,
+              loginTimeStr: "--",
+              elapsedSeconds: 0,
+              roleLabel: isHR ? "HR Operations" : isLead ? "Team Lead" : "Core Member",
+            });
+          }
 
-            // Historical Virtual Punches logged via Header Login/Logout Time
-            const rawVirtual = localStorage.getItem(virtualPunchesKey);
-            if (rawVirtual) {
-              const parsedVirtual = JSON.parse(rawVirtual);
-              if (Array.isArray(parsedVirtual)) {
-                setVirtualLogs(parsedVirtual);
-              }
-            } else {
-              setVirtualLogs([]);
-            }
-          } catch {}
+          const dayNamesList = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+          const virtualHistory = fetchedPunches
+            .filter((p: any) => (p.terminal_id || p.terminalId || "").includes("VIRTUAL") || (p.method || "").includes("VIRTUAL"))
+            .map((p: any, idx: number) => {
+              const d = new Date((p.date || "2026-09-10") + "T00:00:00");
+              const dayName = isNaN(d.getDay()) ? "Thu" : dayNamesList[d.getDay()];
+              return {
+                id: p.id || `virt-${idx}`,
+                date: p.date || new Date().toISOString().split("T")[0],
+                dayName,
+                firstIn: p.time || p.firstIn || "10:00 AM",
+                lastOut: p.lastOut || "07:00 PM",
+                workedHours: calculateWorkedHoursFromTimeStrings(p.time || p.firstIn || "10:00 AM", p.lastOut || "07:00 PM"),
+                roleLabel: isHR ? "HR Operations" : isLead ? "Team Lead" : "Core Member",
+                status: "COMPLETED",
+              };
+            });
+          setVirtualLogs(virtualHistory);
+        } else {
+          setVirtualLogs([]);
         }
       } catch (err) {
         console.warn("Failed to load attendance logs:", err);
@@ -253,17 +227,15 @@ export default function AttendancePage() {
 
     const handleSyncEvent = () => loadPunches();
     window.addEventListener("workday:biometric_uploaded", handleSyncEvent);
-    window.addEventListener("workpulse_sync", handleSyncEvent);
     window.addEventListener("attendance:punched", handleSyncEvent);
-    window.addEventListener("storage", handleSyncEvent);
+    window.addEventListener("workpulse_sync", handleSyncEvent);
 
     return () => {
       window.removeEventListener("workday:biometric_uploaded", handleSyncEvent);
-      window.removeEventListener("workpulse_sync", handleSyncEvent);
       window.removeEventListener("attendance:punched", handleSyncEvent);
-      window.removeEventListener("storage", handleSyncEvent);
+      window.removeEventListener("workpulse_sync", handleSyncEvent);
     };
-  }, [punchStateKey, virtualPunchesKey]);
+  }, [user, isHR, isLead]);
 
   // Live ticking interval for active virtual session display
   useEffect(() => {

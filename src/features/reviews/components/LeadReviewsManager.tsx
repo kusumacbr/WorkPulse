@@ -46,15 +46,7 @@ type LeadReviewTab =
 
 export function LeadReviewsManager() {
   const [activeTab, setActiveTab] = useState<LeadReviewTab>("TEAM_EVALUATIONS");
-  const [evaluations, setEvaluations] = useState<TeamEvaluation[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_lead_evaluations");
-        if (saved) return JSON.parse(saved);
-      } catch {}
-    }
-    return DEFAULT_TEAM_EVALUATIONS;
-  });
+  const [evaluations, setEvaluations] = useState<TeamEvaluation[]>(DEFAULT_TEAM_EVALUATIONS);
 
   // Give feedback state with the 4 sections
   const [selectedRecipient, setSelectedRecipient] = useState("Sarah Dev");
@@ -111,10 +103,25 @@ export function LeadReviewsManager() {
     });
 
     setEvaluations(updated);
+
+    // Persist feedback to Supabase workdays/feedbacks
     if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("workpulse_lead_evaluations", JSON.stringify(updated));
-      } catch {}
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert",
+          table: "feedbacks",
+          record: {
+            id: `eval-${Date.now()}`,
+            employee_name: selectedRecipient,
+            feedback_note: feedbackNote.trim(),
+            action_item: actionItem.trim(),
+            rating: Math.round(calculatedScore / 20),
+            created_at: new Date().toISOString(),
+          },
+        }),
+      }).catch(() => {});
     }
 
     setFeedbackNote("");

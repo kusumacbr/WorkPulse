@@ -139,7 +139,7 @@ export function SimpleGoalsManager() {
   const [newTargetDate, setNewTargetDate] = useState("This Month");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Load goals and live Company OKRs from API & localStorage on mount
+  // Load goals and live Company OKRs from Supabase API on mount
   useEffect(() => {
     const loadGoals = async () => {
       // 1. Try Supabase API for employee personal goals
@@ -149,16 +149,11 @@ export function SimpleGoalsManager() {
           const data = await res.json();
           if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
             setGoals(data.data.goals);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("workpulse_simple_goals", JSON.stringify(data.data.goals));
-              localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(data.data.goals));
-              localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(data.data.goals));
-            }
           }
         }
       } catch {}
 
-      // 2. Try Supabase API & localStorage for live Company OKRs managed by HR
+      // 2. Try Supabase API for live Company OKRs managed by HR
       try {
         const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
         if (resOkrs.ok) {
@@ -169,50 +164,8 @@ export function SimpleGoalsManager() {
           }
         }
       } catch {}
-
-      try {
-        const savedCompany = localStorage.getItem("workpulse_company_okrs");
-        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
-        const rawOkrs = savedCompany || savedHr;
-        if (rawOkrs) {
-          const parsed = JSON.parse(rawOkrs);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCompanyOkrs(parsed);
-          }
-        }
-      } catch {}
     };
     loadGoals();
-  }, [empId, userEmail]);
-
-  // Listen to cross-component sync events
-  useEffect(() => {
-    const handleSync = async () => {
-      try {
-        const savedEmp = localStorage.getItem(`workpulse_simple_goals_${empId}`);
-        const savedEmail = localStorage.getItem(`workpulse_simple_goals_${userEmail}`);
-        const savedDefault = localStorage.getItem("workpulse_simple_goals");
-        const raw = savedEmp || savedEmail || savedDefault;
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            setGoals(parsed);
-          }
-        }
-
-        const savedCompany = localStorage.getItem("workpulse_company_okrs");
-        const savedHr = localStorage.getItem("workpulse_simple_hr_goals");
-        const rawOkrs = savedCompany || savedHr;
-        if (rawOkrs) {
-          const parsedOkrs = JSON.parse(rawOkrs);
-          if (Array.isArray(parsedOkrs)) {
-            setCompanyOkrs(parsedOkrs);
-          }
-        }
-      } catch {}
-    };
-    window.addEventListener("workpulse_sync", handleSync);
-    return () => window.removeEventListener("workpulse_sync", handleSync);
   }, [empId, userEmail]);
 
   const showToast = (msg: string) => {
@@ -224,9 +177,6 @@ export function SimpleGoalsManager() {
     setGoals(updated);
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("workpulse_simple_goals", JSON.stringify(updated));
-        localStorage.setItem(`workpulse_simple_goals_${empId}`, JSON.stringify(updated));
-        localStorage.setItem(`workpulse_simple_goals_${userEmail}`, JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent("workpulse_sync"));
       } catch {}
     }

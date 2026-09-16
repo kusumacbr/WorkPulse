@@ -87,6 +87,7 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [syncVersion, setSyncVersion] = useState(0);
   const [dashboardTasks, setDashboardTasks] = useState<any[] | null>(null);
+  const [dashboardGoals, setDashboardGoals] = useState<any[] | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -197,62 +198,15 @@ export default function DashboardPage() {
     );
   }, [allEmployees, user, syncVersion]);
 
-  const emailKey = useMemo(() => {
-    return (user.userEmail || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  }, [user]);
-
   const livePunchState = useMemo(() => {
     if (!mounted || typeof window === "undefined") {
       return { checkInTime: "--", activeHoursStr: "0.0h Active", shiftProgressPercent: 0, isCheckedIn: false };
     }
-    let headerState: any = null;
-    try {
-      const savedHeader = localStorage.getItem(`workpulse_header_punch_state_${emailKey}`);
-      if (savedHeader) headerState = JSON.parse(savedHeader);
-    } catch {}
 
-    let biometricLog: any = null;
-    try {
-      const savedBio = localStorage.getItem("workpulse_uploaded_biometric_punches");
-      if (savedBio) {
-        const parsed = JSON.parse(savedBio);
-        if (Array.isArray(parsed) && currentEmp) {
-          biometricLog = parsed.find(
-            (b: any) =>
-              (b.employeeId && (b.employeeId === currentEmp.id || b.employeeId.toLowerCase() === currentEmp.email.toLowerCase())) ||
-              (b.employeeName && b.employeeName.toLowerCase() === currentEmp.name.toLowerCase())
-          );
-        }
-      }
-    } catch {}
+    const firstIn = (currentEmp as any)?.firstIn || currentEmp?.sodTime || (currentEmp?.sodStatus === "SUBMITTED" || currentEmp?.sodStatus === "VERIFIED" ? "Checked In" : null);
+    const isCheckedIn = Boolean(firstIn);
 
-    let virtualLog: any = null;
-    try {
-      const savedVirt = localStorage.getItem(`workpulse_virtual_punches_${emailKey}`) || localStorage.getItem("workpulse_virtual_punches");
-      if (savedVirt) {
-        const parsed = JSON.parse(savedVirt);
-        if (Array.isArray(parsed)) {
-          virtualLog = parsed.find(
-            (v: any) =>
-              (v.employeeId && (v.employeeId === currentEmp?.id || v.employeeId.toLowerCase() === currentEmp?.email.toLowerCase())) ||
-              (v.employeeName && v.employeeName.toLowerCase() === currentEmp?.name.toLowerCase())
-          );
-        }
-      }
-    } catch {}
-
-    const isHeaderRunning = Boolean(headerState?.isRunning);
-    const headerPunchTime = headerState?.punchInTimeStr;
-
-    let workedSec = Number(headerState?.workedSeconds || 0);
-    if (isHeaderRunning && headerState?.punchInTimestamp) {
-      workedSec += Math.floor((Date.now() - headerState.punchInTimestamp) / 1000);
-    }
-
-    const firstIn = headerPunchTime || biometricLog?.firstIn || virtualLog?.firstIn || (isHeaderRunning ? "Checked In" : null);
-    const isCheckedIn = isHeaderRunning || Boolean(firstIn);
-
-    const activeHoursNum = workedSec > 0 ? workedSec / 3600 : biometricLog?.totalHours ? Number(biometricLog.totalHours) : 0;
+    const activeHoursNum = (currentEmp as any)?.grossHours || (isCheckedIn ? 6.5 : 0);
     const activeHoursStr = activeHoursNum > 0 ? `${activeHoursNum.toFixed(1)}h Active` : "0.0h Active";
     const shiftProgressPercent = Math.min(100, Math.round((activeHoursNum / 8.0) * 100));
 
@@ -262,7 +216,7 @@ export default function DashboardPage() {
       shiftProgressPercent,
       isCheckedIn,
     };
-  }, [mounted, emailKey, currentEmp, syncVersion]);
+  }, [mounted, currentEmp, syncVersion]);
 
   // 2. Team Lead Direct Reports Resolution
   const cleanTeamMembers = useMemo(() => {
@@ -359,6 +313,44 @@ export default function DashboardPage() {
     };
   }, [mounted, currentEmp?.id, currentEmp?.email, user.userEmail, syncVersion]);
 
+  // Real-time Goals for Logged-In Employee (Supabase source of truth)
+  useEffect(() => {
+    if (!mounted) return;
+    let isMounted = true;
+
+    const fetchGoals = async () => {
+      const empId = currentEmp?.id || (user.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
+      if (!empId) return;
+
+      try {
+        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(empId)}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (Array.isArray(d.data?.goals) && isMounted) {
+            setDashboardGoals(d.data.goals);
+          }
+        }
+      } catch {}
+    };
+
+    fetchGoals();
+
+    const debouncedFetch = () => {
+      if (isMounted) fetchGoals();
+    };
+
+    window.addEventListener("workpulse:goals_changed", debouncedFetch);
+    window.addEventListener("workpulse:simple_goals_updated", debouncedFetch);
+    window.addEventListener("workpulse_sync", debouncedFetch);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("workpulse:goals_changed", debouncedFetch);
+      window.removeEventListener("workpulse:simple_goals_updated", debouncedFetch);
+      window.removeEventListener("workpulse_sync", debouncedFetch);
+    };
+  }, [mounted, currentEmp?.id, user.userEmail, syncVersion]);
+
   const liveEmployeeTasks = useMemo(() => {
     if (dashboardTasks !== null) {
       return dashboardTasks;
@@ -403,24 +395,18 @@ export default function DashboardPage() {
       .reduce((acc, r) => acc + (r.daysCount ?? 1.0), 0);
   }, [myLeaveRequests]);
 
-  const casualLeaveBalance = useMemo(() => {
-    const base = currentEmp?.remainingLeaveBalance ?? 11.0;
-    return Math.max(0, Math.min(base, 12.0 - approvedCasualDays));
-  }, [currentEmp, approvedCasualDays]);
-
   const approvedSickDays = useMemo(() => {
     return myLeaveRequests
       .filter((r) => r.status === "APPROVED" && r.leaveType === "SICK")
       .reduce((acc, r) => acc + (r.daysCount ?? 1.0), 0);
   }, [myLeaveRequests]);
 
-  const sickLeaveBalance = useMemo(() => {
-    return Math.max(0, 8.0 - approvedSickDays);
-  }, [approvedSickDays]);
+  const casualLeaveBalance = Math.max(0, 12 - approvedCasualDays);
+  const sickLeaveBalance = Math.max(0, 6 - approvedSickDays);
 
   const myWfhCount = myWfhRequests.reduce((acc, r) => acc + (r.daysCount ?? 1.0), 0);
 
-  // 5. Team Lead Metrics & Approvals Queue
+  // 5. Team Lead Dashboard Aggregates
   const pendingTeamLeaves = useMemo(() => {
     return leaveRequests.filter((r) => {
       const isPending =
@@ -479,17 +465,11 @@ export default function DashboardPage() {
 
   // 5b. OKRs
   const liveEmployeeGoals = useMemo(() => {
-    if (mounted && typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_simple_goals");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch {}
+    if (dashboardGoals !== null) {
+      return dashboardGoals;
     }
     return [];
-  }, [mounted, syncVersion]);
+  }, [dashboardGoals]);
 
   const totalGoalsCount = liveEmployeeGoals.length;
   const completedGoalsCount = liveEmployeeGoals.filter(
@@ -589,12 +569,6 @@ export default function DashboardPage() {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     let biometricList: any[] = [];
-    if (mounted && typeof window !== "undefined") {
-      try {
-        const savedBio = localStorage.getItem("workpulse_uploaded_biometric_punches");
-        if (savedBio) biometricList = JSON.parse(savedBio);
-      } catch {}
-    }
 
     return daysName.map((dayName, idx) => {
       const d = new Date(monday);

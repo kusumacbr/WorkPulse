@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
@@ -71,21 +71,10 @@ export function HRPerformanceGovernanceDeck() {
   const [nominations, setNominations] = useState<PromotionNomination[]>(INITIAL_NOMINATIONS);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem("workpulse_promotion_nominations");
-      if (s) setNominations(JSON.parse(s));
-    } catch {
-      // safe fallback
-    }
-  }, []);
-
   const handleApproveNomination = (id: string, name: string, title: string) => {
     const updated = nominations.map((n) => (n.id === id ? { ...n, status: "APPROVED" as const } : n));
     setNominations(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("workpulse_promotion_nominations", JSON.stringify(updated));
-    }
+
     const matchedEmp = allEmployees.find(
       (e) => e.name.toLowerCase() === name.toLowerCase()
     );
@@ -99,9 +88,6 @@ export function HRPerformanceGovernanceDeck() {
   const handleRejectNomination = (id: string, name: string) => {
     const updated = nominations.map((n) => (n.id === id ? { ...n, status: "REJECTED" as const } : n));
     setNominations(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("workpulse_promotion_nominations", JSON.stringify(updated));
-    }
     setToastMsg(`Nomination for ${name} deferred to next cycle.`);
     setTimeout(() => setToastMsg(null), 3000);
   };

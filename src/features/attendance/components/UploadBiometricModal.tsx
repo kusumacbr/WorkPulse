@@ -276,24 +276,9 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
         body: JSON.stringify({ punches: parsedRecords }),
       }).catch((e) => console.warn("Supabase biometric API sync notice:", e));
 
-      // 2. Persist in localStorage so entire project updates instantly
+      // 2. Dispatch global events for real-time update
       if (typeof window !== "undefined") {
         try {
-          localStorage.setItem("workpulse_uploaded_biometric_punches", JSON.stringify(parsedRecords));
-          const dateStr = parsedRecords[0]?.date || new Date().toISOString().split("T")[0];
-          localStorage.setItem(`workpulse_biometric_records_${dateStr}`, JSON.stringify(parsedRecords));
-
-          // Save overrides map for fast lookup across project components
-          const overrideMap: Record<string, any> = {};
-          parsedRecords.forEach((r) => {
-            overrideMap[r.employeeId] = r;
-            if (r.employeeName) {
-              overrideMap[r.employeeName.toLowerCase()] = r;
-            }
-          });
-          localStorage.setItem("workpulse_biometric_overrides_map", JSON.stringify(overrideMap));
-
-          // 3. Dispatch global events for real-time update
           window.dispatchEvent(new CustomEvent("workpulse_sync"));
           window.dispatchEvent(new CustomEvent("workday:biometric_uploaded", { detail: { punches: parsedRecords } }));
 

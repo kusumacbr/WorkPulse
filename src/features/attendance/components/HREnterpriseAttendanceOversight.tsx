@@ -26,14 +26,31 @@ export function HREnterpriseAttendanceOversight() {
   const [uploadedBiometricMap, setUploadedBiometricMap] = useState<Record<string, BiometricPunchRecord>>({});
 
   useEffect(() => {
-    const loadUploadedPunches = () => {
-      if (typeof window === "undefined") return;
+    const loadUploadedPunches = async () => {
       try {
-        const raw = localStorage.getItem("workpulse_biometric_overrides_map");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === "object") {
-            setUploadedBiometricMap(parsed);
+        const res = await fetch("/api/v1/attendance/punches");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.data?.punches)) {
+            const map: Record<string, BiometricPunchRecord> = {};
+            data.data.punches.forEach((p: any) => {
+              const record: BiometricPunchRecord = {
+                id: p.id,
+                employeeId: p.employeeId || p.employee_id,
+                employeeName: p.employeeName || p.employee_name || "Employee",
+                date: p.date,
+                firstIn: p.time || p.first_in || "10:00 AM",
+                lastOut: p.last_out || "07:00 PM",
+                punchType: (p.punch_type || p.direction || "IN") as any,
+                workMode: (p.work_mode || "OFFICE") as any,
+                terminalId: p.terminal_id || "TERM-BLR-01",
+                location: p.location || "Bangalore HQ",
+                status: (p.status || "ON_TIME") as any,
+              };
+              if (record.employeeId) map[record.employeeId] = record;
+              if (record.employeeName) map[record.employeeName.toLowerCase()] = record;
+            });
+            setUploadedBiometricMap(map);
           }
         }
       } catch {}
@@ -41,14 +58,16 @@ export function HREnterpriseAttendanceOversight() {
 
     loadUploadedPunches();
 
-    window.addEventListener("workday:biometric_uploaded", loadUploadedPunches);
-    window.addEventListener("workpulse_sync", loadUploadedPunches);
-    window.addEventListener("storage", loadUploadedPunches);
+    const handleEvent = () => {
+      loadUploadedPunches();
+    };
+
+    window.addEventListener("workday:biometric_uploaded", handleEvent);
+    window.addEventListener("workpulse_sync", handleEvent);
 
     return () => {
-      window.removeEventListener("workday:biometric_uploaded", loadUploadedPunches);
-      window.removeEventListener("workpulse_sync", loadUploadedPunches);
-      window.removeEventListener("storage", loadUploadedPunches);
+      window.removeEventListener("workday:biometric_uploaded", handleEvent);
+      window.removeEventListener("workpulse_sync", handleEvent);
     };
   }, []);
 

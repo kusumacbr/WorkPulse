@@ -113,10 +113,6 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
 
   const roleInfo = ROLE_BADGE_STYLES[activeRole] || { label: "Core Member", variant: "brand" };
 
-  const userEmailKey = (userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const punchStateKey = `workpulse_header_punch_state_${userEmailKey}`;
-  const virtualPunchesKey = `workpulse_virtual_punches_${userEmailKey}`;
-
   // Format seconds into HH:MM:SS format starting from 00:00:00
   const formatRunningTimer = (totalSeconds: number): string => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -132,30 +128,42 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isPunching, setIsPunching] = useState<boolean>(false);
 
-  // Initial read & restore stored punch state from localStorage for this specific role/email
+  // Initial read & restore stored punch state from Supabase for this specific role/email
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem(punchStateKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.status === "IN" && parsed.startTimeMs) {
-          setPunchStatus("IN");
-          setPunchStartTimeMs(parsed.startTimeMs);
-          const diffSecs = Math.floor((Date.now() - parsed.startTimeMs) / 1000);
-          setElapsedSeconds(Math.max(0, diffSecs));
-        } else {
-          setPunchStatus("OUT");
-          setPunchStartTimeMs(null);
-          setElapsedSeconds(0);
+    let isCancelled = false;
+    const fetchLatestPunch = async () => {
+      try {
+        const emp = userEmail || "emp-sarah";
+        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(emp)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!isCancelled && data.data?.punches && data.data.punches.length > 0) {
+            const latest = data.data.punches[0];
+            const isLatestIn = latest.direction === "IN" || latest.punch_type === "IN";
+            if (isLatestIn) {
+              setPunchStatus("IN");
+              const startTime = new Date(latest.punch_time || latest.time).getTime();
+              if (!isNaN(startTime)) {
+                setPunchStartTimeMs(startTime);
+                const diffSecs = Math.floor((Date.now() - startTime) / 1000);
+                setElapsedSeconds(Math.max(0, diffSecs));
+              }
+            } else {
+              setPunchStatus("OUT");
+              setPunchStartTimeMs(null);
+              setElapsedSeconds(0);
+            }
+          }
         }
-      } else {
-        setPunchStatus("OUT");
-        setPunchStartTimeMs(null);
-        setElapsedSeconds(0);
-      }
-    } catch {}
-  }, [punchStateKey]);
+      } catch {}
+    };
+
+    fetchLatestPunch();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [userEmail]);
 
   // Ticking live timer every second when Punched IN
   useEffect(() => {
@@ -173,21 +181,28 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
 
   // Sync punch status with global events
   useEffect(() => {
-    const syncPunchState = () => {
-      if (typeof window === "undefined") return;
+    const syncPunchState = async () => {
       try {
-        const stored = localStorage.getItem(punchStateKey);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.status === "IN" && parsed.startTimeMs) {
-            setPunchStatus("IN");
-            setPunchStartTimeMs(parsed.startTimeMs);
-            const diffSecs = Math.floor((Date.now() - parsed.startTimeMs) / 1000);
-            setElapsedSeconds(Math.max(0, diffSecs));
-          } else {
-            setPunchStatus("OUT");
-            setPunchStartTimeMs(null);
-            setElapsedSeconds(0);
+        const emp = userEmail || "emp-sarah";
+        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(emp)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.punches && data.data.punches.length > 0) {
+            const latest = data.data.punches[0];
+            const isLatestIn = latest.direction === "IN" || latest.punch_type === "IN";
+            if (isLatestIn) {
+              setPunchStatus("IN");
+              const startTime = new Date(latest.punch_time || latest.time).getTime();
+              if (!isNaN(startTime)) {
+                setPunchStartTimeMs(startTime);
+                const diffSecs = Math.floor((Date.now() - startTime) / 1000);
+                setElapsedSeconds(Math.max(0, diffSecs));
+              }
+            } else {
+              setPunchStatus("OUT");
+              setPunchStartTimeMs(null);
+              setElapsedSeconds(0);
+            }
           }
         }
       } catch {}
@@ -195,13 +210,11 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
 
     window.addEventListener("attendance:punched", syncPunchState);
     window.addEventListener("workpulse_sync", syncPunchState);
-    window.addEventListener("storage", syncPunchState);
     return () => {
       window.removeEventListener("attendance:punched", syncPunchState);
       window.removeEventListener("workpulse_sync", syncPunchState);
-      window.removeEventListener("storage", syncPunchState);
     };
-  }, [punchStateKey]);
+  }, [userEmail]);
 
   const handleHeaderPunch = async () => {
     setIsPunching(true);
@@ -209,9 +222,6 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const startTime = now.getTime();
-    const dateStr = now.toISOString().split("T")[0];
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const dayName = dayNames[now.getDay()] || "Thu";
 
     try {
       await fetch("/api/v1/attendance/punch", {
@@ -225,66 +235,14 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
         }),
       });
     } catch (e) {
-      console.warn("Punch logged locally:", e);
+      console.warn("Punch recorded:", e);
     }
 
     if (nextStatus === "IN") {
       setPunchStatus("IN");
       setPunchStartTimeMs(startTime);
       setElapsedSeconds(0);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          punchStateKey,
-          JSON.stringify({
-            status: "IN",
-            punchInTimeStr: timeStr,
-            startTimeMs: startTime,
-            roleLabel: roleInfo.label,
-            userEmail,
-          })
-        );
-      }
     } else {
-      const finalSecs = punchStartTimeMs ? Math.floor((now.getTime() - punchStartTimeMs) / 1000) : elapsedSeconds;
-      const workedHours = Math.round((finalSecs / 3600) * 100) / 100;
-
-      let storedInTime = timeStr;
-      if (typeof window !== "undefined") {
-        try {
-          const rawState = localStorage.getItem(punchStateKey);
-          if (rawState) {
-            const parsed = JSON.parse(rawState);
-            if (parsed.punchInTimeStr) storedInTime = parsed.punchInTimeStr;
-          }
-        } catch {}
-
-        // Append completed Virtual Punch record
-        let existingVirtual: any[] = [];
-        try {
-          const raw = localStorage.getItem(virtualPunchesKey);
-          if (raw) existingVirtual = JSON.parse(raw);
-        } catch {}
-
-        const newVirtualRecord = {
-          id: `virt-${Date.now()}`,
-          date: dateStr,
-          dayName,
-          firstIn: storedInTime,
-          lastOut: timeStr,
-          durationSecs: finalSecs,
-          workedHours: Math.max(workedHours, 0.05),
-          roleLabel: roleInfo.label,
-          status: "COMPLETED",
-          terminal: `Virtual Header Bar (${roleInfo.label})`,
-        };
-
-        localStorage.setItem(virtualPunchesKey, JSON.stringify([newVirtualRecord, ...existingVirtual]));
-        localStorage.setItem(
-          punchStateKey,
-          JSON.stringify({ status: "OUT", logoutTimeStr: timeStr, finalElapsedSeconds: finalSecs })
-        );
-      }
-
       setPunchStatus("OUT");
       setPunchStartTimeMs(null);
       setElapsedSeconds(0);

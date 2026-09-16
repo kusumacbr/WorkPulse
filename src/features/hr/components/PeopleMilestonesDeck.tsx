@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
@@ -70,15 +70,6 @@ export function PeopleMilestonesDeck() {
   const [celebratedIds, setCelebratedIds] = useState<Record<string, boolean>>({ "ms-3": true });
   const [sentToast, setSentToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem("workpulse_milestones_celebrated");
-      if (s) setCelebratedIds(JSON.parse(s));
-    } catch {
-      // safe fallback
-    }
-  }, []);
-
   const dynamicMilestones: MilestoneItem[] = useMemo(() => {
     const list: MilestoneItem[] = INITIAL_MILESTONES.map((m) => {
       const matchedEmp = allEmployees.find(
@@ -131,9 +122,6 @@ export function PeopleMilestonesDeck() {
   const handleSendCelebration = (item: MilestoneItem) => {
     const updated = { ...celebratedIds, [item.id]: true };
     setCelebratedIds(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("workpulse_milestones_celebrated", JSON.stringify(updated));
-    }
     setSentToast(`Celebration broadcast sent for ${item.name}! 🎉`);
     setTimeout(() => setSentToast(null), 3500);
   };

@@ -95,7 +95,7 @@ export function Stage2LeaveApprovalQueue() {
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment, stage: "STAGE_2", hrComment: comment }),
+        body: JSON.stringify({ comment }),
       });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({

@@ -373,9 +373,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
     setIsUploadingCsv(true);
 
     const userEmail =
-      (typeof window !== "undefined" &&
-        (sessionStorage.getItem("workpulse_session_email") ||
-          localStorage.getItem("workpulse_user_email"))) ||
+      (typeof window !== "undefined" && sessionStorage.getItem("workpulse_session_email")) ||
       "hr.test@xorstack.com";
 
     let successCount = 0;
@@ -593,9 +591,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
 
     try {
       const userEmail =
-        (typeof window !== "undefined" &&
-          (sessionStorage.getItem("workpulse_session_email") ||
-            localStorage.getItem("workpulse_user_email"))) ||
+        (typeof window !== "undefined" && sessionStorage.getItem("workpulse_session_email")) ||
         "hr.test@xorstack.com";
 
       const response = await fetch("/api/v1/employees", {
@@ -674,9 +670,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
 
     try {
       const userEmail =
-        (typeof window !== "undefined" &&
-          (sessionStorage.getItem("workpulse_session_email") ||
-            localStorage.getItem("workpulse_user_email"))) ||
+        (typeof window !== "undefined" && sessionStorage.getItem("workpulse_session_email")) ||
         "hr.test@xorstack.com";
 
       const response = await fetch(`/api/v1/employees/${editingEmployee.id}`, {
@@ -724,9 +718,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
 
     try {
       const userEmail =
-        (typeof window !== "undefined" &&
-          (sessionStorage.getItem("workpulse_session_email") ||
-            localStorage.getItem("workpulse_user_email"))) ||
+        (typeof window !== "undefined" && sessionStorage.getItem("workpulse_session_email")) ||
         "hr.test@xorstack.com";
 
       const response = await fetch(`/api/v1/employees/${empId}`, {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
@@ -87,24 +87,10 @@ export function ProbationManagementDeck() {
   const [candidates, setCandidates] = useState<ProbationCandidate[]>(INITIAL_CANDIDATES);
   const [confirmedCount, setConfirmedCount] = useState<number>(14);
 
-  useEffect(() => {
-    try {
-      const c = localStorage.getItem("workpulse_probation_candidates");
-      if (c) setCandidates(JSON.parse(c));
-      const cnt = localStorage.getItem("workpulse_probation_confirmed_count");
-      if (cnt) setConfirmedCount(JSON.parse(cnt));
-    } catch {
-      // safe fallback
-    }
-  }, []);
-
   const handleConfirm = (id: string) => {
     const updated = candidates.map((c) => (c.id === id ? { ...c, status: "CONFIRMED" as const } : c));
     setCandidates(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("workpulse_probation_candidates", JSON.stringify(updated));
-      localStorage.setItem("workpulse_probation_confirmed_count", JSON.stringify(confirmedCount + 1));
-    }
+
     const candidate = candidates.find((c) => c.id === id);
     if (candidate) {
       const matchedEmp = allEmployees.find(
@@ -128,9 +114,6 @@ export function ProbationManagementDeck() {
   const handleExtend = (id: string) => {
     const updated = candidates.map((c) => (c.id === id ? { ...c, status: "EXTENDED" as const } : c));
     setCandidates(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("workpulse_probation_candidates", JSON.stringify(updated));
-    }
   };
 
   return (

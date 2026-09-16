@@ -67,15 +67,7 @@ const DEFAULT_CHECKIN_STAFF: CheckinItem[] = [
 
 export function HRWellbeingSignalsDeck() {
   const { allEmployees, departments, helpRequests } = useWorkpulseSharedStore();
-  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("workpulse_wellbeing_checked_in");
-        if (saved) return new Set(JSON.parse(saved));
-      } catch {}
-    }
-    return new Set<string>();
-  });
+  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set<string>());
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -94,9 +86,6 @@ export function HRWellbeingSignalsDeck() {
             setCheckedInIds((prev) => {
               const next = new Set(prev);
               next.add(checkinId);
-              try {
-                localStorage.setItem("workpulse_wellbeing_checked_in", JSON.stringify(Array.from(next)));
-              } catch {}
               return next;
             });
           }
@@ -118,9 +107,6 @@ export function HRWellbeingSignalsDeck() {
     setCheckedInIds((prev) => {
       const next = new Set(prev);
       next.add(id);
-      try {
-        localStorage.setItem("workpulse_wellbeing_checked_in", JSON.stringify(Array.from(next)));
-      } catch {}
       return next;
     });
 

@@ -34,33 +34,15 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
-const SEEN_BROADCASTS_KEY = "workpulse_seen_broadcast_ids_v1";
 const memorySeenSet = new Set<string>();
 
 function getSeenBroadcastIds(): Set<string> {
-  if (typeof window === "undefined") return memorySeenSet;
-  try {
-    const raw = localStorage.getItem(SEEN_BROADCASTS_KEY) || sessionStorage.getItem(SEEN_BROADCASTS_KEY);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        arr.forEach((id) => memorySeenSet.add(id));
-      }
-    }
-  } catch {}
   return memorySeenSet;
 }
 
 function markBroadcastSeen(id: string) {
   if (!id) return;
   memorySeenSet.add(id);
-  if (typeof window === "undefined") return;
-  try {
-    const arr = Array.from(memorySeenSet);
-    const serialized = JSON.stringify(arr);
-    localStorage.setItem(SEEN_BROADCASTS_KEY, serialized);
-    sessionStorage.setItem(SEEN_BROADCASTS_KEY, serialized);
-  } catch {}
 }
 
 export const BroadcastPopupManager = {

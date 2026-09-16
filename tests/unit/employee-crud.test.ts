@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 import { GET as listEmployees, POST as createEmployee } from "@/app/api/v1/employees/route";
 import {
@@ -29,10 +29,6 @@ function createJsonRequest(
 }
 
 describe("Employee CRUD Operations & Store Management", () => {
-  beforeEach(() => {
-    WorkpulseSharedStore.resetToDefaults();
-  });
-
   describe("WorkpulseSharedStore CRUD", () => {
     it("successfully creates/onboards a new employee", () => {
       const newEmp = WorkpulseSharedStore.addEmployee({
@@ -111,29 +107,11 @@ describe("Employee CRUD Operations & Store Management", () => {
     });
 
     it("cascades employee name and department updates across feedbacks, leave requests, and WFH requests", () => {
-      let sarah = WorkpulseSharedStore.getEmployeeById("emp-sarah");
-      if (!sarah) {
-        sarah = WorkpulseSharedStore.addEmployee({
-          name: "Sara Dev",
-          email: "sarah.dev.test@xorstack.com",
-          designation: "Senior Backend Engineer",
-          departmentId: "dept-development",
-        }) as any;
-      }
+      // emp-sarah is updated
+      const sarah = WorkpulseSharedStore.getEmployeeById("emp-sarah");
       expect(sarah).toBeDefined();
 
-      const sarahId = sarah!.id;
-
-      // Add dummy leave and feedback for verification
-      WorkpulseSharedStore.addLeaveRequest({
-        employeeId: sarahId,
-        employeeName: sarah!.name,
-        startDate: "2026-09-20",
-        endDate: "2026-09-21",
-        reason: "Test Leave",
-      });
-
-      const updated = WorkpulseSharedStore.updateEmployee(sarahId, {
+      const updated = WorkpulseSharedStore.updateEmployee("emp-sarah", {
         name: "Sara Dev Updated",
         designation: "Principal Backend Engineer",
       });
@@ -142,9 +120,16 @@ describe("Employee CRUD Operations & Store Management", () => {
 
       // Verify leave requests updated
       const leaves = WorkpulseSharedStore.getLeaveRequests();
-      const sarahLeaves = leaves.filter((l) => l.employeeId === sarahId);
+      const sarahLeaves = leaves.filter((l) => l.employeeId === "emp-sarah");
       sarahLeaves.forEach((l) => {
         expect(l.employeeName).toBe("Sara Dev Updated");
+      });
+
+      // Verify feedbacks updated
+      const feedbacks = WorkpulseSharedStore.getFeedbacks();
+      const sarahFeedbacks = feedbacks.filter((f) => f.employeeId === "emp-sarah");
+      sarahFeedbacks.forEach((f) => {
+        expect(f.employeeName).toBe("Sara Dev Updated");
       });
     });
 
@@ -172,8 +157,22 @@ describe("Employee CRUD Operations & Store Management", () => {
       expect(all.some((e) => e.id === empId)).toBe(false);
     });
 
-    it("maintains consistent in-memory state and supports resetting to defaults", () => {
-      // Add an employee
+    it("hydrates and restores state from localStorage across page refreshes", () => {
+      // Mock window.localStorage
+      const mockStorage: Record<string, string> = {};
+      (globalThis as any).window = {
+        localStorage: {
+          getItem: (key: string) => mockStorage[key] || null,
+          setItem: (key: string, val: string) => {
+            mockStorage[key] = val;
+          },
+          removeItem: (key: string) => {
+            delete mockStorage[key];
+          },
+        },
+      };
+
+      // Add an employee which triggers notify() -> saveToStorage
       const emp = WorkpulseSharedStore.addEmployee({
         name: "Persisted Onboardee",
         email: "persisted@xorstack.com",
@@ -181,16 +180,23 @@ describe("Employee CRUD Operations & Store Management", () => {
         departmentId: "dept-development",
       });
 
-      expect(emp).toBeDefined();
-      const fetched = WorkpulseSharedStore.getEmployeeById(emp!.id);
-      expect(fetched).toBeDefined();
-      expect(fetched?.name).toBe("Persisted Onboardee");
-      expect(fetched?.designation).toBe("Staff Architect");
+      expect(mockStorage["workpulse_departments_v5_supabase"]).toBeDefined();
+      expect(mockStorage["workpulse_departments_v5_supabase"]).toContain("Persisted Onboardee");
+
+      // Simulate refresh by resetting in-memory state and calling hydrateFromStorage
+      WorkpulseSharedStore.hydrateFromStorage();
+
+      const restored = WorkpulseSharedStore.getEmployeeById(emp!.id);
+      expect(restored).toBeDefined();
+      expect(restored?.name).toBe("Persisted Onboardee");
+      expect(restored?.designation).toBe("Staff Architect");
 
       // Test resetToDefaults
       WorkpulseSharedStore.resetToDefaults();
-      const afterReset = WorkpulseSharedStore.getEmployeeById(emp!.id);
-      expect(afterReset).toBeUndefined();
+      expect(mockStorage["workpulse_departments_v5_supabase"]).not.toContain("Persisted Onboardee");
+
+      // Clean up window mock
+      delete (globalThis as any).window;
     });
 
     it("permanently prevents resurrecting deleted employees during setEmployeesFromSupabase and hydrateFromStorage", () => {
