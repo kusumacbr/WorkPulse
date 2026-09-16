@@ -447,13 +447,6 @@ export function LeadTaskManager() {
       actionItem,
     });
 
-    // Immediately trigger Supabase completed tasks cleanup for this employee
-    fetch("/api/v1/tasks/cleanup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId: empId }),
-    }).catch(() => {});
-
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       try {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
