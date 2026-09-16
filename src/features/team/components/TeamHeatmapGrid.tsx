@@ -28,6 +28,13 @@ interface TeamHeatmapGridProps {
   members?: any[]; // Only direct reports passed from parent
 }
 
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function TeamHeatmapGrid({
   teamName = "Development Team",
   sprintRange: propSprintRange,
@@ -52,6 +59,7 @@ export function TeamHeatmapGrid({
   // Compute dynamic current week days (Mon to Sun)
   const weekDays = useMemo(() => {
     const today = new Date();
+    const todayStr = formatLocalDate(today);
     const currentDay = today.getDay(); // 0 is Sun, 1 is Mon...
     const distanceToMon = (currentDay + 6) % 7;
     const monday = new Date(today);
@@ -63,10 +71,7 @@ export function TeamHeatmapGrid({
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const dateParts = d.toISOString().split("T");
-      const dateStr = dateParts[0] || "";
-      const todayParts = today.toISOString().split("T");
-      const todayStr = todayParts[0] || "";
+      const dateStr = formatLocalDate(d);
       days.push({
         date: dateStr,
         dayName: dayNames[i] || `Day ${i + 1}`,
@@ -83,6 +88,7 @@ export function TeamHeatmapGrid({
   // Compute dynamic 30-Day Month (Current Month: 1st to last day of month)
   const monthDays = useMemo(() => {
     const today = new Date();
+    const todayStr = formatLocalDate(today);
     const year = today.getFullYear();
     const month = today.getMonth();
     const totalDays = new Date(year, month + 1, 0).getDate();
@@ -91,8 +97,7 @@ export function TeamHeatmapGrid({
 
     for (let day = 1; day <= totalDays; day++) {
       const d = new Date(year, month, day);
-      const dateStr = d.toISOString().split("T")[0] || "";
-      const todayStr = today.toISOString().split("T")[0] || "";
+      const dateStr = formatLocalDate(d);
       const dayOfWeek = d.getDay();
       days.push({
         date: dateStr,
@@ -111,6 +116,7 @@ export function TeamHeatmapGrid({
   // Compute dynamic 60-Day View (2 full calendar months: 1st of current month to end of next month)
   const days60 = useMemo(() => {
     const today = new Date();
+    const todayStr = formatLocalDate(today);
     const year = today.getFullYear();
     const month = today.getMonth();
     const days = [];
@@ -121,8 +127,7 @@ export function TeamHeatmapGrid({
 
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(year, month, 1 + i);
-      const dateStr = d.toISOString().split("T")[0] || "";
-      const todayStr = today.toISOString().split("T")[0] || "";
+      const dateStr = formatLocalDate(d);
       const dayOfWeek = d.getDay();
       days.push({
         date: dateStr,
@@ -376,12 +381,16 @@ export function TeamHeatmapGrid({
           {/* Header Row: Days of Sprint or Month or 60 Days */}
           <div
             className={`grid gap-2 text-xs font-semibold text-muted-foreground pb-1 border-b border-border ${
-              viewMode === "60DAYS"
-                ? "grid-cols-[180px_repeat(60,minmax(24px,1fr))_65px]"
-                : viewMode === "MONTHLY"
-                ? "grid-cols-[180px_repeat(30,minmax(28px,1fr))_65px]"
-                : "grid-cols-12"
+              viewMode === "WEEKLY" ? "grid-cols-12" : ""
             }`}
+            style={{
+              gridTemplateColumns:
+                viewMode === "60DAYS"
+                  ? `180px repeat(${activeDays.length}, minmax(22px, 1fr)) 65px`
+                  : viewMode === "MONTHLY"
+                  ? `180px repeat(${activeDays.length}, minmax(28px, 1fr)) 65px`
+                  : undefined,
+            }}
           >
             <div className={viewMode !== "WEEKLY" ? "" : "col-span-4"}>Direct Report</div>
             {activeDays.map((d) => (
@@ -425,12 +434,16 @@ export function TeamHeatmapGrid({
                 <div
                   key={member.employeeId}
                   className={`grid gap-2 items-center p-2 rounded-xl bg-card/60 border border-border hover:border-border/80 transition-colors ${
-                    viewMode === "60DAYS"
-                      ? "grid-cols-[180px_repeat(60,minmax(24px,1fr))_65px]"
-                      : viewMode === "MONTHLY"
-                      ? "grid-cols-[180px_repeat(30,minmax(28px,1fr))_65px]"
-                      : "grid-cols-12"
+                    viewMode === "WEEKLY" ? "grid-cols-12" : ""
                   }`}
+                  style={{
+                    gridTemplateColumns:
+                      viewMode === "60DAYS"
+                        ? `180px repeat(${activeDays.length}, minmax(22px, 1fr)) 65px`
+                        : viewMode === "MONTHLY"
+                        ? `180px repeat(${activeDays.length}, minmax(28px, 1fr)) 65px`
+                        : undefined,
+                  }}
                 >
                   {/* Member Info */}
                   <div className={`flex items-center gap-2 ${viewMode !== "WEEKLY" ? "min-w-0" : "col-span-4"}`}>

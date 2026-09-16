@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { PageTransition } from "@/components/animations/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import {
   Bell,
@@ -19,7 +18,6 @@ import {
   Megaphone,
   Cake,
   X,
-  Send,
   CheckCheck,
   ArrowLeft,
 } from "lucide-react";
@@ -37,87 +35,11 @@ interface InAppNotification {
   createdAt: string;
 }
 
-// LocalStorage helpers per user email key
-function getReadNotifIds(userKey: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const val = localStorage.getItem(`workpulse_read_notifs_${userKey}`);
-    return val ? JSON.parse(val) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveReadNotifId(userKey: string, id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const list = getReadNotifIds(userKey);
-    if (!list.includes(id)) {
-      list.push(id);
-      localStorage.setItem(`workpulse_read_notifs_${userKey}`, JSON.stringify(list));
-    }
-  } catch {}
-}
-
-function getDeletedNotifIds(userKey: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const val = localStorage.getItem(`workpulse_deleted_notifs_${userKey}`);
-    return val ? JSON.parse(val) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDeletedNotifId(userKey: string, id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const list = getDeletedNotifIds(userKey);
-    if (!list.includes(id)) {
-      list.push(id);
-      localStorage.setItem(`workpulse_deleted_notifs_${userKey}`, JSON.stringify(list));
-    }
-  } catch {}
-}
-
-function getReadAllTimestamp(userKey: string): number {
-  if (typeof window === "undefined") return 0;
-  try {
-    const val = localStorage.getItem(`workpulse_read_all_ts_${userKey}`);
-    return val ? parseInt(val, 10) : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveReadAllTimestamp(userKey: string, ts: number) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`workpulse_read_all_ts_${userKey}`, ts.toString());
-  } catch {}
-}
-
-function getClearAllTimestamp(userKey: string): number {
-  if (typeof window === "undefined") return 0;
-  try {
-    const val = localStorage.getItem(`workpulse_clear_all_ts_${userKey}`);
-    return val ? parseInt(val, 10) : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveClearAllTimestamp(userKey: string, ts: number) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`workpulse_clear_all_ts_${userKey}`, ts.toString());
-  } catch {}
-}
-
 export default function NotificationsPage() {
   const router = useRouter();
   const user = useCurrentUser();
-  const userKey = (user?.userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const userEmail = user?.userEmail || "";
+  const userKey = (userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
   const isHR = user.roles.includes("HR") || user.primaryRole === "HR";
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [filterType, setFilterType] = useState<"ALL" | "UNREAD" | "BROADCASTS" | "LEAVE">("ALL");
@@ -130,45 +52,19 @@ export default function NotificationsPage() {
   const [broadcastType, setBroadcastType] = useState<"ANNOUNCEMENT" | "BIRTHDAY" | "FESTIVAL" | "URGENT">("ANNOUNCEMENT");
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
-  const processNotifications = useCallback((rawNotifs: InAppNotification[]) => {
-    const deletedIds = getDeletedNotifIds(userKey);
-    const readIds = getReadNotifIds(userKey);
-    const readAllTs = getReadAllTimestamp(userKey);
-    const clearAllTs = getClearAllTimestamp(userKey);
-
-    const filtered = rawNotifs
-      .filter((n) => {
-        if (deletedIds.includes(n.id)) return false;
-        if (clearAllTs > 0 && n.createdAt) {
-          const nTime = new Date(n.createdAt).getTime();
-          if (!isNaN(nTime) && nTime <= clearAllTs) return false;
-        }
-        return true;
-      })
-      .map((n) => {
-        let isRead = n.read;
-        if (readIds.includes(n.id)) isRead = true;
-        if (readAllTs > 0 && n.createdAt) {
-          const nTime = new Date(n.createdAt).getTime();
-          if (!isNaN(nTime) && nTime <= readAllTs) isRead = true;
-        }
-        return { ...n, read: isRead };
-      });
-
-    setNotifications(filtered);
-  }, [userKey]);
-
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/notifications");
+      const res = await fetch("/api/v1/notifications", {
+        headers: { "x-user-email": userEmail },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data?.data?.notifications) {
-          processNotifications(data.data.notifications);
+          setNotifications(data.data.notifications);
         }
       }
     } catch {}
-  }, [processNotifications]);
+  }, [userEmail]);
 
   useEffect(() => {
     fetchNotifications();
@@ -225,7 +121,7 @@ export default function NotificationsPage() {
           const data = payload.payload || payload;
           const targetId = data?.id;
           const evtUser = data?.userKey || data?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           if (targetId) {
             setNotifications((prev) =>
               prev.map((n) => (n.id === targetId ? { ...n, read: true } : n))
@@ -235,7 +131,7 @@ export default function NotificationsPage() {
         .on("broadcast", { event: "notification:read_all" }, (payload) => {
           const data = payload.payload || payload;
           const evtUser = data?.userKey || data?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
         })
         .on("broadcast", { event: "notification:deleted" }, (payload) => {
@@ -248,7 +144,7 @@ export default function NotificationsPage() {
               !data.notificationIds?.includes(n.id) &&
               (!data.title || n.title !== data.title)
             ));
-          } else if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          } else if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             const targetId = data?.id;
             if (targetId) {
               setNotifications((prev) => prev.filter((n) => n.id !== targetId));
@@ -258,7 +154,7 @@ export default function NotificationsPage() {
         .on("broadcast", { event: "notification:deleted_all" }, (payload) => {
           const data = payload.payload || payload;
           const evtUser = data?.userKey || data?.userEmail;
-          if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             setNotifications([]);
           }
         })
@@ -276,7 +172,7 @@ export default function NotificationsPage() {
           } else if (event.type === "notification:read") {
             const data = event.payload || {};
             const evtUser = data.userKey || data.userEmail;
-            if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+            if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
             const targetId = data.id;
             if (targetId) {
               setNotifications((prev) =>
@@ -286,8 +182,14 @@ export default function NotificationsPage() {
           } else if (event.type === "notification:read_all") {
             const data = event.payload || {};
             const evtUser = data.userKey || data.userEmail;
-            if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+            if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+          } else if (event.type === "notification:deleted_all") {
+            const data = event.payload || {};
+            const evtUser = data.userKey || data.userEmail;
+            if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
+              setNotifications([]);
+            }
           }
         } catch {}
       };
@@ -303,7 +205,7 @@ export default function NotificationsPage() {
           handleIncomingNotification(item);
         } else if (type === "notification:read") {
           const evtUser = item?.userKey || item?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           const targetId = item?.id;
           if (targetId) {
             setNotifications((prev) =>
@@ -312,11 +214,11 @@ export default function NotificationsPage() {
           }
         } else if (type === "notification:read_all") {
           const evtUser = item?.userKey || item?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
         } else if (type === "notification:deleted_all") {
           const evtUser = item?.userKey || item?.userEmail;
-          if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             setNotifications([]);
           }
         } else if (type === "notification:deleted") {
@@ -328,7 +230,7 @@ export default function NotificationsPage() {
               !item.notificationIds?.includes(n.id) &&
               (!item.title || n.title !== item.title)
             ));
-          } else if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          } else if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             const targetId = item?.id;
             if (targetId) {
               setNotifications((prev) => prev.filter((n) => n.id !== targetId));
@@ -343,45 +245,52 @@ export default function NotificationsPage() {
       if (eventSource) eventSource.close();
       if (broadcastChannel) broadcastChannel.close();
     };
-  }, [handleIncomingNotification, userKey, user?.userEmail]);
+  }, [handleIncomingNotification, userKey, userEmail]);
 
   const markAllAsRead = async () => {
-    saveReadAllTimestamp(userKey, Date.now());
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setToastMsg("All notifications marked as read");
     setTimeout(() => setToastMsg(null), 3000);
 
     try {
-      await fetch("/api/v1/notifications/read-all", { method: "POST" });
+      await fetch("/api/v1/notifications/read-all", {
+        method: "POST",
+        headers: { "x-user-email": userEmail },
+      });
 
       const supabase = createClient();
       const channel = supabase.channel("workpulse-supabase-live-channel");
       await channel.send({
         type: "broadcast",
         event: "notification:read_all",
-        payload: { at: new Date().toISOString(), userEmail: user?.userEmail, userKey },
+        payload: { at: new Date().toISOString(), userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:read_all", payload: { userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:read_all", payload: { userEmail, userKey } });
         bc.close();
       }
     } catch {}
   };
 
   const markAsRead = async (id: string) => {
-    saveReadNotifId(userKey, id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
 
     try {
-      await fetch(`/api/v1/notifications/${id}/read`, { method: "POST" });
+      await fetch(`/api/v1/notifications/${id}/read`, {
+        method: "POST",
+        headers: { "x-user-email": userEmail },
+      });
 
       if (id.startsWith("notif-ann-")) {
         const ancId = id.replace("notif-ann-", "");
-        await fetch(`/api/v1/announcements/${ancId}/acknowledge`, { method: "POST" }).catch(() => {});
+        await fetch(`/api/v1/announcements/${ancId}/acknowledge`, {
+          method: "POST",
+          headers: { "x-user-email": userEmail },
+        }).catch(() => {});
       }
 
       const supabase = createClient();
@@ -389,12 +298,12 @@ export default function NotificationsPage() {
       await channel.send({
         type: "broadcast",
         event: "notification:read",
-        payload: { id, userEmail: user?.userEmail, userKey },
+        payload: { id, userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:read", payload: { id, userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:read", payload: { id, userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -405,50 +314,54 @@ export default function NotificationsPage() {
       e.stopPropagation();
       e.preventDefault();
     }
-    saveDeletedNotifId(userKey, id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setToastMsg("Notification permanently deleted.");
     setTimeout(() => setToastMsg(null), 3000);
 
     try {
-      await fetch(`/api/v1/notifications/${id}`, { method: "DELETE" });
+      await fetch(`/api/v1/notifications/${id}`, {
+        method: "DELETE",
+        headers: { "x-user-email": userEmail },
+      });
 
       const supabase = createClient();
       const channel = supabase.channel("workpulse-supabase-live-channel");
       await channel.send({
         type: "broadcast",
         event: "notification:deleted",
-        payload: { id, userEmail: user?.userEmail, userKey },
+        payload: { id, userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:deleted", payload: { id, userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:deleted", payload: { id, userEmail, userKey } });
         bc.close();
       }
     } catch {}
   };
 
   const deleteAllNotifications = async () => {
-    saveClearAllTimestamp(userKey, Date.now());
     setNotifications([]);
     setToastMsg("All notifications permanently deleted.");
     setTimeout(() => setToastMsg(null), 3000);
 
     try {
-      await fetch("/api/v1/notifications", { method: "DELETE" });
+      await fetch("/api/v1/notifications", {
+        method: "DELETE",
+        headers: { "x-user-email": userEmail },
+      });
 
       const supabase = createClient();
       const channel = supabase.channel("workpulse-supabase-live-channel");
       await channel.send({
         type: "broadcast",
         event: "notification:deleted_all",
-        payload: { at: new Date().toISOString(), userEmail: user?.userEmail, userKey },
+        payload: { at: new Date().toISOString(), userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:deleted_all", payload: { userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:deleted_all", payload: { userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -470,7 +383,10 @@ export default function NotificationsPage() {
     try {
       const res = await fetch("/api/v1/notifications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-email": userEmail,
+        },
         body: JSON.stringify({
           title: cleanTitle,
           message: cleanMsg,
@@ -617,8 +533,9 @@ export default function NotificationsPage() {
               <Button
                 variant="outline"
                 size="sm"
+                type="button"
                 onClick={markAllAsRead}
-                className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground gap-1.5 font-medium"
+                className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground gap-1.5 font-medium cursor-pointer"
               >
                 <CheckCheck className="h-3.5 w-3.5 text-cyan-400" />
                 <span>Mark all read</span>
@@ -629,8 +546,9 @@ export default function NotificationsPage() {
               <Button
                 variant="outline"
                 size="sm"
+                type="button"
                 onClick={deleteAllNotifications}
-                className="text-xs h-8 px-3 rounded-lg border-red-500/30 text-red-400 hover:bg-red-500/10 gap-1.5 font-medium"
+                className="text-xs h-8 px-3 rounded-lg border-red-500/30 text-red-400 hover:bg-red-500/10 gap-1.5 font-medium cursor-pointer"
                 title="Permanently delete all notifications"
               >
                 <X className="h-3.5 w-3.5" />
@@ -642,8 +560,9 @@ export default function NotificationsPage() {
               <Button
                 variant="brand"
                 size="sm"
+                type="button"
                 onClick={() => setShowBroadcastModal(true)}
-                className="text-xs h-8 px-3.5 rounded-lg font-semibold gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm"
+                className="text-xs h-8 px-3.5 rounded-lg font-semibold gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm cursor-pointer"
               >
                 <Megaphone className="h-3.5 w-3.5" />
                 <span>Broadcast Notice</span>
@@ -653,8 +572,9 @@ export default function NotificationsPage() {
             <Button
               variant="outline"
               size="sm"
+              type="button"
               onClick={() => router.back()}
-              className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground gap-1.5 font-medium"
+              className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground gap-1.5 font-medium cursor-pointer"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back</span>
@@ -667,7 +587,7 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setFilterType("ALL")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               filterType === "ALL"
                 ? "bg-muted text-foreground border border-border/80 shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -682,7 +602,7 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setFilterType("UNREAD")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               filterType === "UNREAD"
                 ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -699,7 +619,7 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setFilterType("BROADCASTS")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               filterType === "BROADCASTS"
                 ? "bg-muted text-foreground border border-border/80 shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -711,7 +631,7 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setFilterType("LEAVE")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               filterType === "LEAVE"
                 ? "bg-muted text-foreground border border-border/80 shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -781,8 +701,9 @@ export default function NotificationsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        type="button"
                         onClick={() => markAsRead(notif.id)}
-                        className="text-[11px] h-7 px-2.5 text-muted-foreground hover:text-cyan-500 rounded-lg font-medium"
+                        className="text-[11px] h-7 px-2.5 text-muted-foreground hover:text-cyan-500 rounded-lg font-medium cursor-pointer"
                       >
                         <Check className="h-3 w-3 mr-1" />
                         <span>Mark read</span>
@@ -792,9 +713,10 @@ export default function NotificationsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      type="button"
                       onClick={(e) => deleteNotification(notif.id, e)}
                       title="Permanently delete notification"
-                      className="text-[11px] h-7 px-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg font-medium opacity-70 group-hover:opacity-100 transition-opacity"
+                      className="text-[11px] h-7 px-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg font-medium opacity-70 group-hover:opacity-100 transition-opacity cursor-pointer"
                     >
                       <X className="h-3.5 w-3.5" />
                     </Button>
@@ -828,7 +750,7 @@ export default function NotificationsPage() {
                 <button
                   type="button"
                   onClick={() => setShowBroadcastModal(false)}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -850,28 +772,25 @@ export default function NotificationsPage() {
                 </div>
 
                 <div>
-                  <label className="text-foreground font-semibold block mb-1">
-                    Notice Headline <span className="text-rose-500">*</span>
-                  </label>
-                  <Input
+                  <label className="text-foreground font-semibold block mb-1">Title</label>
+                  <input
+                    type="text"
                     value={broadcastTitle}
                     onChange={(e) => setBroadcastTitle(e.target.value)}
-                    placeholder="e.g. Q3 All-Hands Meeting & Roadmap Presentation"
-                    className="h-9 text-xs rounded-lg"
+                    placeholder="e.g. Q3 Security Protocol Updates"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:border-cyan-500 placeholder:text-muted-foreground/60"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-foreground font-semibold block mb-1">
-                    Notice Details <span className="text-rose-500">*</span>
-                  </label>
+                  <label className="text-foreground font-semibold block mb-1">Message</label>
                   <textarea
                     value={broadcastMessage}
                     onChange={(e) => setBroadcastMessage(e.target.value)}
-                    placeholder="Provide the complete message for all team members..."
-                    rows={3}
-                    className="w-full p-2.5 rounded-lg border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:border-cyan-500 resize-none"
+                    placeholder="Provide details of the notice for organization members..."
+                    rows={4}
+                    className="w-full p-3 rounded-lg border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:border-cyan-500 placeholder:text-muted-foreground/60 resize-none"
                     required
                   />
                 </div>
@@ -882,7 +801,7 @@ export default function NotificationsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowBroadcastModal(false)}
-                    className="text-xs h-8 px-4 rounded-lg"
+                    className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground font-medium cursor-pointer"
                   >
                     Cancel
                   </Button>
@@ -891,10 +810,9 @@ export default function NotificationsPage() {
                     variant="brand"
                     size="sm"
                     disabled={isBroadcasting}
-                    className="text-xs h-8 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold gap-1.5 rounded-lg"
+                    className="text-xs h-8 px-4 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm cursor-pointer"
                   >
-                    <Send className="h-3 w-3" />
-                    <span>{isBroadcasting ? "Broadcasting..." : "Broadcast Notice"}</span>
+                    {isBroadcasting ? "Broadcasting..." : "Send Broadcast"}
                   </Button>
                 </div>
               </form>

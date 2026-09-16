@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Sun,
   Activity,
+  AlertTriangle,
 } from "lucide-react";
 
 export interface LeadPersonalTask {
@@ -92,6 +93,7 @@ export function LeadTaskManager() {
   const [feedbackVersion, setFeedbackVersion] = useState(0);
   const [expandedApprovedTasks, setExpandedApprovedTasks] = useState<Record<string, boolean>>({});
   const [expandedWrapupTasks, setExpandedWrapupTasks] = useState<Record<string, boolean>>({});
+  const [leadHelpReplies, setLeadHelpReplies] = useState<Record<string, string>>({});
 
   const [mounted, setMounted] = useState(false);
 
@@ -131,6 +133,7 @@ export function LeadTaskManager() {
     window.addEventListener("workpulse:task_acknowledged", handleUpdate);
     window.addEventListener("workpulse:tasks_changed", handleUpdate);
     window.addEventListener("workpulse:task_deleted", handleUpdate);
+    window.addEventListener("workpulse:help_changed", handleUpdate);
     window.addEventListener("workday:sod_submitted", handleUpdate);
     window.addEventListener("workday:eod_submitted", handleUpdate);
     window.addEventListener("workday:eod_verified", handleUpdate);
@@ -160,6 +163,11 @@ export function LeadTaskManager() {
             ev.data?.type === "workday:sod_verified" ||
             ev.data?.type === "workday:eod_verified" ||
             ev.data?.type === "workday:lead_feedback_updated" ||
+            ev.data?.type === "workday:help_requested" ||
+            ev.data?.type === "workday:help_acknowledged" ||
+            ev.data?.type === "workday:help_resolved" ||
+            ev.data?.type === "workday:help_cancelled" ||
+            ev.data?.type === "workday:help_changed" ||
             ev.data?.type === "workday:changed" ||
             ev.data?.type === "daily_tasks:changed" ||
             ev.data?.type === "workpulse_sync"
@@ -179,6 +187,7 @@ export function LeadTaskManager() {
       window.removeEventListener("workpulse:task_acknowledged", handleUpdate);
       window.removeEventListener("workpulse:tasks_changed", handleUpdate);
       window.removeEventListener("workpulse:task_deleted", handleUpdate);
+      window.removeEventListener("workpulse:help_changed", handleUpdate);
       window.removeEventListener("workday:sod_submitted", handleUpdate);
       window.removeEventListener("workday:eod_submitted", handleUpdate);
       window.removeEventListener("workday:eod_verified", handleUpdate);
@@ -622,7 +631,7 @@ export function LeadTaskManager() {
 
       {/* Real-Time Live Team Assistance Queue (SOS Requests) */}
       {activeTeamHelpRequests.length > 0 && (
-        <div className="p-4 sm:p-5 rounded-3xl border border-rose-500/30 bg-gradient-to-r from-rose-500/[0.06] via-card to-card space-y-3.5 shadow-md animate-in fade-in slide-in-from-top-2">
+        <div className="p-4 sm:p-5 rounded-3xl border border-rose-500/30 bg-gradient-to-r from-rose-500/[0.08] via-card to-card space-y-3.5 shadow-md animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold animate-pulse">
@@ -646,9 +655,9 @@ export function LeadTaskManager() {
             {activeTeamHelpRequests.map((req) => (
               <div
                 key={req.id}
-                className="p-3.5 rounded-2xl bg-card border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm"
+                className="p-3.5 rounded-2xl bg-card border border-border/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-sm"
               >
-                <div className="space-y-1 min-w-0">
+                <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <strong className="text-foreground text-xs font-bold">{req.employeeName}</strong>
                     <Badge
@@ -673,23 +682,43 @@ export function LeadTaskManager() {
                     ) : null}
                   </div>
                   <p className="text-xs text-foreground/90 font-medium leading-relaxed">
-                    &ldquo;{req.details || "Assistance needed on sprint task."}&rdquo;
+                    &ldquo;{req.details || "Assistance needed on sprint deliverables."}&rdquo;
                   </p>
+                  {req.status === "ACKNOWLEDGED" && req.leadResponse && (
+                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                      <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+                      <span><strong>Your Connection Note:</strong> &ldquo;{req.leadResponse}&rdquo;</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
                   {req.status === "PENDING" ? (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        acknowledgeHelpRequest(req.id, "Alex Lead has acknowledged and will connect with you shortly.");
-                        fireSuccessBurst();
-                        showToast(`✓ Acknowledged ${req.employeeName}'s help request!`);
-                      }}
-                      className="text-xs h-8 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-sm"
-                    >
-                      Acknowledge &amp; Connect
-                    </Button>
+                    <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+                      <Input
+                        type="text"
+                        placeholder="Reply / note (e.g. Checking now / Let's sync)..."
+                        value={leadHelpReplies[req.id] || ""}
+                        onChange={(e) =>
+                          setLeadHelpReplies((prev) => ({ ...prev, [req.id]: e.target.value }))
+                        }
+                        className="h-8 text-xs bg-background min-w-[200px]"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const note =
+                            leadHelpReplies[req.id]?.trim() ||
+                            "Alex Lead has acknowledged your request and is connecting with you.";
+                          acknowledgeHelpRequest(req.id, note);
+                          fireSuccessBurst();
+                          showToast(`✓ Acknowledged ${req.employeeName}'s help request!`);
+                        }}
+                        className="text-xs h-8 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shrink-0 shadow-sm"
+                      >
+                        Acknowledge &amp; Connect
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       size="sm"
@@ -701,7 +730,7 @@ export function LeadTaskManager() {
                       className="text-xs h-8 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 shadow-sm"
                     >
                       <Check className="h-3.5 w-3.5" />
-                      <span>Mark Resolved</span>
+                      <span>Mark Blocker Resolved</span>
                     </Button>
                   )}
                 </div>
@@ -954,11 +983,22 @@ export function LeadTaskManager() {
                     )
                   : (isEodSubmitted && member.overallProgress ? member.overallProgress : (member.overallProgress || 0));
 
+              const memberActiveHelp = helpRequests.find(
+                (h) =>
+                  (h.employeeId === member.id ||
+                    (member.email && h.employeeEmail?.toLowerCase() === member.email.toLowerCase()) ||
+                    (isSpecialSarah && (h.employeeId === "emp-sarah" || h.employeeEmail?.includes("employee.test")))) &&
+                  h.status !== "RESOLVED" &&
+                  !h.resolvedByLead
+              );
+
               return (
                 <div
                   key={member.id}
                   className={`rounded-2xl border transition-all overflow-hidden ${
-                    isSodVerified && isEodVerified
+                    memberActiveHelp
+                      ? "border-rose-400/60 dark:border-rose-500/40 bg-rose-50/20 dark:bg-rose-500/[0.03] shadow-md ring-1 ring-rose-500/20"
+                      : isSodVerified && isEodVerified
                       ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-500/[0.02] shadow-sm"
                       : isEodSubmitted || isSodSubmitted
                       ? "border-cyan-300 dark:border-cyan-500/40 bg-cyan-50/40 dark:bg-cyan-500/[0.02] shadow-sm"
@@ -977,12 +1017,24 @@ export function LeadTaskManager() {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <strong className="text-sm font-semibold text-slate-900 dark:text-foreground truncate">{member.name}</strong>
                           <span className="text-xs text-slate-500 dark:text-muted-foreground hidden sm:inline">· {member.designation}</span>
                           <span className="text-[10px] text-slate-600 dark:text-muted-foreground px-1.5 py-0.5 rounded bg-slate-100 dark:bg-muted/40 border border-slate-200/60 dark:border-transparent hidden md:inline">
                             {member.workMode === "OFFICE" ? "Office" : "Remote"}
                           </span>
+                          {memberActiveHelp && (
+                            <span
+                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                memberActiveHelp.status === "ACKNOWLEDGED"
+                                  ? "text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/30 bg-emerald-100/80 dark:bg-emerald-500/10"
+                                  : "text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-500/30 bg-rose-100/80 dark:bg-rose-500/10 animate-pulse"
+                              }`}
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              <span>{memberActiveHelp.status === "ACKNOWLEDGED" ? "✓ Connected" : `Blocker: ${memberActiveHelp.topic}`}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                           {isNewDayForMember ? (
@@ -1071,6 +1123,86 @@ export function LeadTaskManager() {
                   {isExpanded && (
                     <div className="p-4 pt-0 border-t border-slate-200/80 dark:border-border/40 animate-in fade-in">
                       <div className="flex flex-col gap-4 mt-4">
+
+                        {/* Active Blocker Strip for Member */}
+                        {memberActiveHelp && (
+                          <div
+                            className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm ${
+                              memberActiveHelp.status === "ACKNOWLEDGED"
+                                ? "bg-emerald-50/90 dark:bg-emerald-500/[0.08] border-emerald-300 dark:border-emerald-500/30 text-emerald-950 dark:text-emerald-200"
+                                : "bg-rose-50/90 dark:bg-rose-500/[0.08] border-rose-300 dark:border-rose-500/30 text-rose-950 dark:text-rose-200"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div
+                                className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                  memberActiveHelp.status === "ACKNOWLEDGED"
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-rose-500 text-white animate-pulse"
+                                }`}
+                              >
+                                <AlertTriangle className="h-4 w-4" />
+                              </div>
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <strong className="text-xs font-bold">{memberActiveHelp.topic}</strong>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] font-bold ${
+                                      memberActiveHelp.urgency === "URGENT"
+                                        ? "text-rose-700 dark:text-rose-300 border-rose-300 bg-rose-100 dark:bg-rose-500/20"
+                                        : "text-cyan-700 dark:text-cyan-300 border-cyan-300 bg-cyan-100 dark:bg-cyan-500/20"
+                                    }`}
+                                  >
+                                    {memberActiveHelp.urgency}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground">{memberActiveHelp.createdAt}</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed">
+                                  &ldquo;{memberActiveHelp.details || "Assistance needed on sprint deliverables."}&rdquo;
+                                </p>
+                                {memberActiveHelp.status === "ACKNOWLEDGED" && memberActiveHelp.leadResponse && (
+                                  <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold">
+                                    ✓ Your Connection Note: &ldquo;{memberActiveHelp.leadResponse}&rdquo;
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-2">
+                              {memberActiveHelp.status === "PENDING" ? (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    acknowledgeHelpRequest(
+                                      memberActiveHelp.id,
+                                      "Alex Lead has acknowledged your request and is connecting with you."
+                                    );
+                                    fireSuccessBurst();
+                                    showToast(`✓ Acknowledged ${member.name}'s help request!`);
+                                  }}
+                                  className="text-xs h-7 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-sm"
+                                >
+                                  Acknowledge &amp; Connect
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resolveHelpRequest(memberActiveHelp.id, "lead");
+                                    fireCelebrationConfetti();
+                                    showToast(`✓ Resolved help request for ${member.name}!`);
+                                  }}
+                                  className="text-xs h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 shadow-sm"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  <span>Mark Resolved</span>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {/* 🌅 New Workday Banner — shown when EOD is done + 2-min window elapsed */}
                         {isNewDayForMember && (

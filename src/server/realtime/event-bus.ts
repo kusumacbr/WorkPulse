@@ -20,6 +20,8 @@ export type RealtimeEventType =
   | "workday:help_requested"
   | "workday:help_acknowledged"
   | "workday:help_resolved"
+  | "workday:help_cancelled"
+  | "workday:help_changed"
   | "attendance:punched"
   | "attendance:presence_verified"
   | "attendance:all_presence_verified"

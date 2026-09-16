@@ -14,7 +14,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-
 import { useCurrentUser } from "@/components/layout/UserContext";
 
 interface NotificationItem {
@@ -27,86 +26,10 @@ interface NotificationItem {
   createdAt: string;
 }
 
-// LocalStorage helpers per user email key
-function getReadNotifIds(userKey: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const val = localStorage.getItem(`workpulse_read_notifs_${userKey}`);
-    return val ? JSON.parse(val) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveReadNotifId(userKey: string, id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const list = getReadNotifIds(userKey);
-    if (!list.includes(id)) {
-      list.push(id);
-      localStorage.setItem(`workpulse_read_notifs_${userKey}`, JSON.stringify(list));
-    }
-  } catch {}
-}
-
-function getDeletedNotifIds(userKey: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const val = localStorage.getItem(`workpulse_deleted_notifs_${userKey}`);
-    return val ? JSON.parse(val) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDeletedNotifId(userKey: string, id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const list = getDeletedNotifIds(userKey);
-    if (!list.includes(id)) {
-      list.push(id);
-      localStorage.setItem(`workpulse_deleted_notifs_${userKey}`, JSON.stringify(list));
-    }
-  } catch {}
-}
-
-function getReadAllTimestamp(userKey: string): number {
-  if (typeof window === "undefined") return 0;
-  try {
-    const val = localStorage.getItem(`workpulse_read_all_ts_${userKey}`);
-    return val ? parseInt(val, 10) : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveReadAllTimestamp(userKey: string, ts: number) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`workpulse_read_all_ts_${userKey}`, ts.toString());
-  } catch {}
-}
-
-function getClearAllTimestamp(userKey: string): number {
-  if (typeof window === "undefined") return 0;
-  try {
-    const val = localStorage.getItem(`workpulse_clear_all_ts_${userKey}`);
-    return val ? parseInt(val, 10) : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveClearAllTimestamp(userKey: string, ts: number) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`workpulse_clear_all_ts_${userKey}`, ts.toString());
-  } catch {}
-}
-
 export function NotificationDropdown() {
   const user = useCurrentUser();
-  const userKey = (user?.userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const userEmail = user?.userEmail || "";
+  const userKey = (userEmail || "user").toLowerCase().replace(/[^a-z0-9]/g, "_");
 
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -125,48 +48,23 @@ export function NotificationDropdown() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  const processNotifications = useCallback((rawNotifs: NotificationItem[]) => {
-    const deletedIds = getDeletedNotifIds(userKey);
-    const readIds = getReadNotifIds(userKey);
-    const readAllTs = getReadAllTimestamp(userKey);
-    const clearAllTs = getClearAllTimestamp(userKey);
-
-    const filtered = rawNotifs
-      .filter((n) => {
-        if (deletedIds.includes(n.id)) return false;
-        if (clearAllTs > 0 && n.createdAt) {
-          const nTime = new Date(n.createdAt).getTime();
-          if (!isNaN(nTime) && nTime <= clearAllTs) return false;
-        }
-        return true;
-      })
-      .map((n) => {
-        let isRead = n.read;
-        if (readIds.includes(n.id)) isRead = true;
-        if (readAllTs > 0 && n.createdAt) {
-          const nTime = new Date(n.createdAt).getTime();
-          if (!isNaN(nTime) && nTime <= readAllTs) isRead = true;
-        }
-        return { ...n, read: isRead };
-      });
-
-    setNotifications(filtered);
-    setUnreadCount(filtered.filter((n) => !n.read).length);
-  }, [userKey]);
-
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/notifications");
+      const res = await fetch("/api/v1/notifications", {
+        headers: { "x-user-email": userEmail },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data?.data?.notifications) {
-          processNotifications(data.data.notifications);
+          const rawNotifs: NotificationItem[] = data.data.notifications;
+          setNotifications(rawNotifs);
+          setUnreadCount(rawNotifs.filter((n) => !n.read).length);
         }
       }
     } catch {
       // safe fallback
     }
-  }, [processNotifications]);
+  }, [userEmail]);
 
   // Initial fetch and 60s fallback sync (SSE and Supabase handle live updates)
   useEffect(() => {
@@ -212,17 +110,14 @@ export function NotificationDropdown() {
       supabaseChannel = supabase
         .channel("workpulse-supabase-live-channel")
         .on("broadcast", { event: "notification:new" }, (payload) => {
-          console.log("[NotificationDropdown] Realtime notification received:", payload);
           const data = payload.payload || payload;
           handleIncomingNotification(data);
         })
         .on("broadcast", { event: "announcement:new" }, (payload) => {
-          console.log("[NotificationDropdown] Live announcement broadcast received:", payload);
           const data = payload.payload || payload;
           handleIncomingNotification(data);
         })
         .on("broadcast", { event: "celebration:broadcast" }, (payload) => {
-          console.log("[NotificationDropdown] Celebration broadcast received:", payload);
           const data = payload.payload || payload;
           handleIncomingNotification(data);
         })
@@ -230,7 +125,7 @@ export function NotificationDropdown() {
           const data = payload.payload || payload;
           const targetId = data?.id;
           const evtUser = data?.userKey || data?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           if (targetId) {
             setNotifications((prev) =>
               prev.map((n) => (n.id === targetId ? { ...n, read: true } : n))
@@ -241,7 +136,7 @@ export function NotificationDropdown() {
         .on("broadcast", { event: "notification:read_all" }, (payload) => {
           const data = payload.payload || payload;
           const evtUser = data?.userKey || data?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
           setUnreadCount(0);
         })
@@ -255,7 +150,7 @@ export function NotificationDropdown() {
               !data.notificationIds?.includes(n.id) &&
               (!data.title || n.title !== data.title)
             ));
-          } else if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          } else if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             const targetId = data?.id;
             if (targetId) {
               setNotifications((prev) => prev.filter((n) => n.id !== targetId));
@@ -265,7 +160,7 @@ export function NotificationDropdown() {
         .on("broadcast", { event: "notification:deleted_all" }, (payload) => {
           const data = payload.payload || payload;
           const evtUser = data?.userKey || data?.userEmail;
-          if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             setNotifications([]);
             setUnreadCount(0);
           }
@@ -288,7 +183,7 @@ export function NotificationDropdown() {
           } else if (event.type === "notification:read") {
             const data = event.payload || {};
             const evtUser = data.userKey || data.userEmail;
-            if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+            if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
             const targetId = data.id;
             if (targetId) {
               setNotifications((prev) =>
@@ -299,9 +194,16 @@ export function NotificationDropdown() {
           } else if (event.type === "notification:read_all") {
             const data = event.payload || {};
             const evtUser = data.userKey || data.userEmail;
-            if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+            if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
             setUnreadCount(0);
+          } else if (event.type === "notification:deleted_all") {
+            const data = event.payload || {};
+            const evtUser = data.userKey || data.userEmail;
+            if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
+              setNotifications([]);
+              setUnreadCount(0);
+            }
           } else if (event.type === "notification:deleted") {
             const data = event.payload || {};
             const announcementId = data.announcementId;
@@ -311,6 +213,11 @@ export function NotificationDropdown() {
                 !data.notificationIds?.includes(n.id) &&
                 (!data.title || n.title !== data.title)
               ));
+            } else {
+              const targetId = data.id;
+              if (targetId) {
+                setNotifications((prev) => prev.filter((n) => n.id !== targetId));
+              }
             }
           }
         } catch {}
@@ -327,7 +234,7 @@ export function NotificationDropdown() {
           handleIncomingNotification(item);
         } else if (type === "notification:read") {
           const evtUser = item?.userKey || item?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           const targetId = item?.id;
           if (targetId) {
             setNotifications((prev) =>
@@ -337,12 +244,12 @@ export function NotificationDropdown() {
           }
         } else if (type === "notification:read_all") {
           const evtUser = item?.userKey || item?.userEmail;
-          if (evtUser && evtUser !== userKey && evtUser !== user?.userEmail) return;
+          if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
           setUnreadCount(0);
         } else if (type === "notification:deleted_all") {
           const evtUser = item?.userKey || item?.userEmail;
-          if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             setNotifications([]);
             setUnreadCount(0);
           }
@@ -355,7 +262,7 @@ export function NotificationDropdown() {
               !item.notificationIds?.includes(n.id) &&
               (!item.title || n.title !== item.title)
             ));
-          } else if (evtUser && (evtUser === userKey || evtUser === user?.userEmail)) {
+          } else if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
             const targetId = item?.id;
             if (targetId) {
               setNotifications((prev) => prev.filter((n) => n.id !== targetId));
@@ -370,17 +277,19 @@ export function NotificationDropdown() {
       if (eventSource) eventSource.close();
       if (broadcastChannel) broadcastChannel.close();
     };
-  }, [handleIncomingNotification, userKey, user?.userEmail]);
+  }, [handleIncomingNotification, userKey, userEmail]);
 
-  // Mark all as read with Real-Time sync
+  // Mark all as read with Real-Time Supabase sync
   const markAllAsRead = async () => {
-    saveReadAllTimestamp(userKey, Date.now());
-    // Optimistic UI update
+    // Optimistic UI update (immediate, no refresh)
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
 
     try {
-      await fetch("/api/v1/notifications/read-all", { method: "POST" });
+      await fetch("/api/v1/notifications/read-all", {
+        method: "POST",
+        headers: { "x-user-email": userEmail },
+      });
 
       // Supabase realtime channel broadcast
       const supabase = createClient();
@@ -388,34 +297,39 @@ export function NotificationDropdown() {
       await channel.send({
         type: "broadcast",
         event: "notification:read_all",
-        payload: { at: new Date().toISOString(), userEmail: user?.userEmail, userKey },
+        payload: { at: new Date().toISOString(), userEmail, userKey },
       });
 
       // Cross-tab broadcast
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:read_all", payload: { userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:read_all", payload: { userEmail, userKey } });
         bc.close();
       }
     } catch {}
   };
 
-  // Mark single notification as read with Real-Time sync
+  // Mark single notification as read with Real-Time Supabase sync
   const markAsRead = async (id: string) => {
-    saveReadNotifId(userKey, id);
-    // Optimistic UI update
+    // Optimistic UI update (immediate, no refresh)
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
 
     try {
-      await fetch(`/api/v1/notifications/${id}/read`, { method: "POST" });
+      await fetch(`/api/v1/notifications/${id}/read`, {
+        method: "POST",
+        headers: { "x-user-email": userEmail },
+      });
 
       // If it's an announcement notification, also acknowledge in Supabase
       if (id.startsWith("notif-ann-")) {
         const ancId = id.replace("notif-ann-", "");
-        await fetch(`/api/v1/announcements/${ancId}/acknowledge`, { method: "POST" }).catch(() => {});
+        await fetch(`/api/v1/announcements/${ancId}/acknowledge`, {
+          method: "POST",
+          headers: { "x-user-email": userEmail },
+        }).catch(() => {});
       }
 
       // Supabase realtime broadcast
@@ -424,13 +338,13 @@ export function NotificationDropdown() {
       await channel.send({
         type: "broadcast",
         event: "notification:read",
-        payload: { id, userEmail: user?.userEmail, userKey },
+        payload: { id, userEmail, userKey },
       });
 
       // Cross-tab broadcast
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:read", payload: { id, userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:read", payload: { id, userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -442,49 +356,55 @@ export function NotificationDropdown() {
       e.stopPropagation();
       e.preventDefault();
     }
-    saveDeletedNotifId(userKey, id);
+    // Optimistic UI update
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setUnreadCount((prev) => Math.max(0, prev - 1));
 
     try {
-      await fetch(`/api/v1/notifications/${id}`, { method: "DELETE" });
+      await fetch(`/api/v1/notifications/${id}`, {
+        method: "DELETE",
+        headers: { "x-user-email": userEmail },
+      });
 
       const supabase = createClient();
       const channel = supabase.channel("workpulse-supabase-live-channel");
       await channel.send({
         type: "broadcast",
         event: "notification:deleted",
-        payload: { id, userEmail: user?.userEmail, userKey },
+        payload: { id, userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:deleted", payload: { id, userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:deleted", payload: { id, userEmail, userKey } });
         bc.close();
       }
     } catch {}
   };
 
-  // Permanently delete all notifications
+  // Permanently delete all notifications (Clear all)
   const deleteAllNotifications = async () => {
-    saveClearAllTimestamp(userKey, Date.now());
+    // Optimistic UI update (immediate, no refresh)
     setNotifications([]);
     setUnreadCount(0);
 
     try {
-      await fetch("/api/v1/notifications", { method: "DELETE" });
+      await fetch("/api/v1/notifications", {
+        method: "DELETE",
+        headers: { "x-user-email": userEmail },
+      });
 
       const supabase = createClient();
       const channel = supabase.channel("workpulse-supabase-live-channel");
       await channel.send({
         type: "broadcast",
         event: "notification:deleted_all",
-        payload: { at: new Date().toISOString(), userEmail: user?.userEmail, userKey },
+        payload: { at: new Date().toISOString(), userEmail, userKey },
       });
 
       if ("BroadcastChannel" in window) {
         const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-        bc.postMessage({ type: "notification:deleted_all", payload: { userEmail: user?.userEmail, userKey } });
+        bc.postMessage({ type: "notification:deleted_all", payload: { userEmail, userKey } });
         bc.close();
       }
     } catch {}
@@ -516,7 +436,7 @@ export function NotificationDropdown() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Notifications"
-        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors relative"
+        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors relative cursor-pointer"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
@@ -544,7 +464,7 @@ export function NotificationDropdown() {
                   <button
                     type="button"
                     onClick={markAllAsRead}
-                    className="text-[11px] text-cyan-500 hover:underline font-medium flex items-center gap-1"
+                    className="text-[11px] text-cyan-500 hover:underline font-medium flex items-center gap-1 cursor-pointer"
                   >
                     <Check className="h-3 w-3" />
                     <span>Mark read</span>
@@ -554,7 +474,7 @@ export function NotificationDropdown() {
                   <button
                     type="button"
                     onClick={deleteAllNotifications}
-                    className="text-[11px] text-red-500 hover:underline font-medium"
+                    className="text-[11px] text-red-500 hover:underline font-medium cursor-pointer"
                     title="Permanently delete all notifications"
                   >
                     Clear all
@@ -617,7 +537,7 @@ export function NotificationDropdown() {
                         <button
                           type="button"
                           onClick={() => markAsRead(notif.id)}
-                          className="text-[10px] text-cyan-500 hover:text-cyan-400 hover:underline transition-colors font-semibold flex items-center gap-0.5"
+                          className="text-[10px] text-cyan-500 hover:text-cyan-400 hover:underline transition-colors font-semibold flex items-center gap-0.5 cursor-pointer"
                         >
                           <Check className="h-2.5 w-2.5" />
                           <span>Mark read</span>

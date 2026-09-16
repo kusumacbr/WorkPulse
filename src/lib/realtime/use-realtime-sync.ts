@@ -36,8 +36,19 @@ export function useRealtimeSync() {
           const msg: RealtimeMessage = event.data;
           setLastEvent(msg);
           setEventCount((c) => c + 1);
-          // Hydrate local shared store upon receiving peer tab broadcast
-          WorkpulseSharedStore.hydrateFromStorage();
+          if (
+            msg.type?.startsWith("workday:help_") ||
+            msg.type === "workday:help_changed" ||
+            msg.type?.startsWith("employee:") ||
+            msg.type?.startsWith("leave:") ||
+            msg.type?.startsWith("wfh:")
+          ) {
+            WorkpulseSharedStore.syncWithSupabase(true);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("workpulse:help_changed", { detail: msg.payload }));
+              window.dispatchEvent(new CustomEvent("workpulse_sync"));
+            }
+          }
         };
       }
     } catch (err) {
@@ -181,7 +192,13 @@ export function useRealtimeSync() {
               WorkpulseSharedStore.syncWithSupabase(true);
               if (typeof window !== "undefined") {
                 window.dispatchEvent(new CustomEvent("workpulse_sync"));
+                window.dispatchEvent(new CustomEvent("workpulse:help_changed", { detail: payload }));
                 window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: payload }));
+                try {
+                  const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+                  bc.postMessage({ type: "workday:help_changed", eventType: payload.eventType, record: payload.new || payload.old, timestamp: Date.now() });
+                  bc.close();
+                } catch {}
               }
             }
           )

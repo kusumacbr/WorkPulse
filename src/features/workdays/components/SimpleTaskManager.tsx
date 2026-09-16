@@ -118,6 +118,13 @@ export function deduplicateTasks(tasks: any[]): SimpleTaskItem[] {
 
 export const DEFAULT_FRIENDLY_TASKS: SimpleTaskItem[] = [];
 
+export function formatLocalDateKey(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 type SegregationTab = "ALL" | "TODO" | "IN_PROGRESS" | "COMPLETED" | "WEEK" | "MONTH" | "60DAYS";
 
 export function SimpleTaskManager() {
@@ -282,6 +289,11 @@ export function SimpleTaskManager() {
             ev.data?.type === "workday:eod_approved" ||
             ev.data?.type === "workday:sod_changes_requested" ||
             ev.data?.type === "workday:lead_feedback_updated" ||
+            ev.data?.type === "workday:help_requested" ||
+            ev.data?.type === "workday:help_acknowledged" ||
+            ev.data?.type === "workday:help_resolved" ||
+            ev.data?.type === "workday:help_cancelled" ||
+            ev.data?.type === "workday:help_changed" ||
             ev.data?.type === "workday:changed" ||
             ev.data?.type === "workpulse_sync"
           ) {
@@ -313,6 +325,7 @@ export function SimpleTaskManager() {
     window.addEventListener("workpulse:task_deleted", debouncedLoadTasks);
     window.addEventListener("workpulse:task_assigned", debouncedLoadTasks);
     window.addEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+    window.addEventListener("workpulse:help_changed", debouncedLoadTasks);
     window.addEventListener("workday:sod_verified", debouncedLoadTasks);
     window.addEventListener("workday:eod_verified", debouncedLoadTasks);
     window.addEventListener("workday:lead_feedback_updated", debouncedLoadTasks);
@@ -1037,14 +1050,14 @@ export function SimpleTaskManager() {
 
     const firstDayOfWeek = monthStart.getDay(); // 0=Sun, 1=Mon...6=Sat
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const todayStr = today.toISOString().split("T")[0] || "";
+    const todayStr = formatLocalDateKey(today);
 
     const days = [];
 
     // 1. Leading padding days from previous month
     for (let p = firstDayOfWeek - 1; p >= 0; p--) {
       const prevDate = new Date(year, month, -p);
-      const dateKey = prevDate.toISOString().split("T")[0] || "";
+      const dateKey = formatLocalDateKey(prevDate);
       const dayOfWeek = prevDate.getDay();
       days.push({
         dateKey,
@@ -1073,7 +1086,7 @@ export function SimpleTaskManager() {
     // 2. Current Month days (1st to last day)
     for (let d = 1; d <= totalDays; d++) {
       const currDate = new Date(year, month, d);
-      const dateKey = currDate.toISOString().split("T")[0] || "";
+      const dateKey = formatLocalDateKey(currDate);
       const dayOfWeek = currDate.getDay();
       const isToday = dateKey === todayStr;
       const isPast = dateKey < todayStr;
@@ -1192,7 +1205,7 @@ export function SimpleTaskManager() {
     const trailingCount = (7 - (days.length % 7)) % 7;
     for (let t = 1; t <= trailingCount; t++) {
       const nextDate = new Date(year, month + 1, t);
-      const dateKey = nextDate.toISOString().split("T")[0] || "";
+      const dateKey = formatLocalDateKey(nextDate);
       const dayOfWeek = nextDate.getDay();
       days.push({
         dateKey,
@@ -1535,19 +1548,47 @@ export function SimpleTaskManager() {
               </div>
             </button>
           ) : (
-            <div className="p-3 px-4 rounded-2xl bg-amber-50 dark:bg-amber-500/15 border-2 border-amber-300 dark:border-amber-500/40 flex items-center gap-3 shadow-sm">
-              <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 animate-pulse">
-                <HelpCircle className="h-5 w-5" />
+            <div
+              className={`p-3 px-4 rounded-2xl border-2 flex items-center gap-3 shadow-sm ${
+                myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead
+                  ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/40 text-emerald-950 dark:text-emerald-200"
+                  : "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/40 text-amber-950 dark:text-amber-200"
+              }`}
+            >
+              <div
+                className={`h-9 w-9 rounded-xl text-white flex items-center justify-center shrink-0 ${
+                  myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead
+                    ? "bg-emerald-500"
+                    : "bg-amber-500 animate-pulse"
+                }`}
+              >
+                {myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead ? (
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <HelpCircle className="h-5 w-5" />
+                )}
               </div>
               <div className="text-left">
-                <div className="text-xs font-black text-amber-900 dark:text-amber-200">
+                <div
+                  className={`text-xs font-black ${
+                    myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead
+                      ? "text-emerald-900 dark:text-emerald-200"
+                      : "text-amber-900 dark:text-amber-200"
+                  }`}
+                >
                   {myActiveHelp.resolvedByLead
                     ? `Resolved by ${assignedLeadName}`
                     : myActiveHelp.status === "ACKNOWLEDGED"
-                    ? `Connected with ${assignedLeadName}`
+                    ? `✓ Connected with ${assignedLeadName}`
                     : "Help Ping Dispatched"}
                 </div>
-                <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                <div
+                  className={`text-[10px] font-semibold ${
+                    myActiveHelp.status === "ACKNOWLEDGED" || myActiveHelp.resolvedByLead
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : "text-amber-700 dark:text-amber-400"
+                  }`}
+                >
                   {myActiveHelp.resolvedByLead
                     ? "Pending your confirmation"
                     : myActiveHelp.status === "ACKNOWLEDGED"
@@ -2304,7 +2345,7 @@ export function SimpleTaskManager() {
                       size="sm"
                       onClick={() => {
                         setCalendarMonthOffset(0);
-                        setSelectedCalendarDateKey(new Date().toISOString().split("T")[0] || null);
+                        setSelectedCalendarDateKey(formatLocalDateKey(new Date()));
                       }}
                       className="h-8 px-3 text-xs font-bold rounded-xl cursor-pointer"
                     >
@@ -2448,7 +2489,7 @@ export function SimpleTaskManager() {
                       size="sm"
                       onClick={() => {
                         setCalendarMonthOffset(0);
-                        setSelectedCalendarDateKey(new Date().toISOString().split("T")[0] || null);
+                        setSelectedCalendarDateKey(formatLocalDateKey(new Date()));
                       }}
                       className="h-8 px-3 text-xs font-bold rounded-xl cursor-pointer"
                     >
@@ -2572,7 +2613,7 @@ export function SimpleTaskManager() {
             )}
             {/* Detailed Breakdown for Selected Day */}
             {(() => {
-              const todayKey = new Date().toISOString().split("T")[0];
+              const todayKey = formatLocalDateKey(new Date());
               const keyToFind = selectedCalendarDateKey || todayKey;
 
               let activeDay: any = null;

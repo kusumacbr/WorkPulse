@@ -974,25 +974,78 @@ export const WorkpulseSharedStore = {
       }
 
       if (fbRes.data && fbRes.data.length > 0) {
-        const mappedFb: SharedEODFeedback[] = fbRes.data
-          .map((f) => ({
-            id: f.id,
-            employeeId: f.employee_id,
-            employeeName: f.employee_name,
-            departmentName: "Development",
-            date: f.date || "Today",
-            dayName: "Today",
-            employeeEodSummary: f.notes || "Completed assigned sprint deliverables.",
-            tasksCompleted: "Planned deliverables completed",
-            hoursLogged: 8.0,
-            leadFeedbackTime: f.created_at ? new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Today",
-            leadFeedbackNote: f.notes,
-            leadRating: Number(f.rating) || 5.0,
-            leadSentiment: f.sentiment || "EXCELLENT",
-            leadActionItem: f.action_item,
-            isToday: true,
-          }));
+        const mappedFb: SharedEODFeedback[] = [];
+        const mappedHelp: SharedLeadHelpRequest[] = [];
+
+        for (const f of fbRes.data) {
+          const isHelpReq =
+            f.action_item === "HELP_REQUEST" ||
+            (f.id && (f.id.startsWith("help-") || f.id.startsWith("blocker-")));
+
+          if (isHelpReq) {
+            let meta: any = {};
+            try {
+              if (f.notes && typeof f.notes === "string" && f.notes.startsWith("{")) {
+                meta = JSON.parse(f.notes);
+              }
+            } catch {}
+
+            mappedHelp.push({
+              id: f.id,
+              employeeId: f.employee_id,
+              employeeName: f.employee_name,
+              employeeEmail: meta.employeeEmail || `${f.employee_id}@xorstack.com`,
+              department: meta.department || "Development",
+              leadName: meta.leadName || "Alex Lead",
+              topic: meta.topic || "Blocker / Technical Issue",
+              details:
+                meta.details ||
+                (typeof f.notes === "string" && !f.notes.startsWith("{") ? f.notes : "") ||
+                "Assistance needed on daily sprint deliverables.",
+              urgency: meta.urgency || (f.rating === 1 ? "URGENT" : "NORMAL"),
+              status: (f.sentiment as any) || "PENDING",
+              createdAt:
+                meta.createdAt ||
+                (f.created_at
+                  ? `Today at ${new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                  : "Today"),
+              acknowledgedAt: meta.acknowledgedAt,
+              resolvedAt: meta.resolvedAt,
+              leadResponse: meta.leadResponse,
+              resolvedByEmployee: Boolean(meta.resolvedByEmployee),
+              resolvedByEmployeeAt: meta.resolvedByEmployeeAt,
+              resolvedByLead: Boolean(meta.resolvedByLead),
+              resolvedByLeadAt: meta.resolvedByLeadAt,
+            });
+          } else {
+            mappedFb.push({
+              id: f.id,
+              employeeId: f.employee_id,
+              employeeName: f.employee_name,
+              departmentName: "Development",
+              date: f.date || "Today",
+              dayName: "Today",
+              employeeEodSummary: f.notes || "Completed assigned sprint deliverables.",
+              tasksCompleted: "Planned deliverables completed",
+              hoursLogged: 8.0,
+              leadFeedbackTime: f.created_at
+                ? new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "Today",
+              leadFeedbackNote: f.notes,
+              leadRating: Number(f.rating) || 5.0,
+              leadSentiment: f.sentiment || "EXCELLENT",
+              leadActionItem: f.action_item,
+              isToday: true,
+            });
+          }
+        }
+
         globalFeedbacks = mappedFb;
+
+        // Merge mappedHelp with any unsynced optimistic local items
+        const serverIds = new Set(mappedHelp.map((h) => h.id));
+        const unsyncedOptimistic = globalHelpRequests.filter((h) => !serverIds.has(h.id));
+        globalHelpRequests = [...unsyncedOptimistic, ...mappedHelp];
       } else if (fbRes.data && fbRes.data.length === 0) {
         globalFeedbacks = [];
       }
@@ -3351,16 +3404,99 @@ export const WorkpulseSharedStore = {
   requestLeadHelp: (req: Omit<SharedLeadHelpRequest, "id" | "createdAt" | "status">) => {
     const now = new Date();
     const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    const today = now.toISOString().split("T")[0]!;
     const newHelp: SharedLeadHelpRequest = {
-      id: `help-${Date.now()}`,
+      id: `help-${req.employeeId}-${Date.now()}`,
       ...req,
       status: "PENDING",
       createdAt: timeStr,
       resolvedByEmployee: false,
       resolvedByLead: false,
     };
-    globalHelpRequests = [newHelp, ...globalHelpRequests.filter((h) => h.employeeId !== req.employeeId || h.status === "RESOLVED" || (h.resolvedByEmployee && h.resolvedByLead))];
+    globalHelpRequests = [
+      newHelp,
+      ...globalHelpRequests.filter(
+        (h) =>
+          h.employeeId !== req.employeeId ||
+          h.status === "RESOLVED" ||
+          (h.resolvedByEmployee && h.resolvedByLead)
+      ),
+    ];
     notify();
+
+    // 1. Broadcast to peer tabs
+    if (typeof window !== "undefined") {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({
+          type: "workday:help_requested",
+          payload: newHelp,
+          timestamp: Date.now(),
+        });
+        bc.close();
+      } catch {}
+      try {
+        window.dispatchEvent(
+          new CustomEvent("workpulse:help_changed", { detail: newHelp })
+        );
+      } catch {}
+    }
+
+    // 2. Persist to Supabase feedbacks table (bypassing RLS via universal admin sync)
+    if (typeof window !== "undefined") {
+      const notesData = JSON.stringify({
+        topic: newHelp.topic,
+        details: newHelp.details,
+        department: newHelp.department,
+        leadName: newHelp.leadName,
+        urgency: newHelp.urgency,
+        createdAt: newHelp.createdAt,
+        employeeEmail: newHelp.employeeEmail,
+      });
+
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert",
+          table: "feedbacks",
+          record: {
+            id: newHelp.id,
+            employee_id: newHelp.employeeId,
+            employee_name: newHelp.employeeName,
+            lead_id: "lead-alex",
+            lead_name: newHelp.leadName || "Alex Lead",
+            date: today,
+            notes: notesData,
+            rating: newHelp.urgency === "URGENT" ? 1 : 3,
+            sentiment: "PENDING",
+            action_item: "HELP_REQUEST",
+            created_at: new Date().toISOString(),
+          },
+        }),
+      }).catch(() => {});
+
+      // Dispatch notification to Team Lead
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "broadcast_notification",
+          record: {
+            id: `notif-help-${Date.now()}`,
+            userId: "lead-alex",
+            actorId: newHelp.employeeId,
+            type: "TASK_APPROVAL_REQUESTED",
+            title: `🚨 Blocker: ${newHelp.employeeName}`,
+            message: `${newHelp.employeeName} requested immediate assistance: "${newHelp.topic} - ${newHelp.details || "Assistance needed"}"`,
+            linkUrl: "/my-work",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+        }),
+      }).catch(() => {});
+    }
+
     try {
       realtimeEventBus.emit("workday:help_requested", newHelp);
     } catch {}
@@ -3369,41 +3505,180 @@ export const WorkpulseSharedStore = {
   acknowledgeHelpRequest: (id: string, responseNote?: string) => {
     const now = new Date();
     const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    globalHelpRequests = globalHelpRequests.map((h) =>
-      h.id === id
-        ? {
-            ...h,
-            status: "ACKNOWLEDGED",
-            acknowledgedAt: timeStr,
-            leadResponse: responseNote || "Lead has acknowledged your request and is connecting with you.",
-          }
-        : h
-    );
-    notify();
-    try {
-      realtimeEventBus.emit("workday:help_acknowledged", { id, responseNote });
-    } catch {}
-  },
-  resolveHelpRequest: (id: string, actor: "employee" | "lead" | "both" = "both") => {
-    const now = new Date();
-    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    globalHelpRequests = globalHelpRequests.map((h) => {
-      if (h.id !== id) return h;
-      const resolvedByEmployee = actor === "employee" || actor === "both" ? true : !!h.resolvedByEmployee;
-      const resolvedByLead = actor === "lead" || actor === "both" ? true : !!h.resolvedByLead;
-      const bothResolved = resolvedByEmployee && resolvedByLead;
+    const note =
+      responseNote || "Alex Lead has acknowledged your request and is connecting with you.";
+    let targetReq: SharedLeadHelpRequest | undefined;
 
-      return {
-        ...h,
-        resolvedByEmployee,
-        resolvedByEmployeeAt: (actor === "employee" || actor === "both") ? (h.resolvedByEmployeeAt || timeStr) : h.resolvedByEmployeeAt,
-        resolvedByLead,
-        resolvedByLeadAt: (actor === "lead" || actor === "both") ? (h.resolvedByLeadAt || timeStr) : h.resolvedByLeadAt,
-        status: bothResolved ? ("RESOLVED" as const) : h.status,
-        resolvedAt: bothResolved ? (h.resolvedAt || timeStr) : h.resolvedAt,
-      };
+    globalHelpRequests = globalHelpRequests.map((h) => {
+      if (h.id === id) {
+        targetReq = {
+          ...h,
+          status: "ACKNOWLEDGED",
+          acknowledgedAt: timeStr,
+          leadResponse: note,
+        };
+        return targetReq;
+      }
+      return h;
     });
     notify();
+
+    if (typeof window !== "undefined" && targetReq) {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({
+          type: "workday:help_acknowledged",
+          payload: { id, responseNote: note, acknowledgedAt: timeStr },
+          timestamp: Date.now(),
+        });
+        bc.close();
+      } catch {}
+      try {
+        window.dispatchEvent(
+          new CustomEvent("workpulse:help_changed", { detail: targetReq })
+        );
+      } catch {}
+
+      // Persist update to Supabase
+      const notesData = JSON.stringify({
+        topic: targetReq.topic,
+        details: targetReq.details,
+        department: targetReq.department,
+        leadName: targetReq.leadName,
+        urgency: targetReq.urgency,
+        createdAt: targetReq.createdAt,
+        acknowledgedAt: timeStr,
+        leadResponse: note,
+        employeeEmail: targetReq.employeeEmail,
+      });
+
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          table: "feedbacks",
+          id: targetReq.id,
+          record: {
+            sentiment: "ACKNOWLEDGED",
+            notes: notesData,
+          },
+        }),
+      }).catch(() => {});
+
+      // Dispatch notification to employee
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "broadcast_notification",
+          record: {
+            id: `notif-ack-${Date.now()}`,
+            userId: targetReq.employeeId,
+            actorId: "lead-alex",
+            type: "TASK_APPROVED",
+            title: `✓ Alex Lead Connected`,
+            message: `Alex Lead acknowledged your help ping: "${note}"`,
+            linkUrl: "/my-work",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+        }),
+      }).catch(() => {});
+    }
+
+    try {
+      realtimeEventBus.emit("workday:help_acknowledged", { id, responseNote: note });
+    } catch {}
+  },
+  resolveHelpRequest: (
+    id: string,
+    actor: "employee" | "lead" | "both" = "both"
+  ) => {
+    const now = new Date();
+    const timeStr = `Today at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    let resolvedItem: SharedLeadHelpRequest | undefined;
+
+    globalHelpRequests = globalHelpRequests.map((h) => {
+      if (h.id !== id) return h;
+      const resolvedByEmployee =
+        actor === "employee" || actor === "both" ? true : !!h.resolvedByEmployee;
+      const resolvedByLead =
+        actor === "lead" || actor === "both" ? true : !!h.resolvedByLead;
+      const isFullyResolved =
+        (resolvedByEmployee && resolvedByLead) ||
+        actor === "both" ||
+        actor === "lead" ||
+        (actor === "employee" && h.status === "ACKNOWLEDGED");
+
+      resolvedItem = {
+        ...h,
+        resolvedByEmployee,
+        resolvedByEmployeeAt:
+          actor === "employee" || actor === "both"
+            ? h.resolvedByEmployeeAt || timeStr
+            : h.resolvedByEmployeeAt,
+        resolvedByLead,
+        resolvedByLeadAt:
+          actor === "lead" || actor === "both"
+            ? h.resolvedByLeadAt || timeStr
+            : h.resolvedByLeadAt,
+        status: isFullyResolved ? ("RESOLVED" as const) : h.status,
+        resolvedAt: isFullyResolved ? h.resolvedAt || timeStr : h.resolvedAt,
+      };
+      return resolvedItem;
+    });
+    notify();
+
+    if (typeof window !== "undefined" && resolvedItem) {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({
+          type: "workday:help_resolved",
+          payload: { id, actor, resolvedItem },
+          timestamp: Date.now(),
+        });
+        bc.close();
+      } catch {}
+      try {
+        window.dispatchEvent(
+          new CustomEvent("workpulse:help_changed", { detail: resolvedItem })
+        );
+      } catch {}
+
+      // Persist update to Supabase
+      const notesData = JSON.stringify({
+        topic: resolvedItem.topic,
+        details: resolvedItem.details,
+        department: resolvedItem.department,
+        leadName: resolvedItem.leadName,
+        urgency: resolvedItem.urgency,
+        createdAt: resolvedItem.createdAt,
+        acknowledgedAt: resolvedItem.acknowledgedAt,
+        leadResponse: resolvedItem.leadResponse,
+        resolvedByEmployee: resolvedItem.resolvedByEmployee,
+        resolvedByEmployeeAt: resolvedItem.resolvedByEmployeeAt,
+        resolvedByLead: resolvedItem.resolvedByLead,
+        resolvedByLeadAt: resolvedItem.resolvedByLeadAt,
+        resolvedAt: resolvedItem.resolvedAt,
+        employeeEmail: resolvedItem.employeeEmail,
+      });
+
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          table: "feedbacks",
+          id: resolvedItem.id,
+          record: {
+            sentiment: resolvedItem.status,
+            notes: notesData,
+          },
+        }),
+      }).catch(() => {});
+    }
+
     try {
       realtimeEventBus.emit("workday:help_resolved", { id, actor });
     } catch {}
@@ -3411,6 +3686,39 @@ export const WorkpulseSharedStore = {
   cancelHelpRequest: (id: string) => {
     globalHelpRequests = globalHelpRequests.filter((h) => h.id !== id);
     notify();
+
+    if (typeof window !== "undefined") {
+      try {
+        const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+        bc.postMessage({
+          type: "workday:help_cancelled",
+          payload: { id },
+          timestamp: Date.now(),
+        });
+        bc.close();
+      } catch {}
+      try {
+        window.dispatchEvent(
+          new CustomEvent("workpulse:help_changed", {
+            detail: { id, cancelled: true },
+          })
+        );
+      } catch {}
+
+      fetch("/api/v1/supabase/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          table: "feedbacks",
+          id,
+        }),
+      }).catch(() => {});
+    }
+
+    try {
+      realtimeEventBus.emit("workday:help_cancelled", { id });
+    } catch {}
   },
   getTeamPresence: () => [...globalTeamPresence],
   verifyMemberPresence: (id: string, verifierName: string = "Alex Lead") => {
