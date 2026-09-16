@@ -3207,7 +3207,7 @@ export const WorkpulseSharedStore = {
       fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tlComment: updatedReq.tlComment, tlApproverName: updatedReq.tlApproverName }),
+        body: JSON.stringify({ tlComment: updatedReq.tlComment, tlApproverName: updatedReq.tlApproverName, stage: "STAGE_1", comment }),
       }).catch(() => {});
     }
   },
@@ -3261,7 +3261,7 @@ export const WorkpulseSharedStore = {
       fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hrComment: updatedReq.hrComment, hrApproverName: updatedReq.hrApproverName }),
+        body: JSON.stringify({ hrComment: updatedReq.hrComment, hrApproverName: updatedReq.hrApproverName, stage: "STAGE_2", comment }),
       }).catch(() => {});
     }
   },

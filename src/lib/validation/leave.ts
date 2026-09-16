@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const LeaveTypeEnum = z.enum(["CASUAL", "SICK", "PRIVILEGE", "UNPAID"]);
 export const LeaveStatusEnum = z.enum(["PENDING_MANAGER", "PENDING_HR", "APPROVED", "REJECTED", "CANCELLED"]);
-export const WfhStatusEnum = z.enum(["PENDING_MANAGER", "APPROVED", "REJECTED", "CANCELLED"]);
+export const WfhStatusEnum = z.enum(["PENDING_MANAGER", "PENDING_HR", "FORWARDED_TO_HR", "PENDING_TL_STAGE_1", "APPROVED", "REJECTED", "CANCELLED"]);
 
 export const leaveRequestCreateSchema = z.object({
   leaveType: LeaveTypeEnum.default("CASUAL"),

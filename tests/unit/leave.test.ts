@@ -230,7 +230,7 @@ describe("Leave & WFH Management Engine (Phase 3)", () => {
       ).rejects.toThrow(/Monthly self-mark WFH threshold exceeded/);
     });
 
-    it("allows standard manager-approved WFH beyond self-mark threshold", async () => {
+    it("allows standard manager-approved WFH beyond self-mark threshold through 2-stage pipeline", async () => {
       const standardWfh = await LeaveService.submitWfhRequest({
         actor: employeeActor,
         input: {
@@ -244,7 +244,8 @@ describe("Leave & WFH Management Engine (Phase 3)", () => {
 
       expect(standardWfh.status).toBe("PENDING_MANAGER");
 
-      const approved = await LeaveService.managerReviewWfh({
+      // Stage 1: Manager Review
+      const stage1 = await LeaveService.managerReviewWfh({
         actor: managerActor,
         input: {
           requestId: standardWfh.id,
@@ -252,7 +253,19 @@ describe("Leave & WFH Management Engine (Phase 3)", () => {
         },
       });
 
-      expect(approved.status).toBe("APPROVED");
+      expect(stage1.status).toBe("PENDING_HR");
+
+      // Stage 2: HR Final Sign-off
+      const stage2 = await LeaveService.hrReviewWfh({
+        actor: hrActor,
+        input: {
+          requestId: standardWfh.id,
+          action: "APPROVE",
+          comment: "HR Authorized remote work",
+        },
+      });
+
+      expect(stage2.status).toBe("APPROVED");
     });
   });
 });

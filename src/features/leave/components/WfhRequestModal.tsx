@@ -49,7 +49,7 @@ export function WfhRequestModal({
     defaultValues: {
       startDate: new Date().toISOString().split("T")[0],
       endDate: new Date().toISOString().split("T")[0],
-      isSelfMarked: monthlySelfMarkUsed < monthlyThreshold,
+      isSelfMarked: false,
       reason: "",
       availabilityHours: "10:00-19:00",
       contactMethod: "Slack & Google Meet",

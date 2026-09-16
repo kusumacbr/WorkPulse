@@ -182,7 +182,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        body: JSON.stringify({ comment, stage: "STAGE_2", hrComment: comment }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH approval to API:", e);
