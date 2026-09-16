@@ -75,6 +75,9 @@ export async function POST(req: NextRequest) {
     }
 
     const state = workpulseSharedStore.getState();
+    const isLeadOrManager = actor.roles.includes("MANAGER") || user.primaryRole === "MANAGER";
+    const initialStatus = (body.status as any) || (isLeadOrManager ? "FORWARDED_TO_HR" : "PENDING_TL_STAGE_1");
+
     const newReq = {
       id: `wfh-${Date.now()}`,
       employeeId: actor.employeeId,
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
       deliverables: body.deliverables || body.plannedDeliverables || "Architecture documentation",
       availabilityHours: body.availabilityHours || "10:00 AM - 07:00 PM",
       contactMethod: body.contactMethod || "Slack & Google Meet",
-      status: "FORWARDED_TO_HR" as const,
+      status: initialStatus,
       createdAt: new Date().toISOString(),
     };
 

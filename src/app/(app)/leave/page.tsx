@@ -476,7 +476,10 @@ export default function LeavePage() {
               myLeaveRequests.map((req) => {
                 const isApproved = req.status === "APPROVED";
                 const isRejected = req.status === "REJECTED";
-                const isStage2 = req.status === "FORWARDED_TO_HR";
+                const isStage2 =
+                  req.status === "FORWARDED_TO_HR" ||
+                  (req.status as string) === "PENDING_HR" ||
+                  (req.status as string) === "STAGE_2";
 
                 return (
                   <div
@@ -551,7 +554,10 @@ export default function LeavePage() {
               myWfhRequests.map((wfh) => {
                 const isApproved = wfh.status === "APPROVED";
                 const isRejected = wfh.status === "REJECTED";
-                const isStage2 = wfh.status === "FORWARDED_TO_HR";
+                const isStage2 =
+                  wfh.status === "FORWARDED_TO_HR" ||
+                  (wfh.status as string) === "PENDING_HR" ||
+                  (wfh.status as string) === "STAGE_2";
 
                 return (
                   <div

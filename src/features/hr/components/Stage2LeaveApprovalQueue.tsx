@@ -31,10 +31,20 @@ export function Stage2LeaveApprovalQueue() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Filter requests that were approved by Team Lead (Stage 1) and now in HR Stage 2 queue
-  const pendingLeaveQueue = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");
+  const pendingLeaveQueue = leaveRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
   const completedLeaveQueue = leaveRequests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED");
 
-  const pendingWfhQueue = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
+  const pendingWfhQueue = wfhRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
   const completedWfhQueue = wfhRequests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED");
 
   const handleApproveLeave = async (id: string, name: string) => {

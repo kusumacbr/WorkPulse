@@ -130,8 +130,18 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const pendingLeaves = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");
-  const pendingWfhs = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
+  const pendingLeaves = leaveRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
+  const pendingWfhs = wfhRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
   const totalPending = pendingLeaves.length + pendingWfhs.length;
 
   const handleApproveLeave = async (id: string, name: string) => {

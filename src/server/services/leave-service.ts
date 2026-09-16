@@ -58,7 +58,11 @@ export interface WfhRequestRecord {
   plannedDeliverables: string;
   managerApproverId?: string | null;
   managerApprovedAt?: string | null;
-  status: "PENDING_MANAGER" | "APPROVED" | "REJECTED" | "CANCELLED";
+  managerComment?: string | null;
+  hrApproverId?: string | null;
+  hrApprovedAt?: string | null;
+  hrComment?: string | null;
+  status: "PENDING_MANAGER" | "PENDING_HR" | "APPROVED" | "REJECTED" | "CANCELLED";
   rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -503,7 +507,7 @@ export class LeaveService {
   }
 
   /**
-   * Manager reviews WFH request (Single-stage)
+   * Stage 1: Team Lead / Manager Reviews WFH Request -> Forward to HR
    */
   static async managerReviewWfh(params: {
     actor: AuthActor;
@@ -533,7 +537,8 @@ export class LeaveService {
       request.status = "REJECTED";
       request.rejectionReason = params.input.rejectionReason || "Rejected by manager";
     } else {
-      request.status = "APPROVED";
+      // Stage 1 approval moves request to HR queue (does not mark fully approved yet)
+      request.status = "PENDING_HR";
     }
 
     try {
@@ -559,7 +564,74 @@ export class LeaveService {
       action: `wfh_manager_${params.input.action.toLowerCase()}`,
       entity: "WfhRequest",
       entityId: request.id,
-      reason: request.rejectionReason || "Manager approved WFH",
+      reason: request.rejectionReason || "Manager approved WFH (Stage 1)",
+      afterState: { ...request } as any,
+    });
+
+    return request;
+  }
+
+  /**
+   * Stage 2: HR Final Sign-off for WFH Request
+   */
+  static async hrReviewWfh(params: {
+    actor: AuthActor;
+    input: { requestId: string; action: "APPROVE" | "REJECT"; comment?: string; rejectionReason?: string };
+  }): Promise<WfhRequestRecord> {
+    const request = inMemoryWfhRequests.get(params.input.requestId);
+    if (!request) {
+      throw new Error(`WFH request ${params.input.requestId} not found.`);
+    }
+
+    if (params.actor.employeeId === request.employeeId || params.actor.userId === request.employeeId) {
+      throw new Error("Self-approval forbidden: An employee cannot approve their own WFH request.");
+    }
+
+    const now = new Date().toISOString();
+    request.hrApproverId = params.actor.employeeId || params.actor.userId;
+    request.hrApprovedAt = now;
+    request.hrComment = params.input.comment || null;
+    request.updatedAt = now;
+
+    if (params.input.action === "REJECT") {
+      request.status = "REJECTED";
+      request.rejectionReason = params.input.rejectionReason || "Rejected by HR";
+    } else {
+      request.status = "APPROVED";
+    }
+
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase
+          .from("wfh_requests")
+          .update({
+            status: request.status,
+            hr_approver_name: params.actor.userId,
+            hr_approved_at: now,
+            hr_comment: request.hrComment,
+            rejection_reason: request.rejectionReason,
+          })
+          .eq("id", request.id);
+
+        if (request.status === "APPROVED" && request.employeeId) {
+          await supabase
+            .from("employees")
+            .update({ work_mode: "WFH", updated_at: now })
+            .eq("id", request.employeeId);
+        }
+      }
+      const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
+      await broadcastServerEvent("wfh:updated", request);
+    } catch {}
+
+    await AuditService.record({
+      actorId: params.actor.userId,
+      action: `wfh_hr_${params.input.action.toLowerCase()}`,
+      entity: "WfhRequest",
+      entityId: request.id,
+      reason: request.rejectionReason || request.hrComment || "HR approved WFH (Stage 2)",
       afterState: { ...request } as any,
     });
 

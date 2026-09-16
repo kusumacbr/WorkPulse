@@ -52,19 +52,35 @@ export function LeadLeaveManager() {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  // Direct reports pending leave requests (Stage 1)
+  // Direct reports pending leave requests (Stage 1 - Team Lead queue)
   const pendingLeaveRequests = leaveRequests.filter(
-    (r) => (r.status as string) === "PENDING_TL_STAGE_1" || (r.status as string).includes("PENDING")
+    (r) =>
+      (r.status as string) === "PENDING_TL_STAGE_1" ||
+      (r.status as string) === "PENDING_MANAGER" ||
+      (r.status as string) === "PENDING"
   );
 
-  // Direct reports pending WFH requests (Stage 1)
+  // Direct reports pending WFH requests (Stage 1 - Team Lead queue)
   const pendingWfhRequests = wfhRequests.filter(
-    (r) => (r.status as string) === "PENDING_TL_STAGE_1" || (r.status as string).includes("PENDING")
+    (r) =>
+      (r.status as string) === "PENDING_TL_STAGE_1" ||
+      (r.status as string) === "PENDING_MANAGER" ||
+      (r.status as string) === "PENDING"
   );
 
-  // Organization-wide Stage 2 HR Queue
-  const stage2LeaveRequests = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");
-  const stage2WfhRequests = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
+  // Organization-wide Stage 2 HR Queue (Awaiting Stage 2 HR Authorization)
+  const stage2LeaveRequests = leaveRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
+  const stage2WfhRequests = wfhRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
 
   const totalPending = pendingLeaveRequests.length + pendingWfhRequests.length;
   const totalStage2 = stage2LeaveRequests.length + stage2WfhRequests.length;
@@ -89,10 +105,9 @@ export function LeadLeaveManager() {
     const roster = reports.length > 0 ? reports : defaultDevRoster;
 
     return roster.map((emp) => {
-      // Find all approved leave requests for this employee
+      // Find all approved leave requests for this employee (strictly APPROVED by HR)
       const empApprovedLeaves = leaveRequests.filter(
-        (r) => (r.employeeId === emp.id || r.employeeName === emp.name) &&
-               ((r.status as string).includes("APPROVED") || (r.status as string).includes("STAGE_2"))
+        (r) => (r.employeeId === emp.id || r.employeeName === emp.name) && r.status === "APPROVED"
       );
 
       const casualDeducted = empApprovedLeaves

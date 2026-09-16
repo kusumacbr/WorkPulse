@@ -425,7 +425,11 @@ export default function DashboardPage() {
     return leaveRequests.filter((r) => {
       const isPending =
         (r.status as string) === "PENDING_TL_STAGE_1" ||
-        ((r.status as string).includes("PENDING") && r.status !== "FORWARDED_TO_HR");
+        (r.status as string) === "PENDING_MANAGER" ||
+        ((r.status as string) === "PENDING" &&
+          r.status !== "FORWARDED_TO_HR" &&
+          (r.status as string) !== "PENDING_HR" &&
+          (r.status as string) !== "STAGE_2");
       return isPending;
     });
   }, [leaveRequests]);
@@ -434,7 +438,11 @@ export default function DashboardPage() {
     return wfhRequests.filter((r) => {
       const isPending =
         (r.status as string) === "PENDING_TL_STAGE_1" ||
-        ((r.status as string).includes("PENDING") && r.status !== "FORWARDED_TO_HR");
+        (r.status as string) === "PENDING_MANAGER" ||
+        ((r.status as string) === "PENDING" &&
+          r.status !== "FORWARDED_TO_HR" &&
+          (r.status as string) !== "PENDING_HR" &&
+          (r.status as string) !== "STAGE_2");
       return isPending;
     });
   }, [wfhRequests]);

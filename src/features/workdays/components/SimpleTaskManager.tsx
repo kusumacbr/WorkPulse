@@ -162,6 +162,7 @@ export function SimpleTaskManager() {
   const [acknowledgementNotes, setAcknowledgementNotes] = useState<Record<string, string>>({});
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
   const progressDebounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const lastLocalEditTimeRef = useRef<number>(0);
 
   const myActiveHelp = useMemo(() => {
     return helpRequests.find(
@@ -180,6 +181,9 @@ export function SimpleTaskManager() {
 
     const loadTasks = async () => {
       if (typeof window === "undefined" || !isMounted) return;
+      // Do not overwrite local tasks if user is actively interacting/editing tasks
+      if (Date.now() - lastLocalEditTimeRef.current < 2500) return;
+
       try {
         let loaded: any[] = [];
         const empId = currentEmp?.id || (currentUser?.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
@@ -213,6 +217,9 @@ export function SimpleTaskManager() {
           }
         }
 
+        // Re-check guard after async fetch
+        if (Date.now() - lastLocalEditTimeRef.current < 2500) return;
+
         // 2. If server fetch returned tasks, Supabase is the authoritative source
         if (serverFetchSuccess && serverTasks.length > 0) {
           loaded = deduplicateTasks(serverTasks);
@@ -239,7 +246,7 @@ export function SimpleTaskManager() {
         }
 
         let cleanTasks = deduplicateTasks(loaded);
-        if (isMounted) {
+        if (isMounted && Date.now() - lastLocalEditTimeRef.current >= 2500) {
           setTasks(cleanTasks);
 
           // Sync shared store employee plannedTasks in-memory to reflect Supabase state
@@ -265,10 +272,11 @@ export function SimpleTaskManager() {
 
     let loadTimer: any = null;
     const debouncedLoadTasks = () => {
+      if (Date.now() - lastLocalEditTimeRef.current < 2500) return;
       if (loadTimer) clearTimeout(loadTimer);
       loadTimer = setTimeout(() => {
         if (isMounted) loadTasks();
-      }, 50);
+      }, 150);
     };
 
     let bc: BroadcastChannel | null = null;
@@ -373,39 +381,27 @@ export function SimpleTaskManager() {
 
   // Sync tasks in state and shared store
   const saveTasks = (updated: SimpleTaskItem[]) => {
+    lastLocalEditTimeRef.current = Date.now();
     const cleanTasks = deduplicateTasks(updated);
     setTasks(cleanTasks);
-    if (typeof window !== "undefined") {
-      try {
-        if ("BroadcastChannel" in window) {
-          const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-          bc.postMessage({ type: "employee:tasks_updated", employeeId: currentEmp?.id, timestamp: Date.now() });
-          bc.close();
-        }
-        window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp?.id, tasks: cleanTasks } }));
-      } catch {
-        // safe fallback
-      }
-    }
-    // Also sync to shared store (only if not yet submitted as SOD, so live slider edits don't mutate lead view before Resubmit)
+
+    // Also sync to shared store in-memory (only if not yet submitted as SOD, so live slider edits don't mutate lead view before Resubmit)
     if (currentEmp && !morningSubmitted) {
       const avgProg = cleanTasks.length > 0
         ? Math.round(cleanTasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / cleanTasks.length)
         : 0;
       if (currentEmp.overallProgress !== avgProg) {
-        WorkpulseSharedStore.updateEmployee(currentEmp.id, {
-          overallProgress: avgProg,
-          plannedTasks: cleanTasks.map((t) => ({
-            id: t.id,
-            title: t.title,
-            project: t.category,
-            priority: t.priority,
-            estimatedMinutes: 60,
-            expectedOutput: t.title,
-            completionPercentage: Number(t.progress) || 0,
-            status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
-          })),
-        });
+        currentEmp.overallProgress = avgProg;
+        currentEmp.plannedTasks = cleanTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          project: t.category,
+          priority: t.priority,
+          estimatedMinutes: 60,
+          expectedOutput: t.title,
+          completionPercentage: Number(t.progress) || 0,
+          status: t.status === "COMPLETED" ? "COMPLETED" : t.status === "IN_PROGRESS" ? "IN_PROGRESS" : "NOT_STARTED",
+        }));
       }
     }
   };
@@ -419,9 +415,7 @@ export function SimpleTaskManager() {
     if (targetEmp) {
       const avgProg = Math.round(tasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / tasks.length);
       if (targetEmp.overallProgress !== avgProg) {
-        WorkpulseSharedStore.updateEmployee(targetEmp.id, {
-          overallProgress: avgProg,
-        });
+        targetEmp.overallProgress = avgProg;
       }
     }
   }, [tasks, mounted, morningSubmitted, currentUser?.userEmail]);
@@ -484,8 +478,9 @@ export function SimpleTaskManager() {
     }
   };
 
-  // Set progress (adjustable to any percentage 0-100%)
+  // Set progress (adjustable to any percentage 0-100% with instant smooth 60fps responsiveness)
   const handleSetTaskProgress = (id: string, newProgress: number) => {
+    lastLocalEditTimeRef.current = Date.now();
     const clamped = Math.max(0, Math.min(100, Math.round(newProgress)));
     const newStatus =
       clamped === 100
@@ -494,18 +489,17 @@ export function SimpleTaskManager() {
         ? ("IN_PROGRESS" as const)
         : ("NOT_STARTED" as const);
 
-    const updated = tasks.map((t) => {
-      if (t.id !== id) return t;
-      return { ...t, progress: clamped, status: newStatus };
-    });
-    saveTasks(updated);
+    // Instant optimistic state update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, progress: clamped, completionPercentage: clamped, status: newStatus } : t))
+    );
 
     if (clamped === 100) {
       fireSuccessBurst();
       showToast("✓ Great job! Task reached 100% and marked completed.");
     }
 
-    // Debounce server update (350ms) to avoid request storms during slider drag
+    // Debounce server update (300ms) to avoid request storms during slider drag
     if (progressDebounceTimerRef.current[id]) {
       clearTimeout(progressDebounceTimerRef.current[id]);
     }
@@ -516,14 +510,11 @@ export function SimpleTaskManager() {
         body: JSON.stringify({ progress: clamped, status: newStatus }),
       }).catch(() => {});
 
-      const task = updated.find((t) => t.id === id);
-      if (task?.assignedBy) {
-        fetch(`/api/v1/tasks/assigned`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ taskId: id, progress: clamped, status: newStatus }),
-        }).catch(() => {});
-      }
+      fetch(`/api/v1/tasks/assigned`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: id, progress: clamped, status: newStatus }),
+      }).catch(() => {});
 
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         try {
@@ -532,7 +523,7 @@ export function SimpleTaskManager() {
           bc.close();
         } catch {}
       }
-    }, 350);
+    }, 300);
   };
 
   // Add Task

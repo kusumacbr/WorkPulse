@@ -214,8 +214,8 @@ export default function WorkModePage() {
                       className={`text-[10px] font-bold ${
                         req.status === "APPROVED"
                           ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                          : req.status === "FORWARDED_TO_HR"
-                          ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
+                          : req.status === "FORWARDED_TO_HR" || (req.status as string) === "PENDING_HR" || (req.status as string) === "STAGE_2"
+                          ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/30"
                           : req.status === "REJECTED"
                           ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
                           : "bg-amber-500/15 text-amber-300 border-amber-500/30"
@@ -223,11 +223,11 @@ export default function WorkModePage() {
                     >
                       {req.status === "APPROVED"
                         ? "Approved by HR ✓"
-                        : req.status === "FORWARDED_TO_HR"
-                        ? "Stage-2 HR Review"
+                        : req.status === "FORWARDED_TO_HR" || (req.status as string) === "PENDING_HR" || (req.status as string) === "STAGE_2"
+                        ? "Stage 2: Lead Approved · Awaiting HR"
                         : req.status === "REJECTED"
                         ? "Declined"
-                        : "Stage-1 Pending"}
+                        : "Stage 1: Pending Team Lead"}
                     </Badge>
                   </div>
                 </div>

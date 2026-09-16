@@ -60,8 +60,18 @@ export function HREnterpriseLeaveDesk() {
   }, [syncWithSupabase, setLeaveRequestsFromSupabase, setWfhRequestsFromSupabase]);
 
   // Filter pending stage-2 requests
-  const pendingLeaves = leaveRequests.filter((r) => r.status === "FORWARDED_TO_HR");
-  const pendingWfhs = wfhRequests.filter((r) => r.status === "FORWARDED_TO_HR");
+  const pendingLeaves = leaveRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
+  const pendingWfhs = wfhRequests.filter(
+    (r) =>
+      r.status === "FORWARDED_TO_HR" ||
+      (r.status as string) === "PENDING_HR" ||
+      (r.status as string) === "STAGE_2"
+  );
   const totalPendingStage2 = pendingLeaves.length + pendingWfhs.length;
 
   const handleApproveLeave = async (id: string, name: string) => {
