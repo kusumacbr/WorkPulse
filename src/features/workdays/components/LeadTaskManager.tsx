@@ -105,21 +105,11 @@ export function LeadTaskManager() {
         const data = await res.json();
         if (Array.isArray(data.data?.tasks)) {
           setAssignedTasksLog(data.data.tasks);
-          if (typeof window !== "undefined") {
-            if (data.data.tasks.length === 0) {
-              localStorage.removeItem("workpulse_assigned_tasks_log");
-            } else {
-              localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(data.data.tasks));
-            }
-          }
           return;
         }
       }
     } catch {}
     setAssignedTasksLog([]);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("workpulse_assigned_tasks_log");
-    }
   };
 
   React.useEffect(() => {
@@ -144,6 +134,7 @@ export function LeadTaskManager() {
     window.addEventListener("workday:sod_submitted", handleUpdate);
     window.addEventListener("workday:eod_submitted", handleUpdate);
     window.addEventListener("workday:eod_verified", handleUpdate);
+    window.addEventListener("workpulse_sync", handleUpdate);
     window.addEventListener("storage", handleUpdate);
 
     let bc: BroadcastChannel | null = null;
@@ -162,9 +153,19 @@ export function LeadTaskManager() {
             ev.data?.type === "task:acknowledged" ||
             ev.data?.type === "task:assigned" ||
             ev.data?.type === "task:recalled" ||
-            ev.data?.type === "employee:sod_submitted"
+            ev.data?.type === "employee:sod_submitted" ||
+            ev.data?.type === "workday:sod_submitted" ||
+            ev.data?.type === "workday:eod_submitted" ||
+            ev.data?.type === "employee:eod_submitted" ||
+            ev.data?.type === "workday:sod_verified" ||
+            ev.data?.type === "workday:eod_verified" ||
+            ev.data?.type === "workday:lead_feedback_updated" ||
+            ev.data?.type === "workday:changed" ||
+            ev.data?.type === "daily_tasks:changed" ||
+            ev.data?.type === "workpulse_sync"
           ) {
             handleUpdate();
+            WorkpulseSharedStore.syncWithSupabase(true);
           }
         };
       }
@@ -181,16 +182,15 @@ export function LeadTaskManager() {
       window.removeEventListener("workday:sod_submitted", handleUpdate);
       window.removeEventListener("workday:eod_submitted", handleUpdate);
       window.removeEventListener("workday:eod_verified", handleUpdate);
+      window.removeEventListener("workpulse_sync", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
   }, [leadId]);
 
-
-
-  // Live clock tick so the Lead view re-evaluates in real-time every second
+  // Live clock tick so the Lead view re-evaluates in real-time every 5 seconds without lagging
   const [nowTick, setNowTick] = React.useState(Date.now());
   React.useEffect(() => {
-    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    const t = setInterval(() => setNowTick(Date.now()), 5000);
     return () => clearInterval(t);
   }, []);
 
@@ -198,70 +198,52 @@ export function LeadTaskManager() {
   const EOD_WINDOW_MS = 2 * 60 * 1000;
 
   // Returns { eodSubmitted, newDayStarted, eodTimestamp }
-  // newDayStarted = EOD was submitted today, approved by lead, and 2-min window already elapsed → new workday
+  // Single source of truth from Supabase store
   const getEodNewDayState = React.useCallback((memberId: string, memberEmail?: string) => {
-    if (!mounted || typeof window === "undefined") return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
-
-    const todayKey = new Date().toISOString().split("T")[0];
-    const hasFlag = (id: string) =>
-      localStorage.getItem(`workpulse_eod_submitted_${id}_${todayKey}`) === "true";
+    if (!mounted) return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
 
     const storeEmp = allEmployees.find(
       (e) => e.id.toLowerCase() === memberId.toLowerCase() || (memberEmail && e.email.toLowerCase() === memberEmail.toLowerCase())
     );
 
     const eodSubmitted = Boolean(
-      hasFlag(memberId) ||
-      (memberEmail ? hasFlag(memberEmail.toLowerCase()) : false) ||
-      ((memberId === "emp-sarah" || memberEmail?.toLowerCase() === "employee.test@xorstack.com") &&
-        (hasFlag("emp-sarah") || hasFlag("employee.test@xorstack.com"))) ||
       storeEmp?.eodStatus === "SUBMITTED" ||
       storeEmp?.eodStatus === "VERIFIED"
     );
 
     if (!eodSubmitted) return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
 
-    // Read timestamp to check if 2-min window has elapsed (only active if approved)
-    const rawTs =
-      localStorage.getItem(`workpulse_eod_approved_timestamp_${memberId}`) ||
-      localStorage.getItem(`workpulse_eod_timestamp_${memberId}`) ||
-      (memberEmail ? localStorage.getItem(`workpulse_eod_approved_timestamp_${memberEmail.toLowerCase()}`) : null);
-    const eodTimestamp = rawTs ? Number(rawTs) : null;
+    const isApproved = storeEmp?.eodStatus === "VERIFIED";
+    const eodTimestamp = storeEmp?.eodTime ? Date.parse(storeEmp.eodTime) || null : null;
     const elapsed = eodTimestamp ? nowTick - eodTimestamp : Infinity;
-    const isApproved = storeEmp?.eodStatus === "VERIFIED" || Boolean(eodTimestamp);
     const newDayStarted = isApproved && elapsed >= EOD_WINDOW_MS;
 
-    // If the employee already submitted a fresh SOD for the new day,
-    // treat this as a completely clean slate — no previous day's EOD data shown
-    if (newDayStarted) {
-      const hasSodFlag = (id: string) =>
-        localStorage.getItem(`workpulse_morning_plan_submitted_${id}`) === "true";
-
-      const freshSodSubmitted = (
-        hasSodFlag(memberId) ||
-        (memberEmail ? hasSodFlag(memberEmail.toLowerCase()) : false) ||
-        ((memberId === "emp-sarah" || memberEmail?.toLowerCase() === "employee.test@xorstack.com") &&
-          (hasSodFlag("emp-sarah") || hasSodFlag("employee.test@xorstack.com")))
-      );
-
-      if (freshSodSubmitted) {
-        // New day SOD submitted → completely fresh state: no EOD, no new-day banner
-        return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
-      }
+    if (newDayStarted && (storeEmp?.sodStatus === "SUBMITTED" || storeEmp?.sodStatus === "VERIFIED")) {
+      return { eodSubmitted: false, newDayStarted: false, eodTimestamp: null };
     }
 
     return { eodSubmitted, newDayStarted, eodTimestamp };
   }, [mounted, nowTick, feedbackVersion, allEmployees]);
 
   const leadFeedbackMap = useMemo(() => {
-    if (mounted && typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("workpulse_lead_daily_feedback");
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return {};
-  }, [allEmployees, feedbackVersion, mounted]);
+    const map: Record<string, any> = {};
+    allEmployees.forEach((e) => {
+      map[e.id] = {
+        leadName: e.teamLeadName || leadName,
+        sodAcknowledged: e.sodStatus === "VERIFIED",
+        sodTime: e.sodVerifiedAt || e.sodTime,
+        sodNote: e.sodLeadNote,
+        eodAcknowledged: e.eodStatus === "VERIFIED",
+        eodReviewed: e.eodStatus === "VERIFIED",
+        eodSubmittedTime: e.eodTime,
+        eodLeadRating: e.eodLeadRating,
+        eodLeadComment: e.eodLeadComment,
+        eodLeadActionItem: e.eodLeadActionItem,
+      };
+      if (e.email) map[e.email.toLowerCase()] = map[e.id];
+    });
+    return map;
+  }, [allEmployees, leadName]);
 
   // Dynamic direct reports from shared store (strictly reports of this lead)
   const dynamicTeamMembers = useMemo(() => {
@@ -288,8 +270,7 @@ export function LeadTaskManager() {
     let isSubscribed = true;
     const fetchAllTasks = async () => {
       if (!dynamicTeamMembers || dynamicTeamMembers.length === 0) return;
-      const newMap: Record<string, any[]> = {};
-      for (const m of dynamicTeamMembers) {
+      const memberPromises = dynamicTeamMembers.map(async (m) => {
         try {
           const [tasksRes, assignedRes] = await Promise.all([
             fetch(`/api/v1/tasks?employeeId=${m.id}`),
@@ -308,13 +289,18 @@ export function LeadTaskManager() {
               memberTasks = [...memberTasks, ...data.data.tasks];
             }
           }
-          newMap[m.id] = deduplicateTasks(memberTasks);
+          return { id: m.id, tasks: deduplicateTasks(memberTasks) };
         } catch (e) {
-          console.warn("Failed to fetch API tasks for", m.id, e);
-          newMap[m.id] = [];
+          return { id: m.id, tasks: [] };
         }
-      }
+      });
+
+      const results = await Promise.all(memberPromises);
       if (isSubscribed) {
+        const newMap: Record<string, any[]> = {};
+        for (const res of results) {
+          newMap[res.id] = res.tasks;
+        }
         setMemberTasksMap(newMap);
       }
     };
@@ -324,15 +310,20 @@ export function LeadTaskManager() {
       if (fetchTimer) clearTimeout(fetchTimer);
       fetchTimer = setTimeout(() => {
         if (isSubscribed) fetchAllTasks();
-      }, 300);
+      }, 50);
     };
 
-    const interval = setInterval(fetchAllTasks, 3000);
+    fetchAllTasks();
+    const interval = setInterval(fetchAllTasks, 10000);
     window.addEventListener("focus", debouncedFetch);
     window.addEventListener("workpulse:tasks_changed", debouncedFetch);
     window.addEventListener("workpulse:task_deleted", debouncedFetch);
     window.addEventListener("workday:sod_submitted", debouncedFetch);
     window.addEventListener("employee:sod_submitted", debouncedFetch);
+    window.addEventListener("workday:eod_submitted", debouncedFetch);
+    window.addEventListener("employee:eod_submitted", debouncedFetch);
+    window.addEventListener("workday:sod_verified", debouncedFetch);
+    window.addEventListener("workday:eod_verified", debouncedFetch);
     window.addEventListener("workpulse_sync", debouncedFetch);
 
     let bc: BroadcastChannel | null = null;
@@ -347,6 +338,10 @@ export function LeadTaskManager() {
             ev.data?.type === "employee:sod_submitted" ||
             ev.data?.type === "employee:tasks_updated" ||
             ev.data?.type === "workday:sod_submitted" ||
+            ev.data?.type === "workday:eod_submitted" ||
+            ev.data?.type === "employee:eod_submitted" ||
+            ev.data?.type === "workday:sod_verified" ||
+            ev.data?.type === "workday:eod_verified" ||
             ev.data?.type === "workpulse_sync"
           ) {
             debouncedFetch();
@@ -364,6 +359,10 @@ export function LeadTaskManager() {
       window.removeEventListener("workpulse:task_deleted", debouncedFetch);
       window.removeEventListener("workday:sod_submitted", debouncedFetch);
       window.removeEventListener("employee:sod_submitted", debouncedFetch);
+      window.removeEventListener("workday:eod_submitted", debouncedFetch);
+      window.removeEventListener("employee:eod_submitted", debouncedFetch);
+      window.removeEventListener("workday:sod_verified", debouncedFetch);
+      window.removeEventListener("workday:eod_verified", debouncedFetch);
       window.removeEventListener("workpulse_sync", debouncedFetch);
     };
   }, [dynamicTeamMemberIds, feedbackVersion, mounted]);
@@ -396,26 +395,10 @@ export function LeadTaskManager() {
           const data = await res.json();
           if (Array.isArray(data.data?.tasks)) {
             setLeadTasks(data.data.tasks);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("workpulse_lead_personal_tasks", JSON.stringify(data.data.tasks));
-            }
             return;
           }
         }
       } catch {}
-      // Fallback to localStorage
-      if (typeof window !== "undefined") {
-        try {
-          const saved = localStorage.getItem("workpulse_lead_personal_tasks");
-          if (saved !== null) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) {
-              setLeadTasks(parsed);
-              return;
-            }
-          }
-        } catch {}
-      }
       setLeadTasks([]);
     };
     loadLeadTasks();
@@ -433,11 +416,6 @@ export function LeadTaskManager() {
 
   const saveLeadTasks = async (updated: LeadPersonalTask[]) => {
     setLeadTasks(updated);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("workpulse_lead_personal_tasks", JSON.stringify(updated));
-      } catch {}
-    }
     // Sync to Supabase
     try {
       await fetch(`/api/v1/tasks/lead-tasks/sync`, {
@@ -468,6 +446,13 @@ export function LeadTaskManager() {
       comment,
       actionItem,
     });
+
+    // Immediately trigger Supabase completed tasks cleanup for this employee
+    fetch("/api/v1/tasks/cleanup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId: empId }),
+    }).catch(() => {});
 
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       try {
@@ -539,11 +524,6 @@ export function LeadTaskManager() {
     WorkpulseSharedStore.deleteAssignedTask(taskId);
     const updated = assignedTasksLog.filter((t) => t.id !== taskId);
     setAssignedTasksLog(updated);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(updated));
-      } catch {}
-    }
     // Delete from Supabase permanently
     try {
       await fetch(`/api/v1/tasks/assigned`, {
@@ -602,15 +582,10 @@ export function LeadTaskManager() {
     showToast(`✓ Added: "${newTask.title}"`);
   };
 
-  // Delete lead personal task (permanent Supabase & local delete)
+  // Delete lead personal task (permanent Supabase delete)
   const handleDeleteLeadTask = async (id: string) => {
     const updated = leadTasks.filter((t) => t.id !== id);
     setLeadTasks(updated);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("workpulse_lead_personal_tasks", JSON.stringify(updated));
-      } catch {}
-    }
     // Delete from Supabase permanently
     try {
       await fetch(`/api/v1/tasks/lead-tasks/sync`, {
@@ -841,41 +816,14 @@ export function LeadTaskManager() {
                     let totalProg = 0;
                     let activeCount = 0;
                     dynamicTeamMembers.forEach((m) => {
-                      const isSpecialSarah = m.id === "emp-sarah" || m.email?.toLowerCase() === "employee.test@xorstack.com";
-                      let isSubmitted = false;
-                      try {
-                        if (mounted) {
-                          const local = localStorage.getItem(`workpulse_morning_plan_submitted_${m.id}`);
-                          const localEmail = m.email ? localStorage.getItem(`workpulse_morning_plan_submitted_${m.email.toLowerCase()}`) : null;
-                          const localSarah1 = isSpecialSarah ? localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") : null;
-                          const localSarah2 = isSpecialSarah ? localStorage.getItem("workpulse_morning_plan_submitted_employee.test@xorstack.com") : null;
-                          if (local === "true" || localEmail === "true" || localSarah1 === "true" || localSarah2 === "true") {
-                            isSubmitted = true;
-                          } else if (!isSpecialSarah && (m.sodStatus === "SUBMITTED" || m.sodStatus === "VERIFIED")) {
-                            isSubmitted = true;
-                          }
-                        }
-                      } catch {}
+                      const isSubmitted = m.sodStatus === "SUBMITTED" || m.sodStatus === "VERIFIED" || m.eodStatus === "SUBMITTED" || m.eodStatus === "VERIFIED";
 
                       if (isSubmitted) {
-                        let tasks: any[] = m.plannedTasks || [];
-                        try {
-                          if (mounted) {
-                            const local =
-                              localStorage.getItem(`workpulse_simple_tasks_${m.id}`) ||
-                              (m.email ? localStorage.getItem(`workpulse_simple_tasks_${m.email.toLowerCase()}`) : null) ||
-                              (isSpecialSarah ? localStorage.getItem("workpulse_simple_tasks") : null);
-                            if (local) {
-                              const parsed = JSON.parse(local);
-                              if (Array.isArray(parsed) && parsed.length > 0) tasks = deduplicateTasks(parsed);
-                            }
-                          }
-                        } catch {}
-                        tasks = deduplicateTasks(tasks);
+                        const tasks = (memberTasksMap[m.id]?.length ? memberTasksMap[m.id] : m.plannedTasks) || [];
                         const prog =
-                          tasks.length > 0
+                          tasks && tasks.length > 0
                             ? Math.round(
-                                tasks.reduce((sum, t) => sum + (Number(t.progress !== undefined ? t.progress : (t.completionPercentage || 0)) || 0), 0) /
+                                tasks.reduce((sum: number, t: any) => sum + (Number(t.progress !== undefined ? t.progress : (t.completionPercentage || 0)) || 0), 0) /
                                   tasks.length
                               )
                             : (Number(m.overallProgress) || 0);
@@ -925,80 +873,51 @@ export function LeadTaskManager() {
             {filteredMembers.map((member) => {
               const isExpanded = expandedMemberId === member.id;
 
-              // EOD + new day state — derived from date-scoped localStorage flag + 2-min window check
+              // EOD + new day state — derived directly from Supabase store
               const { eodSubmitted: isLocalEodSubmitted, newDayStarted: isNewDayForMember } =
                 getEodNewDayState(member.id, member.email);
 
               const fb = leadFeedbackMap[member.id] ||
-                (member.email ? leadFeedbackMap[member.email.toLowerCase()] : null) ||
-                (member.id === "emp-sarah" || member.email?.toLowerCase() === "employee.test@xorstack.com" ? (leadFeedbackMap["employee.test@xorstack.com"] || leadFeedbackMap["emp-sarah"]) : null);
+                (member.email ? leadFeedbackMap[member.email.toLowerCase()] : null);
 
-              // Check if morning plan was explicitly submitted by employee in localStorage
-              const isSpecialSarah = member.id === "emp-sarah" || member.email?.toLowerCase() === "employee.test@xorstack.com";
-              const hasLocalSodFlag = mounted && typeof window !== "undefined" && (
-                localStorage.getItem(`workpulse_morning_plan_submitted_${member.id}`) === "true" ||
-                (member.email ? localStorage.getItem(`workpulse_morning_plan_submitted_${member.email.toLowerCase()}`) === "true" : false) ||
-                (isSpecialSarah &&
-                  (localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") === "true" ||
-                   localStorage.getItem("workpulse_morning_plan_submitted_employee.test@xorstack.com") === "true"))
-              );
-
-              // isEodSubmitted: employee has submitted today's EOD
-              const isEodSubmitted = !isNewDayForMember && (
-                isLocalEodSubmitted ||
-                member.eodStatus === "SUBMITTED" ||
-                member.eodStatus === "VERIFIED"
-              );
-
-              // SOD is submitted if employee submitted today, or if EOD was submitted (which implies work was done)
+              // SOD is submitted if employee submitted today's plan
               const isSodSubmitted = !isNewDayForMember && (
-                hasLocalSodFlag ||
-                isEodSubmitted ||
                 member.sodStatus === "SUBMITTED" ||
                 member.sodStatus === "VERIFIED"
               );
 
               const isSodVerified = Boolean(
                 !isNewDayForMember &&
-                (isSodSubmitted || isEodSubmitted) &&
-                (member.sodStatus === "VERIFIED" || (fb && fb.sodAcknowledged === true))
+                isSodSubmitted &&
+                (member.sodStatus === "VERIFIED" || Boolean(fb && fb.sodAcknowledged === true))
               );
 
-              // Exact submission timestamp (no real-time ticks)
-              const localSodTimestamp = mounted && typeof window !== "undefined"
-                ? (
-                    localStorage.getItem(`workpulse_morning_plan_timestamp_${member.id}`) ||
-                    (member.email ? localStorage.getItem(`workpulse_morning_plan_timestamp_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? (localStorage.getItem("workpulse_morning_plan_timestamp_emp-sarah") || localStorage.getItem("workpulse_morning_plan_timestamp_employee.test@xorstack.com")) : null)
-                  )
-                : null;
+              // isEodSubmitted: employee has submitted today's EOD — STRICTLY valid only after SOD is verified!
+              const isEodSubmitted = Boolean(
+                !isNewDayForMember &&
+                isSodVerified &&
+                (isLocalEodSubmitted || member.eodStatus === "SUBMITTED" || member.eodStatus === "VERIFIED")
+              );
 
               const displaySodTime = isSodSubmitted
-                ? (localSodTimestamp
-                    ? new Date(Number(localSodTimestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    : (member.sodTime || fb?.sodTime || "Submitted"))
-                : null;
-
-              const localEodTimestamp = mounted && typeof window !== "undefined"
-                ? (
-                    localStorage.getItem(`workpulse_eod_timestamp_${member.id}`) ||
-                    (member.email ? localStorage.getItem(`workpulse_eod_timestamp_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? (localStorage.getItem("workpulse_eod_timestamp_emp-sarah") || localStorage.getItem("workpulse_eod_timestamp_employee.test@xorstack.com")) : null)
-                  )
+                ? (member.sodTime || fb?.sodTime || "Submitted")
                 : null;
 
               const displayEodTime = isEodSubmitted
-                ? (localEodTimestamp
-                    ? new Date(Number(localEodTimestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    : (member.eodTime || fb?.eodSubmittedTime || fb?.eodTime || "Submitted"))
+                ? (member.eodTime || fb?.eodSubmittedTime || fb?.eodTime || "Submitted")
                 : null;
 
               const sodVerifiedBy = member.sodVerifiedBy || fb?.leadName || leadName;
               const sodVerifiedAt = member.sodVerifiedAt || fb?.sodTime || displaySodTime || "Today";
               const sodLeadNote = member.sodLeadNote || fb?.sodNote || "Morning plan verified & approved by Team Lead.";
 
-              // isEodVerified: lead has acknowledged the EOD in the feedback store
-              const isEodVerified = !isNewDayForMember && isEodSubmitted && Boolean(fb && fb.eodAcknowledged === true);
+              // isEodVerified: lead has acknowledged the EOD — STRICTLY valid only after SOD is verified and EOD is submitted!
+              const isEodVerified = Boolean(
+                !isNewDayForMember &&
+                isSodVerified &&
+                isEodSubmitted &&
+                (member.eodStatus === "VERIFIED" || Boolean(fb && fb.eodAcknowledged === true))
+              );
               const eodVerifiedBy = member.eodVerifiedBy || fb?.eodVerifiedBy || fb?.leadName || leadName;
               const eodVerifiedAt = member.eodVerifiedAt || fb?.eodTime || displayEodTime || "Today";
               const eodLeadRating = member.eodLeadRating || fb?.eodLeadRating || fb?.rating || 5;
@@ -1017,21 +936,7 @@ export function LeadTaskManager() {
                 tasksToDisplay = memTasks;
               }
 
-              // Fallback to submitted EOD snapshot if member is in EOD submitted state
-              if (tasksToDisplay.length === 0 && (isEodSubmitted || isSodSubmitted) && mounted && typeof window !== "undefined") {
-                try {
-                  const savedEodRaw =
-                    localStorage.getItem(`workpulse_eod_submitted_tasks_${member.id}`) ||
-                    (member.email ? localStorage.getItem(`workpulse_eod_submitted_tasks_${member.email.toLowerCase()}`) : null) ||
-                    (isSpecialSarah ? localStorage.getItem("workpulse_eod_submitted_tasks_emp-sarah") : null);
-                  if (savedEodRaw) {
-                    const parsed = JSON.parse(savedEodRaw);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                      tasksToDisplay = deduplicateTasks(parsed);
-                    }
-                  }
-                } catch {}
-              }
+              const isSpecialSarah = member.id === "emp-sarah" || member.email?.toLowerCase().includes("employee.test");
 
               // Merge active assigned deliverables for this member from server log
               const memberAssigned = assignedTasksLog.filter(
@@ -1121,10 +1026,15 @@ export function LeadTaskManager() {
                         ) : (
                           <>
                             {/* SOD Status Badge / Navigation */}
-                            {isEodSubmitted ? (
+                            {isEodVerified && isSodVerified ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 flex items-center gap-1">
                                 <Check className="h-3 w-3" />
-                                <span>SOD Completed</span>
+                                <span>Day Complete</span>
+                              </span>
+                            ) : isEodSubmitted ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-500/15 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-500/30 flex items-center gap-1 animate-pulse">
+                                <Clock className="h-3 w-3" />
+                                <span>Review Wrap-Up</span>
                               </span>
                             ) : isSodVerified ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 flex items-center gap-1">
@@ -1208,41 +1118,8 @@ export function LeadTaskManager() {
                         )}
 
                         {/* ☀️ Top Panel: Morning Tasks (SOD) */}
-                        {isNewDayForMember ? (
-                          /* New day: waiting for employee to submit fresh SOD */
-                          <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/[0.03] flex items-center gap-3 shadow-inner">
-                            <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0 border border-amber-200 dark:border-amber-500/20">
-                              <ListTodo className="h-4 w-4" />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-black text-amber-900 dark:text-amber-300">Morning SOD Plan — Awaiting Submission</p>
-                              <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
-                                {member.name} hasn&apos;t submitted today&apos;s morning tasks yet.
-                              </p>
-                            </div>
-                          </div>
-                        ) : isEodSubmitted ? (
-                          /* EOD submitted: show a compact locked SOD summary — no actions needed */
-                          <div className="p-3.5 rounded-2xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/[0.04] flex items-center justify-between gap-3 shadow-inner">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-500/30">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-xs font-black text-emerald-900 dark:text-emerald-300">
-                                  SOD Plan — Day Complete
-                                </p>
-                                <p className="text-[11px] text-slate-600 dark:text-muted-foreground truncate">
-                                  {tasksToDisplay.length} task(s) approved by {sodVerifiedBy} · EOD submitted
-                                </p>
-                              </div>
-                            </div>
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 shrink-0">
-                              Locked
-                            </span>
-                          </div>
-                        ) : !isSodSubmitted ? (
-                          /* SOD not submitted: show awaiting message */
+                        {isNewDayForMember || !isSodSubmitted ? (
+                          /* Waiting for employee to submit morning tasks */
                           <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/[0.03] flex items-center gap-3 shadow-inner">
                             <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0 border border-amber-200 dark:border-amber-500/20">
                               <ListTodo className="h-4 w-4" />
@@ -1540,6 +1417,19 @@ export function LeadTaskManager() {
                               <p className="text-xs font-black text-purple-900 dark:text-purple-300">Evening Wrap-Up — Awaiting New Day EOD</p>
                               <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
                                 EOD review will appear once {member.name} submits today&apos;s evening wrap-up.
+                              </p>
+                            </div>
+                          </div>
+                        ) : !isSodVerified ? (
+                          /* Before SOD verification: clean waiting card */
+                          <div className="p-4 rounded-2xl bg-purple-50/80 dark:bg-purple-500/[0.03] border border-purple-200 dark:border-purple-500/20 flex items-center gap-3 shadow-inner">
+                            <span className="p-2 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 shrink-0 border border-purple-200 dark:border-purple-500/20">
+                              <Moon className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-purple-900 dark:text-purple-300">Evening Wrap-Up — Awaiting Morning Plan Approval</p>
+                              <p className="text-[11px] text-slate-600 dark:text-muted-foreground">
+                                Verify {member.name}&apos;s morning task plan above to enable evening wrap-up.
                               </p>
                             </div>
                           </div>

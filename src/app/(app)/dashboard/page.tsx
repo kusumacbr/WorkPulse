@@ -277,13 +277,6 @@ export default function DashboardPage() {
           e.teamLeadName?.toLowerCase().includes("alex"))
     );
 
-    let savedFeedback: Record<string, any> = {};
-    if (mounted && typeof window !== "undefined") {
-      try {
-        savedFeedback = JSON.parse(localStorage.getItem("workpulse_lead_daily_feedback") || "{}");
-      } catch {}
-    }
-
     const bgList = [
       "bg-gradient-to-tr from-cyan-500 to-blue-600 text-white",
       "bg-gradient-to-tr from-purple-500 to-pink-500 text-white",
@@ -293,24 +286,9 @@ export default function DashboardPage() {
     ];
 
     return devEmployees.map((e, index) => {
-      const fb =
-        savedFeedback[e.id] ||
-        (e.email ? savedFeedback[e.email.toLowerCase()] : null) ||
-        (e.id === "emp-sarah" ? savedFeedback["employee.test@xorstack.com"] || savedFeedback["emp-sarah"] : null);
-
-      let localSodSubmitted = false;
-      if (typeof window !== "undefined") {
-        try {
-          localSodSubmitted = Boolean(
-            localStorage.getItem(`workpulse_morning_plan_submitted_${e.id}`) ||
-              (e.email && localStorage.getItem(`workpulse_morning_plan_submitted_${e.email.toLowerCase()}`))
-          );
-        } catch {}
-      }
-
-      const isSodVerified = Boolean(e.sodStatus === "VERIFIED" || (fb && fb.sodAcknowledged === true));
-      const isSodSubmitted = Boolean(e.sodStatus === "SUBMITTED" || isSodVerified || localSodSubmitted);
-      const isEodVerified = Boolean(e.eodStatus === "VERIFIED" || (fb && fb.eodAcknowledged === true));
+      const isSodVerified = Boolean(e.sodStatus === "VERIFIED");
+      const isSodSubmitted = Boolean(e.sodStatus === "SUBMITTED" || isSodVerified);
+      const isEodVerified = Boolean(e.eodStatus === "VERIFIED");
       const isEodSubmitted = Boolean(e.eodStatus === "SUBMITTED" || isEodVerified);
 
       let memberProg = e.overallProgress || 0;
@@ -355,16 +333,6 @@ export default function DashboardPage() {
             const fetched = d.data.tasks;
             if (isMounted) {
               setDashboardTasks(fetched);
-              if (fetched.length === 0) {
-                // Purge any stale localStorage keys so browser cache is cleaned automatically
-                localStorage.removeItem(`workpulse_simple_tasks_${empId}`);
-                if (currentEmp?.email) {
-                  localStorage.removeItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`);
-                }
-                localStorage.removeItem("workpulse_simple_tasks");
-                localStorage.removeItem("workpulse_simple_tasks_emp-sarah");
-                localStorage.removeItem("workpulse_simple_tasks_employee.test@xorstack.com");
-              }
             }
           }
         }

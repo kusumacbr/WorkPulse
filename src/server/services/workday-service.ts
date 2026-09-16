@@ -198,6 +198,12 @@ export class WorkdayService {
           work_mode: workday.workMode,
           sod_status: "SUBMITTED",
           sod_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          eod_status: "PENDING",
+          eod_time: null,
+          lead_feedback_note: null,
+          lead_feedback_time: null,
+          lead_rating: null,
+          lead_action_item: null,
           planned_tasks: tasks,
           overall_progress: 0,
         });
@@ -213,23 +219,22 @@ export class WorkdayService {
           status: "SUBMITTED",
         });
 
-        // Safe upsert to daily_tasks for target employee and aliases
-        const isSarahSod = targetEmployeeId === "emp-sarah" || targetEmployeeId?.toLowerCase().includes("employee.test");
-        const sodEmpIds = isSarahSod ? ["emp-sarah", "employee.test@xorstack.com"] : [targetEmployeeId];
+        // Upsert once to daily_tasks for canonical employee
+        const canonicalEmpId = (targetEmployeeId === "emp-sarah" || targetEmployeeId?.toLowerCase().includes("employee.test"))
+          ? "emp-sarah"
+          : targetEmployeeId;
 
-        for (const eid of sodEmpIds) {
-          const dbTasks = tasks.map((t, idx) => ({
-            id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}-${eid.split("@")[0]}`,
-            employee_id: eid,
-            date: params.input.workDate,
-            title: t.title,
-            category: t.project,
-            priority: t.priority,
-            status: t.status,
-            progress: t.completionPercentage,
-          }));
-          await supabase.from("daily_tasks").upsert(dbTasks);
-        }
+        const dbTasks = tasks.map((t, idx) => ({
+          id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}`,
+          employee_id: canonicalEmpId,
+          date: params.input.workDate,
+          title: t.title,
+          category: t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: t.status,
+          progress: t.completionPercentage || 0,
+        }));
+        await supabase.from("daily_tasks").upsert(dbTasks);
       }
       const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
       await broadcastServerEvent("workday:sod_submitted", workday);
@@ -480,23 +485,22 @@ export class WorkdayService {
           tomorrow_focus: params.input.dailySummary.nextDayFocus || null,
         });
 
-        // Safe upsert to daily_tasks for target employee and aliases upon EOD submission
-        const isSarahEod = updatedWorkday.employeeId === "emp-sarah" || updatedWorkday.employeeId?.toLowerCase().includes("employee.test");
-        const eodEmpIds = isSarahEod ? ["emp-sarah", "employee.test@xorstack.com"] : [updatedWorkday.employeeId];
+        // Upsert once to daily_tasks for canonical employee upon EOD submission
+        const canonicalEmpId = (updatedWorkday.employeeId === "emp-sarah" || updatedWorkday.employeeId?.toLowerCase().includes("employee.test"))
+          ? "emp-sarah"
+          : updatedWorkday.employeeId;
 
-        for (const eid of eodEmpIds) {
-          const dbTasks = updatedTasks.map((t, idx) => ({
-            id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}-${eid.split("@")[0]}`,
-            employee_id: eid,
-            date: updatedWorkday.workDate,
-            title: t.title,
-            category: t.project,
-            priority: t.priority,
-            status: t.status,
-            progress: t.completionPercentage,
-          }));
-          await supabase.from("daily_tasks").upsert(dbTasks);
-        }
+        const dbTasks = updatedTasks.map((t, idx) => ({
+          id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}`,
+          employee_id: canonicalEmpId,
+          date: updatedWorkday.workDate,
+          title: t.title,
+          category: t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: t.status,
+          progress: t.completionPercentage || 0,
+        }));
+        await supabase.from("daily_tasks").upsert(dbTasks);
       }
       const { broadcastServerEvent } = await import("@/lib/supabase/broadcast");
       await broadcastServerEvent("workday:eod_submitted", updatedWorkday);

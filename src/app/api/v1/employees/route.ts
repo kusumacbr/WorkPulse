@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
             isLead,
             sodStatus: wd?.sod_status || "PENDING",
             sodTime: wd?.sod_time || undefined,
-            eodStatus: wd?.eod_status || "PENDING",
+            eodStatus: wd?.sod_status === "VERIFIED" ? (wd?.eod_status || "PENDING") : "PENDING",
             overallProgress: calculatedProgress,
             plannedTasks,
           };

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { createClient } from "@/lib/supabase/client";
 
 export type RealtimeConnectionStatus = "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "ERROR";
 
@@ -93,15 +94,26 @@ export function useRealtimeSync() {
       }
     };
 
-    // 3. Supabase Realtime Channels (postgres_changes)
+    // 3. Supabase Realtime Channels (postgres_changes & broadcast)
     let supabaseChannel: any = null;
-    (async () => {
-      try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
+    let isCleanedUp = false;
 
+    try {
+      const supabase = createClient();
+      const channelName = "workpulse-supabase-live-channel";
+
+      // Remove any pre-existing channel with the same name from Supabase client to prevent duplicate subscriptions / state conflicts
+      const existingChannels = supabase.getChannels();
+      const existing = existingChannels.find(
+        (ch: any) => ch.name === channelName || ch.topic === `realtime:${channelName}`
+      );
+      if (existing) {
+        supabase.removeChannel(existing);
+      }
+
+      if (!isCleanedUp) {
         supabaseChannel = supabase
-          .channel("workpulse-supabase-live-channel")
+          .channel(channelName)
           .on(
             "postgres_changes",
             { event: "*", schema: "public", table: "employees" },
@@ -149,7 +161,16 @@ export function useRealtimeSync() {
             { event: "*", schema: "public", table: "workdays" },
             (payload) => {
               console.log("[Supabase Realtime] Workday change received:", payload.eventType);
-              WorkpulseSharedStore.syncWithSupabase();
+              WorkpulseSharedStore.syncWithSupabase(true);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("workpulse_sync"));
+                window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: payload }));
+                try {
+                  const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+                  bc.postMessage({ type: "workday:changed", eventType: payload.eventType, record: payload.new || payload.old, timestamp: Date.now() });
+                  bc.close();
+                } catch {}
+              }
             }
           )
           .on(
@@ -157,7 +178,11 @@ export function useRealtimeSync() {
             { event: "*", schema: "public", table: "feedbacks" },
             (payload) => {
               console.log("[Supabase Realtime] Feedback/Notice change received:", payload.eventType);
-              WorkpulseSharedStore.syncWithSupabase();
+              WorkpulseSharedStore.syncWithSupabase(true);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("workpulse_sync"));
+                window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: payload }));
+              }
             }
           )
           .on(
@@ -300,14 +325,15 @@ export function useRealtimeSync() {
             }
           )
           .subscribe();
-      } catch (err) {
-        console.warn("[RealtimeSync] Supabase channel subscription error:", err);
       }
-    })();
+    } catch (err) {
+      console.warn("[RealtimeSync] Supabase channel subscription error:", err);
+    }
 
     connectSSE();
 
     return () => {
+      isCleanedUp = true;
       clearTimeout(reconnectTimeout);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -316,7 +342,12 @@ export function useRealtimeSync() {
         broadcastChannelRef.current.close();
       }
       if (supabaseChannel) {
-        supabaseChannel.unsubscribe();
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(supabaseChannel);
+        } catch {
+          supabaseChannel.unsubscribe();
+        }
       }
     };
   }, []);

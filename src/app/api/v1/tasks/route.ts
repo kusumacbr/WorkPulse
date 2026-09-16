@@ -15,18 +15,21 @@ export async function GET(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
-    const isSarah = employeeId === "emp-sarah" || employeeId?.toLowerCase().includes("employee.test");
+    const isSarah = employeeId === "emp-sarah" || employeeId?.toLowerCase().includes("employee.test") || employeeId?.toLowerCase().includes("sarah");
     const isAlex = employeeId === "lead-alex" || employeeId?.toLowerCase().includes("lead.test");
-    const employeeIds = isSarah
-      ? ["emp-sarah", "employee.test@xorstack.com"]
-      : isAlex
-      ? ["lead-alex", "lead.test@xorstack.com"]
-      : [employeeId];
+    const employeeIds = Array.from(new Set([
+      employeeId,
+      actor.employeeId,
+      ...(isSarah ? ["emp-sarah", "employee.test@xorstack.com", "dev-employee-test-xorstack-com", "emp-sarah-devi"] : []),
+      ...(isAlex ? ["lead-alex", "lead.test@xorstack.com", "dev-lead-test-xorstack-com"] : []),
+    ].filter(Boolean)));
 
     const today = new Date().toISOString().split("T")[0]!;
 
-    // Automatically purge completed tasks of previous days (date < today) or date IS NULL from Supabase daily_tasks
+    // Automatically purge completed tasks of previous days or 100% completed tasks from Supabase daily_tasks
     Promise.allSettled([
+      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).eq("status", "COMPLETED"),
+      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).gte("progress", 100),
       supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).lt("date", today).eq("status", "COMPLETED"),
       supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).lt("date", today).gte("progress", 100),
       supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).is("date", null).eq("status", "COMPLETED"),

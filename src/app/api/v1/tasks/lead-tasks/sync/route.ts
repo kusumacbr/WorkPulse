@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
-    // 1. Try primary lead_tasks table
+    // 1. Try primary lead_tasks table if it exists
     let hasLeadTasksTable = true;
     let { data, error } = await supabase
       .from("lead_tasks")
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Fallback to daily_tasks where employee_id = leadId and assigned_by = 'LEAD_SELF'
+    // 2. Query daily_tasks where employee_id = leadId and assigned_by = 'LEAD_SELF'
     if (!hasLeadTasksTable || (!data || data.length === 0)) {
       const fallbackRes = await supabase
         .from("daily_tasks")
@@ -47,14 +47,14 @@ export async function GET(req: NextRequest) {
           id: row.id,
           lead_id: leadId,
           title: row.title,
-          category: row.category || "Code Review",
+          category: row.category || "Operations",
           priority: row.priority || "MEDIUM",
           status: row.status || "NOT_STARTED",
           progress: Number(row.progress) || 0,
           time_slot: "Today",
           created_at: row.created_at,
         }));
-      } else if (!hasLeadTasksTable) {
+      } else {
         data = [];
       }
     }
@@ -91,53 +91,53 @@ export async function POST(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
-    const nowIso = new Date().toISOString();
+    const today = new Date().toISOString().split("T")[0]!;
 
-    // Delete existing for this lead in both tables
+    // 1. Clear existing for this lead in both lead_tasks (if table exists) and daily_tasks
     try {
       await supabase.from("lead_tasks").delete().eq("lead_id", leadId);
     } catch {}
+
     try {
-      await supabase.from("daily_tasks").delete().eq("employee_id", leadId).eq("assigned_by", "LEAD_SELF");
+      await supabase
+        .from("daily_tasks")
+        .delete()
+        .eq("employee_id", leadId)
+        .eq("assigned_by", "LEAD_SELF");
     } catch {}
 
     if (tasks.length > 0) {
-      // 1. Insert into lead_tasks
-      const rows = tasks.map((t: any) => ({
-        id: t.id,
-        lead_id: leadId,
-        title: t.title,
-        category: t.category || "Code Review",
-        priority: t.priority || "MEDIUM",
-        status: t.status || "NOT_STARTED",
-        progress: t.progress || 0,
-        time_slot: t.timeSlot || "Today",
-      }));
-
-      try {
-        await supabase.from("lead_tasks").insert(rows);
-      } catch {}
-
-      // 2. Insert into daily_tasks fallback
-      const dailyRows = tasks.map((t: any) => ({
-        id: t.id,
+      // 2. Insert into Supabase daily_tasks as primary authoritative store
+      const dailyTaskRows = tasks.map((t: any) => ({
+        id: t.id || `lead-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         employee_id: leadId,
-        date: new Date().toISOString().split("T")[0],
-        title: t.title,
-        category: t.category || "Code Review",
-        priority: t.priority || "MEDIUM",
-        status: t.status || "NOT_STARTED",
-        progress: t.progress || 0,
         assigned_by: "LEAD_SELF",
-        created_at: nowIso,
-        updated_at: nowIso,
+        date: today,
+        title: t.title,
+        category: t.category || "Operations",
+        priority: t.priority || "MEDIUM",
+        status: t.status || (t.progress === 100 ? "COMPLETED" : t.progress > 0 ? "IN_PROGRESS" : "NOT_STARTED"),
+        progress: Number(t.progress) || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }));
 
+      await supabase.from("daily_tasks").upsert(dailyTaskRows);
+
+      // 3. Also try lead_tasks table if it exists
       try {
-        await supabase.from("daily_tasks").upsert(dailyRows);
-      } catch (err) {
-        console.warn("[Lead Tasks Sync] daily_tasks backup warning:", err);
-      }
+        const leadTaskRows = tasks.map((t: any) => ({
+          id: t.id,
+          lead_id: leadId,
+          title: t.title,
+          category: t.category || "Operations",
+          priority: t.priority || "MEDIUM",
+          status: t.status || "NOT_STARTED",
+          progress: t.progress || 0,
+          time_slot: t.timeSlot || "Today",
+        }));
+        await supabase.from("lead_tasks").insert(leadTaskRows);
+      } catch {}
     }
 
     return apiSuccess({ message: "Lead tasks synced permanently to Supabase", count: tasks.length });
@@ -161,7 +161,7 @@ export async function DELETE(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
-    // Permanently delete from all possible locations
+    // Permanently delete from all possible Supabase tables
     try {
       await supabase.from("lead_tasks").delete().eq("id", taskId);
     } catch {}

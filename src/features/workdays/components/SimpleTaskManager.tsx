@@ -176,7 +176,6 @@ export function SimpleTaskManager() {
       try {
         let loaded: any[] = [];
         const empId = currentEmp?.id || (currentUser?.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
-        const empEmail = currentEmp?.email?.toLowerCase() || (currentUser?.userEmail?.toLowerCase() || "");
 
         // 1. ALWAYS fetch latest server tasks first (Supabase is source of truth)
         let serverTasks: any[] = [];
@@ -207,134 +206,34 @@ export function SimpleTaskManager() {
           }
         }
 
-        // 2. If server fetch succeeded, Supabase is the primary authority
-        if (serverFetchSuccess) {
+        // 2. If server fetch returned tasks, Supabase is the authoritative source
+        if (serverFetchSuccess && serverTasks.length > 0) {
           loaded = deduplicateTasks(serverTasks);
-
-          // If server returned 0 tasks during active workday, preserve local active tasks or submitted snapshots
-          if (loaded.length === 0) {
-            const fallbackKey = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
-            const savedFallback =
-              (empId ? localStorage.getItem(fallbackKey) : null) ||
-              (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
-              localStorage.getItem("workpulse_simple_tasks") ||
-              localStorage.getItem(`workpulse_eod_submitted_tasks_${empId}`) ||
-              localStorage.getItem(`workpulse_sod_submitted_tasks_${empId}`);
-            if (savedFallback) {
-              try {
-                const parsedFallback = JSON.parse(savedFallback);
-                if (Array.isArray(parsedFallback) && parsedFallback.length > 0) {
-                  loaded = deduplicateTasks(parsedFallback);
-                }
-              } catch {}
-            }
-          }
-
-          // If local storage has updated in-flight progress for one of these EXACT server tasks, preserve slider state
-          const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
-          const saved =
-            (empId ? localStorage.getItem(key) : null) ||
-            (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
-            localStorage.getItem("workpulse_simple_tasks");
-
-          if (saved && loaded.length > 0) {
-            try {
-              const parsed = JSON.parse(saved);
-              if (Array.isArray(parsed)) {
-                const localMap = new Map<string, any>();
-                for (const lt of parsed) {
-                  if (lt.id) localMap.set(String(lt.id).trim(), lt);
-                  if (lt.title) localMap.set(String(lt.title).trim().toLowerCase(), lt);
-                }
-
-                loaded = loaded.map((st: any) => {
-                  const lt = localMap.get(String(st.id || "").trim()) || localMap.get(String(st.title || "").trim().toLowerCase());
-                  if (lt) {
-                    const localProg = Number(lt.progress) || 0;
-                    const serverProg = Number(st.progress) || 0;
-                    const bestProg = st.status === "COMPLETED" || serverProg === 100 ? 100 : Math.max(localProg, serverProg);
-                    const isDone = bestProg === 100;
-                    return {
-                      ...st,
-                      acknowledged: Boolean(lt.acknowledged || st.acknowledged),
-                      acknowledgedAt: lt.acknowledgedAt || st.acknowledgedAt || st.acknowledged_at,
-                      acknowledgementNote: lt.acknowledgementNote || st.acknowledgementNote || st.acknowledgement_note,
-                      progress: bestProg,
-                      completionPercentage: bestProg,
-                      status: isDone ? "COMPLETED" : bestProg > 0 ? "IN_PROGRESS" : (st.status || "NOT_STARTED"),
-                    };
-                  }
-                  return st;
-                });
-              }
-            } catch {}
-          }
-        } else {
-          // 3. Fallback only when server was unreachable / offline
-          const key = empId ? `workpulse_simple_tasks_${empId}` : "workpulse_simple_tasks";
-          const saved =
-            (empId ? localStorage.getItem(key) : null) ||
-            (empEmail ? localStorage.getItem(`workpulse_simple_tasks_${empEmail}`) : null) ||
-            localStorage.getItem("workpulse_simple_tasks");
-
-          if (saved !== null) {
-            try {
-              const parsed = JSON.parse(saved);
-              if (Array.isArray(parsed)) loaded = parsed;
-            } catch {}
-          }
+        } else if (currentEmp?.plannedTasks && currentEmp.plannedTasks.length > 0) {
+          loaded = deduplicateTasks(
+            currentEmp.plannedTasks.map((t) => ({
+              id: t.id,
+              title: t.title,
+              category: t.project || "General",
+              priority: t.priority || "MEDIUM",
+              status: t.status || "NOT_STARTED",
+              progress: t.completionPercentage || 0,
+              dueDate: "Today",
+              assignedBy: t.assignedBy,
+              assignedById: t.assignedById,
+              assignedAt: t.assignedAt,
+              acknowledged: t.acknowledged,
+              acknowledgedAt: t.acknowledgedAt,
+              acknowledgementNote: t.acknowledgementNote,
+            }))
+          );
+        } else if (serverFetchSuccess) {
+          loaded = deduplicateTasks(serverTasks);
         }
 
         let cleanTasks = deduplicateTasks(loaded);
-        const resolvedEmpId = empId || "emp-sarah";
-        const rawApprovedTs =
-          localStorage.getItem(`workpulse_eod_approved_timestamp_${resolvedEmpId}`) ||
-          (empEmail ? localStorage.getItem(`workpulse_eod_approved_timestamp_${empEmail}`) : null) ||
-          localStorage.getItem("workpulse_eod_approved_timestamp_emp-sarah");
-
-        // ONLY if Team Lead has approved EOD AND 2 minutes have elapsed post-approval, day resets to New Day:
-        // Delete completed tasks from Supabase and retain only rollover tasks
-        if (rawApprovedTs && Date.now() - Number(rawApprovedTs) >= 2 * 60 * 1000) {
-          cleanTasks = cleanTasks.filter((t: any) => {
-            const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
-            return p < 100 && t.status !== "COMPLETED";
-          });
-          fetch("/api/v1/tasks/cleanup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ employeeId: resolvedEmpId }),
-          }).catch(() => {});
-        } else {
-          cleanTasks = deduplicateTasks(cleanTasks);
-        }
-
         if (isMounted) {
           setTasks(cleanTasks);
-          // Keep storage strictly in sync with Supabase
-          if (resolvedEmpId) {
-            localStorage.setItem(`workpulse_simple_tasks_${resolvedEmpId}`, JSON.stringify(cleanTasks));
-          }
-          if (empEmail) {
-            localStorage.setItem(`workpulse_simple_tasks_${empEmail}`, JSON.stringify(cleanTasks));
-          }
-          localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanTasks));
-
-          // If all tasks were deleted in Supabase, purge stale submission snapshots so they can never restore
-          if (serverFetchSuccess && cleanTasks.length === 0) {
-            if (resolvedEmpId) {
-              localStorage.removeItem(`workpulse_sod_submitted_tasks_${resolvedEmpId}`);
-              localStorage.removeItem(`workpulse_eod_submitted_tasks_${resolvedEmpId}`);
-            }
-            if (empEmail) {
-              localStorage.removeItem(`workpulse_sod_submitted_tasks_${empEmail}`);
-              localStorage.removeItem(`workpulse_eod_submitted_tasks_${empEmail}`);
-            }
-            localStorage.removeItem("workpulse_sod_submitted_tasks");
-            localStorage.removeItem("workpulse_sod_submitted_tasks_emp-sarah");
-            localStorage.removeItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com");
-            localStorage.removeItem("workpulse_eod_submitted_tasks_emp-sarah");
-            localStorage.removeItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com");
-          }
 
           // Sync shared store employee plannedTasks in-memory to reflect Supabase state
           if (currentEmp) {
@@ -377,9 +276,17 @@ export function SimpleTaskManager() {
             ev.data?.type === "task:deleted" ||
             ev.data?.type === "task:changed" ||
             ev.data?.type === "tasks_changed" ||
-            ev.data?.type === "daily_tasks:changed"
+            ev.data?.type === "daily_tasks:changed" ||
+            ev.data?.type === "workday:sod_verified" ||
+            ev.data?.type === "workday:eod_verified" ||
+            ev.data?.type === "workday:eod_approved" ||
+            ev.data?.type === "workday:sod_changes_requested" ||
+            ev.data?.type === "workday:lead_feedback_updated" ||
+            ev.data?.type === "workday:changed" ||
+            ev.data?.type === "workpulse_sync"
           ) {
             debouncedLoadTasks();
+            WorkpulseSharedStore.syncWithSupabase(true);
           }
         };
       }
@@ -395,10 +302,10 @@ export function SimpleTaskManager() {
       }
     };
 
-    // Periodic polling (every 3s) as fallback
+    // Lightweight fallback interval (10s)
     const pollInterval = setInterval(() => {
       if (isMounted) loadTasks();
-    }, 3000);
+    }, 10000);
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -406,6 +313,9 @@ export function SimpleTaskManager() {
     window.addEventListener("workpulse:task_deleted", debouncedLoadTasks);
     window.addEventListener("workpulse:task_assigned", debouncedLoadTasks);
     window.addEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+    window.addEventListener("workday:sod_verified", debouncedLoadTasks);
+    window.addEventListener("workday:eod_verified", debouncedLoadTasks);
+    window.addEventListener("workday:lead_feedback_updated", debouncedLoadTasks);
     window.addEventListener("workpulse_sync", debouncedLoadTasks);
     window.addEventListener("storage", debouncedLoadTasks);
 
@@ -420,6 +330,9 @@ export function SimpleTaskManager() {
       window.removeEventListener("workpulse:task_deleted", debouncedLoadTasks);
       window.removeEventListener("workpulse:task_assigned", debouncedLoadTasks);
       window.removeEventListener("workpulse:task_acknowledged", debouncedLoadTasks);
+      window.removeEventListener("workday:sod_verified", debouncedLoadTasks);
+      window.removeEventListener("workday:eod_verified", debouncedLoadTasks);
+      window.removeEventListener("workday:lead_feedback_updated", debouncedLoadTasks);
       window.removeEventListener("workpulse_sync", debouncedLoadTasks);
       window.removeEventListener("storage", debouncedLoadTasks);
     };
@@ -445,53 +358,18 @@ export function SimpleTaskManager() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Sync to localStorage and shared store
+  // Sync tasks in state and shared store
   const saveTasks = (updated: SimpleTaskItem[]) => {
     const cleanTasks = deduplicateTasks(updated);
     setTasks(cleanTasks);
     if (typeof window !== "undefined") {
       try {
-        if (currentEmp?.id) {
-          localStorage.setItem(`workpulse_simple_tasks_${currentEmp.id}`, JSON.stringify(cleanTasks));
-        }
-        if (currentEmp?.email) {
-          localStorage.setItem(`workpulse_simple_tasks_${currentEmp.email.toLowerCase()}`, JSON.stringify(cleanTasks));
-        }
-        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanTasks));
-
-        // Keep assigned tasks log updated in localStorage with current execution progress
-        try {
-          const rawLog = localStorage.getItem("workpulse_assigned_tasks_log");
-          if (rawLog) {
-            const parsedLog = JSON.parse(rawLog);
-            if (Array.isArray(parsedLog)) {
-              const updatedLog = parsedLog.map((item: any) => {
-                const match = cleanTasks.find((ct) => ct.id === item.id || ct.title.toLowerCase() === String(item.title || "").toLowerCase());
-                if (match) {
-                  return {
-                    ...item,
-                    progress: match.progress,
-                    status: match.status,
-                    acknowledged: Boolean(match.acknowledged || item.acknowledged),
-                  };
-                }
-                return item;
-              });
-              localStorage.setItem("workpulse_assigned_tasks_log", JSON.stringify(updatedLog));
-            }
-          }
-        } catch {}
-
         if ("BroadcastChannel" in window) {
           const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
           bc.postMessage({ type: "employee:tasks_updated", employeeId: currentEmp?.id, timestamp: Date.now() });
           bc.close();
         }
         window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId: currentEmp?.id, tasks: cleanTasks } }));
-
-        // NOTE: We intentionally do NOT mass-POST tasks to Supabase here.
-        // Tasks are created only via handleAddTask, and updated via handleSetTaskProgress/PATCH.
-        // This prevents resurrection of deleted tasks and avoids duplicates.
       } catch {
         // safe fallback
       }
@@ -703,37 +581,6 @@ export function SimpleTaskManager() {
 
     const cleanList = deduplicateTasks(tasks);
 
-    if (typeof window !== "undefined") {
-      try {
-        const nowMs = Date.now();
-        localStorage.setItem(`workpulse_morning_plan_submitted_${currentEmp.id}`, "true");
-        localStorage.setItem(`workpulse_morning_plan_timestamp_${currentEmp.id}`, String(nowMs));
-        if (currentEmp.email) {
-          localStorage.setItem(`workpulse_morning_plan_submitted_${currentEmp.email.toLowerCase()}`, "true");
-          localStorage.setItem(`workpulse_morning_plan_timestamp_${currentEmp.email.toLowerCase()}`, String(nowMs));
-        }
-        if (currentEmp.id === "emp-sarah" || currentEmp.email?.toLowerCase() === "employee.test@xorstack.com") {
-          localStorage.setItem("workpulse_morning_plan_submitted_emp-sarah", "true");
-          localStorage.setItem("workpulse_morning_plan_submitted_employee.test@xorstack.com", "true");
-          localStorage.setItem("workpulse_morning_plan_timestamp_emp-sarah", String(nowMs));
-          localStorage.setItem("workpulse_morning_plan_timestamp_employee.test@xorstack.com", String(nowMs));
-        }
-        // Save official SOD submitted snapshot
-        localStorage.setItem(`workpulse_sod_submitted_tasks_${currentEmp.id}`, JSON.stringify(cleanList));
-        if (currentEmp.email) {
-          localStorage.setItem(`workpulse_sod_submitted_tasks_${currentEmp.email.toLowerCase()}`, JSON.stringify(cleanList));
-        }
-        if (currentEmp.id === "emp-sarah" || currentEmp.email?.toLowerCase() === "employee.test@xorstack.com") {
-          localStorage.setItem("workpulse_sod_submitted_tasks_emp-sarah", JSON.stringify(cleanList));
-          localStorage.setItem("workpulse_sod_submitted_tasks_employee.test@xorstack.com", JSON.stringify(cleanList));
-          localStorage.setItem("workpulse_sod_submitted_tasks", JSON.stringify(cleanList));
-        }
-
-        localStorage.setItem(`workpulse_simple_tasks_${currentEmp.id}`, JSON.stringify(cleanList));
-        localStorage.setItem("workpulse_simple_tasks", JSON.stringify(cleanList));
-      } catch {}
-    }
-
     const formattedTasks = cleanList.map((t) => ({
       id: t.id,
       title: t.title,
@@ -803,35 +650,6 @@ export function SimpleTaskManager() {
 
     setEveningSubmitted(true);
     setMorningSubmitted(false);
-
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.removeItem(`workpulse_morning_plan_submitted_${currentEmp.id}`);
-        if (currentEmp.email) {
-          localStorage.removeItem(`workpulse_morning_plan_submitted_${currentEmp.email.toLowerCase()}`);
-        }
-        localStorage.removeItem("workpulse_morning_plan_submitted_emp-sarah");
-        localStorage.removeItem("workpulse_morning_plan_submitted_employee.test@xorstack.com");
-
-        const eodTasksSnapshot = tasks.map((t) => ({
-          id: t.id,
-          title: t.title,
-          project: t.category || "General",
-          category: t.category || "General",
-          priority: t.priority || "MEDIUM",
-          estimatedMinutes: 60,
-          completionPercentage: t.progress || 0,
-          status: (t.status === "COMPLETED" || t.progress === 100 ? "COMPLETED" : t.status === "IN_PROGRESS" || (t.progress || 0) > 0 ? "IN_PROGRESS" : "NOT_STARTED") as "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED",
-          expectedOutput: t.title,
-        }));
-        localStorage.setItem(`workpulse_eod_submitted_tasks_${currentEmp.id}`, JSON.stringify(eodTasksSnapshot));
-        if (currentEmp.email) {
-          localStorage.setItem(`workpulse_eod_submitted_tasks_${currentEmp.email.toLowerCase()}`, JSON.stringify(eodTasksSnapshot));
-        }
-        localStorage.setItem("workpulse_eod_submitted_tasks_emp-sarah", JSON.stringify(eodTasksSnapshot));
-        localStorage.setItem("workpulse_eod_submitted_tasks_employee.test@xorstack.com", JSON.stringify(eodTasksSnapshot));
-      } catch {}
-    }
 
     const completed = tasks.filter((t) => t.progress === 100 || t.status === "COMPLETED");
     const rollover = tasks.filter((t) => (t.progress || 0) < 100 && t.status !== "COMPLETED");
@@ -948,22 +766,20 @@ export function SimpleTaskManager() {
   }, []);
 
   const leadDailyFeedback = useMemo(() => {
-    if (mounted && typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("workpulse_lead_daily_feedback");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const empId = currentEmp?.id;
-          const empEmail = currentEmp?.email?.toLowerCase();
-          return (empId ? parsed[empId] : null) ||
-            (empEmail ? parsed[empEmail] : null) ||
-            (empId === "emp-sarah" || empEmail === "employee.test@xorstack.com" ? (parsed["emp-sarah"] || parsed["employee.test@xorstack.com"]) : null) ||
-            null;
-        }
-      } catch {}
-    }
-    return null;
-  }, [currentEmp?.id, currentEmp?.email, allEmployees, feedbackVersion, mounted]);
+    if (!currentEmp) return null;
+    return {
+      leadName: currentEmp.teamLeadName || "Alex Lead",
+      sodAcknowledged: currentEmp.sodStatus === "VERIFIED",
+      sodTime: currentEmp.sodVerifiedAt || currentEmp.sodTime,
+      sodNote: currentEmp.sodLeadNote,
+      eodAcknowledged: currentEmp.eodStatus === "VERIFIED",
+      eodReviewed: currentEmp.eodStatus === "VERIFIED",
+      eodSubmittedTime: currentEmp.eodTime,
+      eodLeadRating: currentEmp.eodLeadRating,
+      eodLeadComment: currentEmp.eodLeadComment,
+      eodLeadActionItem: currentEmp.eodLeadActionItem,
+    };
+  }, [currentEmp, feedbackVersion]);
 
   const assignedLeadName = currentEmp?.teamLeadName || leadDailyFeedback?.leadName || "Alex Lead";
   const assignedDeptName = currentEmp?.departmentName || "Development";
@@ -976,32 +792,35 @@ export function SimpleTaskManager() {
     return () => clearInterval(timer);
   }, []);
 
-  const eodTimestamp = useMemo(() => {
-    if (mounted && typeof window !== "undefined") {
-      try {
-        const isApproved = Boolean(
-          (leadDailyFeedback && (leadDailyFeedback.eodAcknowledged === true || leadDailyFeedback.eodReviewed === true)) ||
-          currentEmp?.eodStatus === "VERIFIED"
-        );
-        if (!isApproved) return null;
+  // 1. Start of Day (SOD) Lifecycle Status
+  const isSodSubmitted = Boolean(
+    morningSubmitted || currentEmp?.sodStatus === "SUBMITTED" || currentEmp?.sodStatus === "VERIFIED"
+  );
 
-        const rawApproved = localStorage.getItem(`workpulse_eod_approved_timestamp_${currentEmp?.id}`);
-        if (rawApproved) return Number(rawApproved);
-        const rawTs = localStorage.getItem(`workpulse_eod_timestamp_${currentEmp?.id}`);
-        if (rawTs) return Number(rawTs);
-        if (leadDailyFeedback && (leadDailyFeedback.eodApprovedTimestamp || leadDailyFeedback.eodTimestamp)) {
-          return Number(leadDailyFeedback.eodApprovedTimestamp || leadDailyFeedback.eodTimestamp);
-        }
-      } catch {}
+  const isSodVerified = Boolean(
+    isSodSubmitted &&
+    ((currentEmp?.sodStatus === "VERIFIED") ||
+      Boolean(leadDailyFeedback && leadDailyFeedback.sodAcknowledged === true))
+  );
+
+  const sodVerifiedBy = currentEmp?.sodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
+  const sodVerifiedAt = currentEmp?.sodVerifiedAt || leadDailyFeedback?.sodTime || "Today";
+  const sodLeadNote = currentEmp?.sodLeadNote || leadDailyFeedback?.sodNote || "Morning plan verified & approved by Team Lead.";
+
+  // 2. End of Day (EOD) Lifecycle Status — strictly dependent on isSodVerified
+  const eodTimestamp = useMemo(() => {
+    if (isSodVerified && currentEmp?.eodStatus === "VERIFIED") {
+      return Date.now();
     }
     return null;
-  }, [currentEmp?.id, currentEmp?.eodStatus, leadDailyFeedback, feedbackVersion, mounted, eveningSubmitted]);
+  }, [isSodVerified, currentEmp?.eodStatus]);
 
   // 2-Minute EOD Next-Day Window (2 * 60 * 1000 = 120,000 ms) - starts after Lead Approval
   const EOD_WINDOW_MS = 2 * 60 * 1000;
   const eodElapsedMs = eodTimestamp ? nowTick - eodTimestamp : Infinity;
 
   const isEodSubmittedPendingLead = Boolean(
+    isSodVerified &&
     (eveningSubmitted || currentEmp?.eodStatus === "SUBMITTED") &&
     !eodTimestamp &&
     currentEmp?.eodStatus !== "VERIFIED" &&
@@ -1010,6 +829,7 @@ export function SimpleTaskManager() {
 
   // Day is in Day Wrapped Up state strictly within the 2-minute post-Lead-approval window
   const isDayWrappedUp = Boolean(
+    isSodVerified &&
     eodTimestamp &&
     (eveningSubmitted || currentEmp?.eodStatus === "SUBMITTED" || currentEmp?.eodStatus === "VERIFIED") &&
     eodElapsedMs < EOD_WINDOW_MS
@@ -1037,25 +857,35 @@ export function SimpleTaskManager() {
       hasResetDayRef.current = true;
 
       // 1. Filter active tasks to keep only rollover tasks (< 100% and not COMPLETED)
-      const rolloverTasks = tasks.filter((t) => {
-        const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
-        return p < 100 && t.status !== "COMPLETED";
-      });
+      const rolloverTasks = tasks
+        .filter((t) => {
+          const p = Number(t.progress !== undefined ? t.progress : (t as any).completionPercentage) || 0;
+          return p < 100 && t.status !== "COMPLETED";
+        })
+        .map((t) => {
+          const p = Number(t.progress !== undefined ? t.progress : (t as any).completionPercentage) || 0;
+          return {
+            ...t,
+            progress: p,
+            status: p > 0 ? ("IN_PROGRESS" as const) : ("NOT_STARTED" as const),
+          };
+        });
+
       setTasks(rolloverTasks);
       saveTasks(rolloverTasks);
 
-      // 2. Reset employee state in store & local storage for next day
+      // 2. Reset employee state in store for next day
       const targetEmpId = currentEmp?.id || "emp-sarah";
       WorkpulseSharedStore.startNewWorkday(targetEmpId);
 
       setEveningSubmitted(false);
       setMorningSubmitted(false);
 
-      // 3. Delete completed tasks from Supabase daily_tasks
+      // 3. Delete completed tasks from Supabase daily_tasks & persist rollover tasks
       fetch("/api/v1/tasks/cleanup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: targetEmpId }),
+        body: JSON.stringify({ employeeId: targetEmpId, rolloverTasks }),
       }).catch(() => {});
 
       // 4. Notify BroadcastChannel and events
@@ -1076,54 +906,17 @@ export function SimpleTaskManager() {
     }
   }, [eodTimestamp, eodElapsedMs, currentEmp?.id, currentEmp?.email, tasks]);
 
-  // Check if morning plan was explicitly submitted today
-  const isMorningPlanInStorage = useMemo(() => {
-    if (mounted && typeof window !== "undefined" && currentEmp) {
-      try {
-        const key = `workpulse_morning_plan_submitted_${currentEmp.id}`;
-        const emailKey = currentEmp.email ? `workpulse_morning_plan_submitted_${currentEmp.email.toLowerCase()}` : null;
-        return (
-          localStorage.getItem(key) === "true" ||
-          (emailKey ? localStorage.getItem(emailKey) === "true" : false) ||
-          ((currentEmp.id === "emp-sarah" || currentEmp.email?.toLowerCase() === "employee.test@xorstack.com") &&
-            (localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") === "true" ||
-             localStorage.getItem("workpulse_morning_plan_submitted_employee.test@xorstack.com") === "true"))
-        );
-      } catch {}
-    }
-    return false;
-  }, [currentEmp?.id, currentEmp?.email, mounted, feedbackVersion, morningSubmitted]);
-
-  // Before EOD is submitted, SOD is active. Once EOD is submitted, the day is wrapped up.
-  const isSodSubmitted = Boolean(
-    !isDayWrappedUp &&
-    (morningSubmitted || isMorningPlanInStorage)
-  );
-
-  const isSodVerified = Boolean(
-    !isDayWrappedUp &&
-    isSodSubmitted &&
-    ((currentEmp?.sodStatus === "VERIFIED") ||
-      (leadDailyFeedback &&
-        leadDailyFeedback.sodAcknowledged &&
-        (!eodTimestamp || (leadDailyFeedback.sodTimestampMs || 0) > eodTimestamp)))
-  );
-
-  const sodVerifiedBy = currentEmp?.sodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
-  const sodVerifiedAt = currentEmp?.sodVerifiedAt || leadDailyFeedback?.sodTime || "Today";
-  const sodLeadNote = currentEmp?.sodLeadNote || leadDailyFeedback?.sodNote || "Morning plan verified & approved by Team Lead.";
-
-  // EOD feedback from Team Lead remains visible throughout the day once verified
+  // EOD feedback from Team Lead remains visible once verified
   const isEodVerified = Boolean(
-    isDayWrappedUp &&
+    isSodVerified &&
     (currentEmp?.eodStatus === "VERIFIED" ||
-      (leadDailyFeedback && leadDailyFeedback.eodAcknowledged === true))
+      Boolean(leadDailyFeedback && leadDailyFeedback.eodAcknowledged === true))
   );
-  const eodVerifiedBy = currentEmp?.eodVerifiedBy || leadDailyFeedback?.eodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
-  const eodVerifiedAt = currentEmp?.eodVerifiedAt || leadDailyFeedback?.eodTime || "Today";
-  const eodLeadRating = currentEmp?.eodLeadRating || leadDailyFeedback?.eodLeadRating || leadDailyFeedback?.rating || 5;
-  const eodLeadComment = currentEmp?.eodLeadComment || leadDailyFeedback?.eodLeadComment || leadDailyFeedback?.eodComment || "Great daily execution and sprint deliverables progress!";
-  const eodLeadActionItem = currentEmp?.eodLeadActionItem || leadDailyFeedback?.eodLeadActionItem || leadDailyFeedback?.actionItem;
+  const eodVerifiedBy = currentEmp?.eodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
+  const eodVerifiedAt = currentEmp?.eodVerifiedAt || leadDailyFeedback?.eodSubmittedTime || "Today";
+  const eodLeadRating = currentEmp?.eodLeadRating || leadDailyFeedback?.eodLeadRating || 5;
+  const eodLeadComment = currentEmp?.eodLeadComment || leadDailyFeedback?.eodLeadComment || "Great daily execution and sprint deliverables progress!";
+  const eodLeadActionItem = currentEmp?.eodLeadActionItem || leadDailyFeedback?.eodLeadActionItem;
 
   // Real-time Weekly, Monthly & 60-Day Schedule Data calculation
   const [scheduleViewMode, setScheduleViewMode] = useState<"WEEKLY" | "MONTHLY" | "60DAYS">("WEEKLY");

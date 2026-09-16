@@ -181,45 +181,15 @@ export function TeamHeatmapGrid({
       }
     } catch {}
 
-    if (typeof window !== "undefined") {
-      const subMap: Record<string, { sod: boolean; eod: boolean; tasksCount: number }> = {};
-      employeesToShow.forEach((emp) => {
-        const isSpecialSarah = emp.id === "emp-sarah" || emp.email?.toLowerCase().includes("employee.test");
-        const hasSod =
-          localStorage.getItem(`workpulse_morning_plan_submitted_${emp.id}`) === "true" ||
-          (emp.email ? localStorage.getItem(`workpulse_morning_plan_submitted_${emp.email.toLowerCase()}`) === "true" : false) ||
-          (isSpecialSarah && (
-            localStorage.getItem("workpulse_morning_plan_submitted_emp-sarah") === "true" ||
-            localStorage.getItem("workpulse_morning_plan_submitted_employee.test@xorstack.com") === "true"
-          ));
-
-        const hasEod =
-          localStorage.getItem(`workpulse_eod_submitted_${emp.id}`) === "true" ||
-          (emp.email ? localStorage.getItem(`workpulse_eod_submitted_${emp.email.toLowerCase()}`) === "true" : false) ||
-          (isSpecialSarah && (
-            localStorage.getItem("workpulse_eod_submitted_emp-sarah") === "true" ||
-            localStorage.getItem("workpulse_eod_submitted_employee.test@xorstack.com") === "true"
-          ));
-
-        let tasksCount = 0;
-        try {
-          const rawTasks =
-            localStorage.getItem(`workpulse_simple_tasks_${emp.id}`) ||
-            (isSpecialSarah ? localStorage.getItem("workpulse_simple_tasks") : null);
-          if (rawTasks) {
-            const parsed = JSON.parse(rawTasks);
-            if (Array.isArray(parsed)) tasksCount = parsed.length;
-          }
-        } catch {}
-
-        subMap[emp.id] = {
-          sod: Boolean(hasSod || emp.sodStatus === "SUBMITTED" || emp.sodStatus === "VERIFIED"),
-          eod: Boolean(hasEod || emp.eodStatus === "SUBMITTED" || emp.eodStatus === "VERIFIED"),
-          tasksCount: tasksCount || emp.plannedTasks?.length || 0,
-        };
-      });
-      setLiveSubmissions(subMap);
-    }
+    const subMap: Record<string, { sod: boolean; eod: boolean; tasksCount: number }> = {};
+    employeesToShow.forEach((emp) => {
+      subMap[emp.id] = {
+        sod: Boolean(emp.sodStatus === "SUBMITTED" || emp.sodStatus === "VERIFIED"),
+        eod: Boolean(emp.eodStatus === "SUBMITTED" || emp.eodStatus === "VERIFIED"),
+        tasksCount: emp.plannedTasks?.length || 0,
+      };
+    });
+    setLiveSubmissions(subMap);
   };
 
   useEffect(() => {

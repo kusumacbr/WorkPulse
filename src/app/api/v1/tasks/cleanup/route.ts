@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { workpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { workpulseSharedStore, WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,45 +18,66 @@ export async function POST(req: NextRequest) {
 
     const isSarah = !employeeId || employeeId === "emp-sarah" || employeeId?.toLowerCase().includes("employee.test") || employeeId?.toLowerCase().includes("sarah");
     const isAlex = employeeId === "lead-alex" || employeeId?.toLowerCase().includes("lead.test");
-    const employeeIds = isSarah
-      ? ["emp-sarah", "employee.test@xorstack.com", "emp-sarah-devi"]
-      : isAlex
-      ? ["lead-alex", "lead.test@xorstack.com"]
-      : [employeeId];
+    
+    // Comprehensive alias set covering all development, production, and email formats
+    const employeeIds = Array.from(new Set([
+      employeeId,
+      actor.employeeId,
+      ...(isSarah ? ["emp-sarah", "employee.test@xorstack.com", "dev-employee-test-xorstack-com", "emp-sarah-devi"] : []),
+      ...(isAlex ? ["lead-alex", "lead.test@xorstack.com", "dev-lead-test-xorstack-com"] : []),
+    ].filter(Boolean)));
 
-    // Delete 100% completed tasks for this employee / aliases & previous days from Supabase daily_tasks
-    const [del1, del2, del3, del4, del5] = await Promise.all([
+    // 1. Delete 100% completed tasks for this employee / aliases & across the table from Supabase daily_tasks
+    const delPromises = [
       supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).eq("status", "COMPLETED").select(),
       supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).gte("progress", 100).select(),
-      supabaseAdmin.from("daily_tasks").delete().lt("date", today).eq("status", "COMPLETED").select(),
-      supabaseAdmin.from("daily_tasks").delete().lt("date", today).gte("progress", 100).select(),
-      supabaseAdmin.from("daily_tasks").delete().is("date", null).eq("status", "COMPLETED").select(),
-    ]);
-
-    const deleted = [
-      ...(del1.data || []),
-      ...(del2.data || []),
-      ...(del3.data || []),
-      ...(del4.data || []),
-      ...(del5.data || []),
+      supabaseAdmin.from("daily_tasks").delete().eq("status", "COMPLETED").select(),
+      supabaseAdmin.from("daily_tasks").delete().gte("progress", 100).select(),
     ];
-    if (del1.error || del2.error || del3.error || del4.error) {
-      console.error("[Tasks Cleanup API] Error deleting completed tasks:", del1.error || del2.error || del3.error || del4.error);
+
+    const delResults = await Promise.allSettled(delPromises);
+    const deleted: any[] = [];
+    for (const res of delResults) {
+      if (res.status === "fulfilled" && res.value.data) {
+        deleted.push(...res.value.data);
+      }
     }
 
-    // Also update in-memory store for this employee to keep only rollover tasks
+    // 2. If rollover tasks are provided (tasks with progress < 100%), upsert them into daily_tasks for the new day
+    const rolloverTasks: any[] = Array.isArray(body.rolloverTasks) ? body.rolloverTasks : [];
+    if (rolloverTasks.length > 0) {
+      const canonicalEmpId = isSarah ? "emp-sarah" : isAlex ? "lead-alex" : (employeeId || "emp-sarah");
+      const rows = rolloverTasks.map((t: any, idx: number) => {
+        const p = Number(t.progress !== undefined ? t.progress : (t.completionPercentage !== undefined ? t.completionPercentage : 0)) || 0;
+        return {
+          id: t.id && t.id.length > 5 ? t.id : `task-${Date.now()}-${idx}`,
+          employee_id: canonicalEmpId,
+          date: today,
+          title: t.title,
+          category: t.category || t.project || "General",
+          priority: t.priority || "MEDIUM",
+          status: p > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+          progress: p,
+        };
+      });
+      await supabaseAdmin.from("daily_tasks").upsert(rows);
+    }
+
+    // 3. Update in-memory store for this employee to keep only rollover tasks
     try {
       const state = workpulseSharedStore.getState();
       const emp = state.allEmployees.find((e: any) => employeeIds.includes(e.id) || (e.email && employeeIds.includes(e.email.toLowerCase())));
-      if (emp && Array.isArray(emp.plannedTasks)) {
-        emp.plannedTasks = emp.plannedTasks.filter((t: any) => {
+      if (emp) {
+        const keptTasks = (emp.plannedTasks || []).filter((t: any) => {
           const p = Number(t.completionPercentage !== undefined ? t.completionPercentage : t.progress) || 0;
           return p < 100 && t.status !== "COMPLETED";
         });
+        emp.plannedTasks = keptTasks;
+        WorkpulseSharedStore.updateEmployee(emp.id, { plannedTasks: keptTasks });
       }
     } catch {}
 
-    return apiSuccess({ deletedCount: deleted?.length || 0, message: "Completed tasks deleted successfully" });
+    return apiSuccess({ deletedCount: deleted.length, message: "Completed tasks deleted from Supabase & rollover tasks preserved" });
   } catch (err: any) {
     return apiError(err.message || "Failed to cleanup tasks", 500);
   }
