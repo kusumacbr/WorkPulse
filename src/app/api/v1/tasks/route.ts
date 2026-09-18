@@ -26,15 +26,6 @@ export async function GET(req: NextRequest) {
 
     const today = new Date().toISOString().split("T")[0]!;
 
-    // Automatically purge completed tasks of previous days (date < today) from Supabase daily_tasks
-    // Current day's completed tasks are KEPT so they can be reviewed and submitted in EOD!
-    Promise.allSettled([
-      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).lt("date", today).eq("status", "COMPLETED"),
-      supabaseAdmin.from("daily_tasks").delete().in("employee_id", employeeIds).lt("date", today).gte("progress", 100),
-      supabaseAdmin.from("daily_tasks").delete().lt("date", today).eq("status", "COMPLETED"),
-      supabaseAdmin.from("daily_tasks").delete().lt("date", today).gte("progress", 100),
-    ]).catch(() => {});
-
     let query = supabaseAdmin
       .from("daily_tasks")
       .select("*")
@@ -84,9 +75,6 @@ export async function GET(req: NextRequest) {
       // it is purged from active tasks AND deleted from Supabase daily_tasks table.
       // If it is INCOMPLETE (e.g. 90%), it rolls over and remains present for the next day until it completes!
       if (taskDate < today && isCompleted) {
-        if (t.id) {
-          Promise.resolve(supabaseAdmin.from("daily_tasks").delete().eq("id", t.id)).catch(() => {});
-        }
         continue;
       }
 

@@ -62,9 +62,14 @@ export function PulseAgentWidget() {
       setSessionId(newSession);
       sessionStorage.setItem("workpulse_agent_session", newSession);
     }
-
-    checkStatus();
   }, []);
+
+  // Fetch agent status only when user actually opens the chat widget
+  useEffect(() => {
+    if (isOpen && !agentStatus) {
+      checkStatus();
+    }
+  }, [isOpen, agentStatus]);
 
   // Save messages to session storage
   useEffect(() => {

@@ -37,15 +37,18 @@ export function useRealtimeSync() {
           setLastEvent(msg);
           setEventCount((c) => c + 1);
           if (
-            msg.type?.startsWith("workday:help_") ||
-            msg.type === "workday:help_changed" ||
+            msg.type?.startsWith("workday:") ||
             msg.type?.startsWith("employee:") ||
             msg.type?.startsWith("leave:") ||
             msg.type?.startsWith("wfh:")
           ) {
             WorkpulseSharedStore.syncWithSupabase(true);
             if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("workpulse:help_changed", { detail: msg.payload }));
+              if (msg.type?.includes("help")) {
+                window.dispatchEvent(new CustomEvent("workpulse:help_changed", { detail: msg.payload }));
+              } else {
+                window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: msg.payload || msg }));
+              }
               window.dispatchEvent(new CustomEvent("workpulse_sync"));
             }
           }
@@ -341,13 +344,18 @@ export function useRealtimeSync() {
               WorkpulseSharedStore.syncWithSupabase();
             }
           )
-          .subscribe();
+          .subscribe((subStatus: string) => {
+            if (subStatus === "SUBSCRIBED") {
+              setStatus("CONNECTED");
+            } else if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") {
+              if (!isCleanedUp) connectSSE();
+            }
+          });
       }
     } catch (err) {
       console.warn("[RealtimeSync] Supabase channel subscription error:", err);
+      if (!isCleanedUp) connectSSE();
     }
-
-    connectSSE();
 
     return () => {
       isCleanedUp = true;

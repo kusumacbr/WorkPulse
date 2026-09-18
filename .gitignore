@@ -10,3 +10,12 @@ WorkPulse_Member_Credentials_2026.csv
 public/WorkPulse_Member_Credentials_2026.csv
 public/WorkPulse_Member_Credentials_2026.html
 public/WorkPulse_Member_Credentials_2026.md
+
+# IDE and tool directories
+.claude/
+.cursor/
+.gemini/
+.idea/
+.vscode/
+.vercel/
+*.log

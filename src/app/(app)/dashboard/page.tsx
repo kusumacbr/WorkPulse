@@ -98,7 +98,7 @@ export default function DashboardPage() {
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
         setSyncVersion((v) => v + 1);
-      }, 30);
+      }, 300);
     };
 
     const handleStorageEvent = () => {
@@ -109,7 +109,6 @@ export default function DashboardPage() {
     const unsubscribeStore = subscribeToSharedStore(handleSync);
 
     const events = [
-      "workpulse_sync",
       "workpulse:lead_feedback_updated",
       "workpulse:task_assigned",
       "workpulse:task_acknowledged",
@@ -274,8 +273,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!mounted) return;
     let isMounted = true;
+    let fetchTimer: NodeJS.Timeout | null = null;
 
     const fetchTasks = async () => {
+      if (!isMember) return;
       const empId = currentEmp?.id || (user.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
       if (!empId) return;
 
@@ -293,32 +294,39 @@ export default function DashboardPage() {
       } catch {}
     };
 
-    fetchTasks();
+    if (isMember) {
+      fetchTasks();
+    }
 
     const debouncedFetch = () => {
-      if (isMounted) fetchTasks();
+      if (!isMember) return;
+      if (fetchTimer) clearTimeout(fetchTimer);
+      fetchTimer = setTimeout(() => {
+        if (isMounted) fetchTasks();
+      }, 500);
     };
 
     window.addEventListener("focus", debouncedFetch);
     window.addEventListener("workpulse:tasks_changed", debouncedFetch);
     window.addEventListener("workpulse:task_deleted", debouncedFetch);
-    window.addEventListener("workpulse_sync", debouncedFetch);
 
     return () => {
       isMounted = false;
+      if (fetchTimer) clearTimeout(fetchTimer);
       window.removeEventListener("focus", debouncedFetch);
       window.removeEventListener("workpulse:tasks_changed", debouncedFetch);
       window.removeEventListener("workpulse:task_deleted", debouncedFetch);
-      window.removeEventListener("workpulse_sync", debouncedFetch);
     };
-  }, [mounted, currentEmp?.id, currentEmp?.email, user.userEmail, syncVersion]);
+  }, [mounted, currentEmp?.id, currentEmp?.email, user.userEmail, isMember]);
 
   // Real-time Goals for Logged-In Employee (Supabase source of truth)
   useEffect(() => {
     if (!mounted) return;
     let isMounted = true;
+    let fetchTimer: NodeJS.Timeout | null = null;
 
     const fetchGoals = async () => {
+      if (!isMember) return;
       const empId = currentEmp?.id || (user.userEmail?.toLowerCase().includes("employee.test") ? "emp-sarah" : "");
       if (!empId) return;
 
@@ -333,23 +341,27 @@ export default function DashboardPage() {
       } catch {}
     };
 
-    fetchGoals();
+    if (isMember) {
+      fetchGoals();
+    }
 
     const debouncedFetch = () => {
-      if (isMounted) fetchGoals();
+      if (fetchTimer) clearTimeout(fetchTimer);
+      fetchTimer = setTimeout(() => {
+        if (isMounted) fetchGoals();
+      }, 500);
     };
 
     window.addEventListener("workpulse:goals_changed", debouncedFetch);
     window.addEventListener("workpulse:simple_goals_updated", debouncedFetch);
-    window.addEventListener("workpulse_sync", debouncedFetch);
 
     return () => {
       isMounted = false;
+      if (fetchTimer) clearTimeout(fetchTimer);
       window.removeEventListener("workpulse:goals_changed", debouncedFetch);
       window.removeEventListener("workpulse:simple_goals_updated", debouncedFetch);
-      window.removeEventListener("workpulse_sync", debouncedFetch);
     };
-  }, [mounted, currentEmp?.id, user.userEmail, syncVersion]);
+  }, [mounted, currentEmp?.id, user.userEmail, isMember]);
 
   const liveEmployeeTasks = useMemo(() => {
     if (dashboardTasks !== null) {

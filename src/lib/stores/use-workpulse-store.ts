@@ -9,14 +9,16 @@ function setupGlobalWindowListeners() {
   if (typeof window === "undefined" || isGlobalListenerSetup) return;
   isGlobalListenerSetup = true;
 
+  let debounceTimer: NodeJS.Timeout | null = null;
   const handleRealtimeUpdate = () => {
-    WorkpulseSharedStore.hydrateFromStorage();
-    WorkpulseSharedStore.syncWithSupabase(true);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      WorkpulseSharedStore.syncWithSupabase();
+    }, 400);
   };
 
   const events = [
     "storage",
-    "workpulse_sync",
     "workpulse:lead_feedback_updated",
     "workpulse:task_assigned",
     "workpulse:task_acknowledged",

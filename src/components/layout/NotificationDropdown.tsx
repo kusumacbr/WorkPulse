@@ -69,7 +69,11 @@ export function NotificationDropdown() {
   // Initial fetch and 60s fallback sync (SSE and Supabase handle live updates)
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchNotifications();
+      }
+    }, 120000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -102,7 +106,6 @@ export function NotificationDropdown() {
 
     let supabaseChannel: any = null;
     let broadcastChannel: BroadcastChannel | null = null;
-    let eventSource: EventSource | null = null;
 
     // 1. Supabase Realtime Channel
     try {
@@ -170,59 +173,7 @@ export function NotificationDropdown() {
       console.warn("[NotificationDropdown] Supabase channel error:", err);
     }
 
-    // 2. Server-Sent Events (SSE) Stream
-    try {
-      eventSource = new EventSource("/api/v1/realtime/stream");
-      eventSource.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data);
-          if (event.type === "notification:new") {
-            handleIncomingNotification(event.payload);
-          } else if (event.type === "announcement:broadcast") {
-            handleIncomingNotification(event.payload);
-          } else if (event.type === "notification:read") {
-            const data = event.payload || {};
-            const evtUser = data.userKey || data.userEmail;
-            if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
-            const targetId = data.id;
-            if (targetId) {
-              setNotifications((prev) =>
-                prev.map((n) => (n.id === targetId ? { ...n, read: true } : n))
-              );
-              setUnreadCount((c) => Math.max(0, c - 1));
-            }
-          } else if (event.type === "notification:read_all") {
-            const data = event.payload || {};
-            const evtUser = data.userKey || data.userEmail;
-            if (evtUser && evtUser !== userKey && evtUser !== userEmail) return;
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-            setUnreadCount(0);
-          } else if (event.type === "notification:deleted_all") {
-            const data = event.payload || {};
-            const evtUser = data.userKey || data.userEmail;
-            if (evtUser && (evtUser === userKey || evtUser === userEmail)) {
-              setNotifications([]);
-              setUnreadCount(0);
-            }
-          } else if (event.type === "notification:deleted") {
-            const data = event.payload || {};
-            const announcementId = data.announcementId;
-            if (announcementId) {
-              setNotifications((prev) => prev.filter((n) =>
-                n.id !== `notif-ann-${announcementId}` &&
-                !data.notificationIds?.includes(n.id) &&
-                (!data.title || n.title !== data.title)
-              ));
-            } else {
-              const targetId = data.id;
-              if (targetId) {
-                setNotifications((prev) => prev.filter((n) => n.id !== targetId));
-              }
-            }
-          }
-        } catch {}
-      };
-    } catch {}
+
 
     // 3. Multi-Tab BroadcastChannel
     if ("BroadcastChannel" in window) {
@@ -274,7 +225,6 @@ export function NotificationDropdown() {
 
     return () => {
       if (supabaseChannel) supabaseChannel.unsubscribe();
-      if (eventSource) eventSource.close();
       if (broadcastChannel) broadcastChannel.close();
     };
   }, [handleIncomingNotification, userKey, userEmail]);

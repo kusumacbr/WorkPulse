@@ -476,6 +476,141 @@ function notify() {
   }, 10);
 }
 
+// Global Cross-Tab Realtime BroadcastChannel Receiver
+if (typeof window !== "undefined") {
+  try {
+    if ("BroadcastChannel" in window) {
+      const globalBc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+      globalBc.onmessage = (event) => {
+        const data = event.data;
+        if (!data || !data.type) return;
+
+        if (data.type === "workday:sod_verified" && data.employeeId) {
+          const targetId = String(data.employeeId).trim().toLowerCase();
+          const leadName = data.leadName || "Alex Lead";
+          const note = data.note || "Morning plan verified & approved by Team Lead.";
+          const timeStr = data.timeStr || `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+          let changed = false;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const isMatch =
+                emp.id.toLowerCase() === targetId ||
+                emp.email.toLowerCase() === targetId ||
+                (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+                (targetId.includes("employee.test") && emp.id === "emp-sarah");
+              if (isMatch) {
+                changed = true;
+                return {
+                  ...emp,
+                  sodStatus: "VERIFIED",
+                  sodVerifiedBy: leadName,
+                  sodVerifiedAt: timeStr,
+                  sodLeadNote: note,
+                };
+              }
+              return emp;
+            }),
+          }));
+          if (changed) {
+            notify();
+            window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: data }));
+            window.dispatchEvent(new CustomEvent("workday:sod_verified", { detail: data }));
+          }
+        } else if (data.type === "workday:sod_changes_requested" && data.employeeId) {
+          const targetId = String(data.employeeId).trim().toLowerCase();
+          let changed = false;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const isMatch =
+                emp.id.toLowerCase() === targetId ||
+                emp.email.toLowerCase() === targetId ||
+                (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+                (targetId.includes("employee.test") && emp.id === "emp-sarah");
+              if (isMatch) {
+                changed = true;
+                return {
+                  ...emp,
+                  sodStatus: "CHANGES_REQUESTED",
+                };
+              }
+              return emp;
+            }),
+          }));
+          if (changed) {
+            notify();
+            window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: data }));
+          }
+        } else if ((data.type === "workday:eod_verified" || data.type === "workday:eod_approved") && data.employeeId) {
+          const targetId = String(data.employeeId).trim().toLowerCase();
+          const leadName = data.leadName || "Alex Lead";
+          const rating = data.feedback?.rating || data.rating || 5;
+          const comment = data.feedback?.comment || data.comment || "Great daily execution and sprint deliverables progress!";
+          const actionItem = data.feedback?.actionItem || data.actionItem || "Present highlights in tomorrow's sync.";
+          const timeStr = data.timeStr || `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+          let changed = false;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const isMatch =
+                emp.id.toLowerCase() === targetId ||
+                emp.email.toLowerCase() === targetId ||
+                (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+                (targetId.includes("employee.test") && emp.id === "emp-sarah");
+              if (isMatch) {
+                changed = true;
+                return {
+                  ...emp,
+                  eodStatus: "VERIFIED",
+                  eodVerifiedBy: leadName,
+                  eodVerifiedAt: timeStr,
+                  eodLeadRating: rating,
+                  eodLeadComment: comment,
+                  eodLeadActionItem: actionItem,
+                };
+              }
+              return emp;
+            }),
+          }));
+          if (changed) {
+            notify();
+            window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: data }));
+            window.dispatchEvent(new CustomEvent("workday:eod_verified", { detail: data }));
+          }
+        } else if ((data.type === "workday:sod_submitted" || data.type === "employee:sod_submitted") && data.employeeId) {
+          const targetId = String(data.employeeId).trim().toLowerCase();
+          let changed = false;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const isMatch =
+                emp.id.toLowerCase() === targetId ||
+                emp.email.toLowerCase() === targetId ||
+                (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+                (targetId.includes("employee.test") && emp.id === "emp-sarah");
+              if (isMatch) {
+                changed = true;
+                return {
+                  ...emp,
+                  sodStatus: "SUBMITTED",
+                  sodTime: data.time || emp.sodTime || `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+                };
+              }
+              return emp;
+            }),
+          }));
+          if (changed) {
+            notify();
+          }
+        }
+      };
+    }
+  } catch {}
+}
+
 async function syncEmployeeToSupabase(emp: OrgEmployee): Promise<void> {
   if (typeof window === "undefined") return;
   try {
@@ -837,7 +972,7 @@ export const WorkpulseSharedStore = {
     if (typeof window === "undefined") return;
     if (activeSyncPromise) return activeSyncPromise;
     const now = Date.now();
-    const minThreshold = force ? 100 : 1500;
+    const minThreshold = force ? 600 : 1500;
     if (now - lastSyncTimestamp < minThreshold) {
       return;
     }
@@ -849,13 +984,14 @@ export const WorkpulseSharedStore = {
         const supabase = createClient();
 
         // Run all API and Supabase queries concurrently in parallel
+        const todayStr = new Date().toISOString().split("T")[0]!;
         const [empRes, lrRes, wfhRes, fbRes, wdRes, dtRes] = await Promise.all([
           fetch("/api/v1/employees").catch(() => null),
-          supabase.from("leave_requests").select("*").order("created_at", { ascending: false }),
-          supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }),
-          supabase.from("feedbacks").select("*").order("created_at", { ascending: false }),
-          supabase.from("workdays").select("*").order("created_at", { ascending: false }),
-          supabase.from("daily_tasks").select("*").order("created_at", { ascending: false }),
+          supabase.from("leave_requests").select("*").order("created_at", { ascending: false }).limit(100),
+          supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }).limit(100),
+          supabase.from("feedbacks").select("*").order("created_at", { ascending: false }).limit(100),
+          supabase.from("workdays").select("*").eq("date", todayStr),
+          supabase.from("daily_tasks").select("*").order("created_at", { ascending: false }).limit(100),
         ]);
 
         if (empRes && empRes.ok) {
@@ -2207,7 +2343,12 @@ export const WorkpulseSharedStore = {
     globalDepartments = globalDepartments.map((dept) => ({
       ...dept,
       employees: dept.employees.map((emp) => {
-        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+        const isMatch =
+          emp.id.toLowerCase() === targetId ||
+          emp.email.toLowerCase() === targetId ||
+          (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+          (targetId.includes("employee.test") && emp.id === "emp-sarah");
+        if (isMatch) {
           updatedEmp = {
             ...emp,
             sodStatus: "VERIFIED",
@@ -2223,11 +2364,12 @@ export const WorkpulseSharedStore = {
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, verifiedNote, timeStr } }));
+      window.dispatchEvent(new CustomEvent("workday:sod_verified", { detail: { employeeId, leadName, note: verifiedNote, timeStr } }));
       window.dispatchEvent(new CustomEvent("workpulse_sync"));
       try {
         if ("BroadcastChannel" in window) {
           const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
-          bc.postMessage({ type: "workday:sod_verified", employeeId, leadName, note: verifiedNote, timestamp: Date.now() });
+          bc.postMessage({ type: "workday:sod_verified", employeeId, leadName, note: verifiedNote, timeStr, timestamp: Date.now() });
           bc.postMessage({ type: "workday:lead_feedback_updated", employeeId, timestamp: Date.now() });
           bc.close();
         }
@@ -2783,7 +2925,12 @@ export const WorkpulseSharedStore = {
     globalDepartments = globalDepartments.map((dept) => ({
       ...dept,
       employees: dept.employees.map((emp) => {
-        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+        const isMatch =
+          emp.id.toLowerCase() === targetId ||
+          emp.email.toLowerCase() === targetId ||
+          (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+          (targetId.includes("employee.test") && emp.id === "emp-sarah");
+        if (isMatch) {
           updatedEmp = {
             ...emp,
             eodStatus: "VERIFIED",

@@ -10,13 +10,15 @@ export async function GET(req: NextRequest) {
     const empId = requestedEmpId || actor?.employeeId || user?.email || "emp-sarah";
     const userEmail = user?.email || "";
 
+    const limitParam = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+
     const supabase = createAdminClient();
     if (supabase) {
       let query = supabase
         .from("biometric_punches")
         .select("*")
         .order("punch_time", { ascending: false })
-        .limit(100);
+        .limit(limitParam);
 
       // Filter for this employee's punches
       if (empId) {

@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-display: 'Instrument Serif', serif;
-  --font-body: 'Inter', sans-serif;
+  --font-display: serif;
+  --font-body: var(--font-inter, 'Inter', sans-serif);
 
   /* Clean, crisp modern enterprise light mode */
   --background: 210 30% 98%; /* #f8fafc light slate canvas */

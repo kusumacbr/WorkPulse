@@ -134,7 +134,7 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
     const fetchLatestPunch = async () => {
       try {
         const emp = userEmail || "emp-sarah";
-        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(emp)}`);
+        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(emp)}&limit=1`);
         if (res.ok) {
           const data = await res.json();
           if (!isCancelled && data.data?.punches && data.data.punches.length > 0) {
@@ -181,38 +181,41 @@ export function Header({ userName: initialUserName, userEmail: initialUserEmail,
 
   // Sync punch status with global events
   useEffect(() => {
-    const syncPunchState = async () => {
-      try {
-        const emp = userEmail || "emp-sarah";
-        const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(emp)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.data?.punches && data.data.punches.length > 0) {
-            const latest = data.data.punches[0];
-            const isLatestIn = latest.direction === "IN" || latest.punch_type === "IN";
-            if (isLatestIn) {
-              setPunchStatus("IN");
-              const startTime = new Date(latest.punch_time || latest.time).getTime();
-              if (!isNaN(startTime)) {
-                setPunchStartTimeMs(startTime);
-                const diffSecs = Math.floor((Date.now() - startTime) / 1000);
-                setElapsedSeconds(Math.max(0, diffSecs));
+    let debounceTimer: NodeJS.Timeout | null = null;
+    const syncPunchState = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const emp = userEmail || "emp-sarah";
+          const res = await fetch(`/api/v1/attendance/punches?employeeId=${encodeURIComponent(emp)}&limit=1`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.data?.punches && data.data.punches.length > 0) {
+              const latest = data.data.punches[0];
+              const isLatestIn = latest.direction === "IN" || latest.punch_type === "IN";
+              if (isLatestIn) {
+                setPunchStatus("IN");
+                const startTime = new Date(latest.punch_time || latest.time).getTime();
+                if (!isNaN(startTime)) {
+                  setPunchStartTimeMs(startTime);
+                  const diffSecs = Math.floor((Date.now() - startTime) / 1000);
+                  setElapsedSeconds(Math.max(0, diffSecs));
+                }
+              } else {
+                setPunchStatus("OUT");
+                setPunchStartTimeMs(null);
+                setElapsedSeconds(0);
               }
-            } else {
-              setPunchStatus("OUT");
-              setPunchStartTimeMs(null);
-              setElapsedSeconds(0);
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }, 500);
     };
 
     window.addEventListener("attendance:punched", syncPunchState);
-    window.addEventListener("workpulse_sync", syncPunchState);
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("attendance:punched", syncPunchState);
-      window.removeEventListener("workpulse_sync", syncPunchState);
     };
   }, [userEmail]);
 

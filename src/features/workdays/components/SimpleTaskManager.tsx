@@ -285,6 +285,15 @@ export function SimpleTaskManager() {
         bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
         bc.onmessage = (ev) => {
           if (
+            ev.data?.type === "workday:sod_verified" ||
+            ev.data?.type === "workday:eod_verified" ||
+            ev.data?.type === "workday:eod_approved" ||
+            ev.data?.type === "workday:sod_changes_requested" ||
+            ev.data?.type === "workday:lead_feedback_updated"
+          ) {
+            setFeedbackVersion((v) => v + 1);
+            debouncedLoadTasks();
+          } else if (
             ev.data?.type === "task:assigned" ||
             ev.data?.type === "task:recalled" ||
             ev.data?.type === "task:acknowledged" ||
@@ -292,21 +301,14 @@ export function SimpleTaskManager() {
             ev.data?.type === "task:changed" ||
             ev.data?.type === "tasks_changed" ||
             ev.data?.type === "daily_tasks:changed" ||
-            ev.data?.type === "workday:sod_verified" ||
-            ev.data?.type === "workday:eod_verified" ||
-            ev.data?.type === "workday:eod_approved" ||
-            ev.data?.type === "workday:sod_changes_requested" ||
-            ev.data?.type === "workday:lead_feedback_updated" ||
             ev.data?.type === "workday:help_requested" ||
             ev.data?.type === "workday:help_acknowledged" ||
             ev.data?.type === "workday:help_resolved" ||
             ev.data?.type === "workday:help_cancelled" ||
             ev.data?.type === "workday:help_changed" ||
-            ev.data?.type === "workday:changed" ||
-            ev.data?.type === "workpulse_sync"
+            ev.data?.type === "workday:changed"
           ) {
             debouncedLoadTasks();
-            WorkpulseSharedStore.syncWithSupabase(true);
           }
         };
       }
@@ -762,9 +764,19 @@ export function SimpleTaskManager() {
       setFeedbackVersion((v) => v + 1);
     };
     window.addEventListener("workpulse:lead_feedback_updated", handleFeedbackUpdate);
+    window.addEventListener("workday:sod_verified", handleFeedbackUpdate);
+    window.addEventListener("workday:eod_verified", handleFeedbackUpdate);
+    window.addEventListener("workday:eod_approved", handleFeedbackUpdate);
+    window.addEventListener("workday:sod_changes_requested", handleFeedbackUpdate);
+    window.addEventListener("workpulse_sync", handleFeedbackUpdate);
     window.addEventListener("storage", handleFeedbackUpdate);
     return () => {
       window.removeEventListener("workpulse:lead_feedback_updated", handleFeedbackUpdate);
+      window.removeEventListener("workday:sod_verified", handleFeedbackUpdate);
+      window.removeEventListener("workday:eod_verified", handleFeedbackUpdate);
+      window.removeEventListener("workday:eod_approved", handleFeedbackUpdate);
+      window.removeEventListener("workday:sod_changes_requested", handleFeedbackUpdate);
+      window.removeEventListener("workpulse_sync", handleFeedbackUpdate);
       window.removeEventListener("storage", handleFeedbackUpdate);
     };
   }, []);

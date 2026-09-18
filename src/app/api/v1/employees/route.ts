@@ -11,7 +11,7 @@ let cachedSupaEmployees: any[] | null = null;
 let cachedTodayWorkdays: any[] | null = null;
 let cachedTodayTasks: any[] | null = null;
 let lastCacheTime = 0;
-const CACHE_TTL_MS = 300;
+const CACHE_TTL_MS = 5000;
 
 export async function GET(req: NextRequest) {
   try {
