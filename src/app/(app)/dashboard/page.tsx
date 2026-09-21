@@ -790,17 +790,17 @@ export default function DashboardPage() {
 
   if (!mounted) {
     return (
-      <div className="space-y-6 animate-pulse p-4">
-        <div className="h-32 rounded-3xl bg-card/40 border border-border/40" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="space-y-4 sm:space-y-6 animate-pulse p-2 sm:p-4">
+        <div className="h-28 sm:h-32 rounded-2xl sm:rounded-3xl bg-card/40 border border-border/40" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
           <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
           <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
           <div className="h-28 rounded-2xl bg-card/40 border border-border/40" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-80 rounded-3xl bg-card/40 border border-border/40" />
-          <div className="h-80 rounded-3xl bg-card/40 border border-border/40" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="h-64 sm:h-80 rounded-2xl sm:rounded-3xl bg-card/40 border border-border/40" />
+          <div className="h-64 sm:h-80 rounded-2xl sm:rounded-3xl bg-card/40 border border-border/40" />
         </div>
       </div>
     );
@@ -808,19 +808,19 @@ export default function DashboardPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6 sm:space-y-8">
+      <div className="space-y-4 sm:space-y-6 md:space-y-8">
         {/* 1. Header Banner */}
-        <Interactive3DCard className="p-6 sm:p-8 border border-border/80 bg-gradient-to-br from-card/95 via-card/85 to-card/60 shadow-lg relative overflow-hidden rounded-3xl">
+        <Interactive3DCard className="p-3.5 sm:p-6 md:p-8 border border-border/80 bg-gradient-to-br from-card/95 via-card/85 to-card/60 shadow-lg relative overflow-hidden rounded-2xl sm:rounded-3xl">
           {/* Subtle Ambient Background Glow */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-            <div className="space-y-2.5 max-w-2xl">
-              <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 relative z-10">
+            <div className="space-y-2 sm:space-y-2.5 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant={isHR ? "purple" : isLead ? "cyan" : "brand"}
-                  className="text-[11px] font-extrabold px-3 py-1 rounded-full shadow-sm"
+                  className="text-[10px] sm:text-[11px] font-extrabold px-2.5 sm:px-3 py-1 rounded-full shadow-sm"
                 >
                   <Sparkles className="h-3 w-3 mr-1" />
                   {isHR
@@ -831,7 +831,7 @@ export default function DashboardPage() {
                 </Badge>
               </div>
 
-              <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">
+              <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-foreground tracking-tight">
                 Welcome back,{" "}
                 <span className="bg-gradient-to-r from-foreground via-primary to-cyan-400 bg-clip-text text-transparent">
                   {user.userName}
@@ -840,24 +840,24 @@ export default function DashboardPage() {
             </div>
 
             {/* Action Shortcuts */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
               {isHR ? (
                 <Link href="/leave">
-                  <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md bg-purple-600 hover:bg-purple-500 text-white">
+                  <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-9 sm:h-10 rounded-2xl shadow-md bg-purple-600 hover:bg-purple-500 text-white">
                     <Calendar className="h-4 w-4" />
                     <span>Leave Governance</span>
                   </Button>
                 </Link>
               ) : isLead ? (
                 <Link href="/my-work">
-                  <Button size="default" variant="cyan" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md">
+                  <Button size="default" variant="cyan" className="text-xs font-extrabold gap-2 h-9 sm:h-10 rounded-2xl shadow-md">
                     <ListTodo className="h-4 w-4" />
                     <span>Review Team Plans</span>
                   </Button>
                 </Link>
               ) : (
                 <Link href="/my-work">
-                  <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-10 rounded-2xl shadow-md">
+                  <Button size="default" variant="brand" className="text-xs font-extrabold gap-2 h-9 sm:h-10 rounded-2xl shadow-md">
                     <ListTodo className="h-4 w-4" />
                     <span>Tasks</span>
                   </Button>
@@ -922,14 +922,14 @@ export default function DashboardPage() {
         {isMember && (
           <div className="space-y-6">
             {/* Row 1: Weekly Hours Logged Bar Chart + Today's Overview Arc */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
               {/* Left 7 cols: Weekly Hours Logged Bar Chart */}
-              <div className="lg:col-span-7 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-4">
+              <div className="lg:col-span-7 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-4">
                 <WeeklyActivityBarChart days={memberWeeklyActivity} targetDailyHours={8.0} height={190} />
               </div>
 
               {/* Right 5 cols: Today's Overview Radial Chart */}
-              <div className="lg:col-span-5 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between space-y-4">
+              <div className="lg:col-span-5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-border/50">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -956,9 +956,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Row 2: Today's Tasks & Priorities (Left 8 cols) + Leave & Time-Off Balance (Right 4 cols) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
               {/* Left 8 cols: Today's Planned Tasks */}
-              <div className="lg:col-span-8 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-4">
+              <div className="lg:col-span-8 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-border/50">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-500">
@@ -1039,7 +1039,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Right 4 cols: Leave & Time-Off Balance Summary */}
-              <div className="lg:col-span-4 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between space-y-4">
+              <div className="lg:col-span-4 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-border/50">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
@@ -1094,9 +1094,9 @@ export default function DashboardPage() {
         {isLead && (
           <div className="space-y-6">
             {/* Row 1: Team Presence Donut (5 cols) + Team Weekly Progress Trend (7 cols) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
               {/* Left 5 cols: Team Presence Donut */}
-              <div className="lg:col-span-5 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between">
+              <div className="lg:col-span-5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between">
                 <WorkforceDistributionDonut
                   data={teamWorkforceSlices}
                   title="Team Presence Today"
@@ -1106,7 +1106,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Right 7 cols: Team Weekly Task Completion Rate Trend */}
-              <div className="lg:col-span-7 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-3">
+              <div className="lg:col-span-7 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-3">
                 <div className="flex items-center justify-between pb-1 border-b border-border/50">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -1133,7 +1133,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Row 2: Team Members Real-Time Status Table */}
-            <div className="p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-4">
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-border/50">
                 <div className="flex items-center gap-2">
                   <div className="h-7 w-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -1190,7 +1190,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Row 3: Pending Approvals Stream */}
-            <div className="p-6 rounded-3xl border border-rose-500/25 bg-gradient-to-b from-rose-500/[0.04] to-card/80 space-y-4 shadow-sm">
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-rose-500/25 bg-gradient-to-b from-rose-500/[0.04] to-card/80 space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-500">
@@ -1244,9 +1244,9 @@ export default function DashboardPage() {
         {isHR && (
           <div className="space-y-6">
             {/* Row 1: Organization Workforce Donut (5 cols) + 30-Day Attendance Trend (7 cols) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
               {/* Left 5 cols: Organization-Wide Workforce Donut */}
-              <div className="lg:col-span-5 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between">
+              <div className="lg:col-span-5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm flex flex-col justify-between">
                 <WorkforceDistributionDonut
                   data={orgWorkforceSlices}
                   title="Workforce Distribution Today"
@@ -1256,7 +1256,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Right 7 cols: 30-Day Enterprise Attendance Area Trend */}
-              <div className="lg:col-span-7 p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-3">
+              <div className="lg:col-span-7 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm space-y-3">
                 <div className="flex items-center justify-between pb-1 border-b border-border/50">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -1283,7 +1283,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Row 2: Department Overview Bar Chart (Full 12 cols) */}
-            <div className="p-6 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm">
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl shadow-sm">
               <DepartmentVelocityBarChart
                 departments={departmentMetrics}
                 title="Departments Overview"
@@ -1292,7 +1292,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Row 3: Stage-2 Pending HR Authorizations Queue */}
-            <div className="p-6 rounded-3xl border border-rose-500/25 bg-gradient-to-b from-rose-500/[0.04] to-card/80 space-y-4 shadow-sm">
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-rose-500/25 bg-gradient-to-b from-rose-500/[0.04] to-card/80 space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-500">

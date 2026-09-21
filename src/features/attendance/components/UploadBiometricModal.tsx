@@ -300,8 +300,8 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-      <div className="w-full max-w-2xl bg-card border border-border shadow-2xl p-6 rounded-3xl space-y-4 animate-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-card border border-border shadow-2xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4 animate-in zoom-in-95 custom-scrollbar">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -344,13 +344,13 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
               const file = e.dataTransfer.files?.[0];
               if (file) parseUploadedFile(file);
             }}
-            className={`p-8 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
+            className={`p-5 sm:p-8 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
               dragActive
                 ? "border-cyan-400 bg-cyan-500/10"
                 : "border-border/80 bg-muted/30 hover:border-cyan-500/50 hover:bg-muted/50"
             }`}
           >
-            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shadow-sm">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shadow-sm">
               <Upload className="h-6 w-6" />
             </div>
             <div className="space-y-1">
@@ -396,8 +396,8 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
               </Badge>
             </div>
 
-            <div className="border border-border/60 rounded-2xl overflow-hidden max-h-48 overflow-y-auto text-xs">
-              <table className="w-full text-left border-collapse text-[11px]">
+            <div className="border border-border/60 rounded-2xl overflow-hidden max-h-48 overflow-y-auto overflow-x-auto text-xs">
+              <table className="w-full min-w-[500px] text-left border-collapse text-[11px]">
                 <thead className="bg-muted/70 text-muted-foreground font-semibold sticky top-0 border-b border-border/60">
                   <tr>
                     <th className="p-2 pl-3">Employee</th>
@@ -434,15 +434,15 @@ export function UploadBiometricModal({ isOpen, onClose, onUploadSuccess }: Uploa
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
-          <Button variant="outline" size="sm" onClick={handleCloseModal} className="h-9 text-xs rounded-xl">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-border/60">
+          <Button variant="outline" size="sm" onClick={handleCloseModal} className="h-9 text-xs rounded-xl w-full sm:w-auto">
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleSaveAndSync}
             disabled={parsedRecords.length === 0 || isUploading}
-            className="h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 rounded-xl shadow-md cursor-pointer"
+            className="h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 rounded-xl shadow-md cursor-pointer w-full sm:w-auto"
           >
             {isUploading ? (
               <>

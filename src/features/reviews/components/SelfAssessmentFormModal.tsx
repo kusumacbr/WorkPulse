@@ -106,8 +106,8 @@ export function SelfAssessmentFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <Interactive3DCard className="w-full max-w-3xl border border-purple-500/40 bg-gradient-to-b from-[#0f172a] to-[#0b0f19] shadow-2xl p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <Interactive3DCard className="w-full max-w-3xl border border-purple-500/40 bg-gradient-to-b from-[#0f172a] to-[#0b0f19] shadow-2xl p-4 sm:p-6 md:p-8 space-y-6 animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-border/60">
           <div className="space-y-1">
@@ -280,13 +280,13 @@ export function SelfAssessmentFormModal({
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-4 border-t border-border/60 flex items-center justify-between">
+          <div className="pt-4 border-t border-border/60 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="text-xs h-9"
+              className="w-full sm:w-auto text-xs h-9 justify-center"
             >
               Cancel
             </Button>
@@ -295,7 +295,7 @@ export function SelfAssessmentFormModal({
               type="submit"
               variant="brand"
               size="lg"
-              className="text-xs font-extrabold bg-gradient-to-r from-purple-500 via-indigo-600 to-teal-500 text-white shadow-[0_4px_20px_rgba(168,85,247,0.25)] h-10 px-6 gap-2"
+              className="w-full sm:w-auto text-xs font-extrabold bg-gradient-to-r from-purple-500 via-indigo-600 to-teal-500 text-white shadow-[0_4px_20px_rgba(168,85,247,0.25)] h-10 px-6 gap-2 justify-center"
             >
               <Send className="h-3.5 w-3.5" />
               <span>Submit Self-Assessment to Lead</span>

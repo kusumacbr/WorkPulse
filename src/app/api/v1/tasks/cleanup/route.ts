@@ -77,7 +77,85 @@ export async function POST(req: NextRequest) {
       }
     } catch {}
 
-    return apiSuccess({ deletedCount: deleted.length, message: "Completed tasks deleted from Supabase & rollover tasks preserved" });
+    // 4. Reset Supabase workdays, sod_submissions, and eod_submissions for today → PENDING (fresh new day)
+    try {
+      const resetPromises: PromiseLike<any>[] = [];
+
+      // Reset workdays table: set statuses to PENDING, clear all verification/feedback fields
+      for (const eid of employeeIds) {
+        resetPromises.push(
+          supabaseAdmin.from("workdays").update({
+            sod_status: "PENDING",
+            sod_time: null,
+            sod_verified_by: null,
+            sod_verified_at: null,
+            sod_lead_note: null,
+            eod_status: "PENDING",
+            eod_time: null,
+            eod_verified_by: null,
+            eod_verified_at: null,
+            lead_rating: null,
+            lead_feedback_note: null,
+            lead_action_item: null,
+            achievements: null,
+            blockers: null,
+            tomorrow_focus: null,
+            overall_progress: 0,
+            planned_tasks: rolloverTasks.length > 0 ? rolloverTasks : [],
+          }).eq("employee_id", eid).eq("date", today).select()
+        );
+      }
+
+      // Reset sod_submissions for today
+      for (const eid of employeeIds) {
+        resetPromises.push(
+          supabaseAdmin.from("sod_submissions").update({
+            status: "PENDING",
+            sod_time: null,
+          }).eq("employee_id", eid).eq("date", today).select()
+        );
+      }
+
+      // Reset eod_submissions for today
+      for (const eid of employeeIds) {
+        resetPromises.push(
+          supabaseAdmin.from("eod_submissions").update({
+            status: "PENDING",
+            eod_time: null,
+            achievements: null,
+            blockers: null,
+            tomorrow_focus: null,
+          }).eq("employee_id", eid).eq("date", today).select()
+        );
+      }
+
+      await Promise.allSettled(resetPromises);
+    } catch (resetErr) {
+      console.warn("[Cleanup] Supabase workday/sod/eod reset error:", resetErr);
+    }
+
+    // 5. Reset in-memory WorkpulseSharedStore employee status to PENDING for the new day
+    try {
+      for (const eid of employeeIds) {
+        WorkpulseSharedStore.updateEmployee(eid, {
+          sodStatus: "PENDING",
+          sodTime: undefined,
+          sodVerifiedBy: undefined,
+          sodVerifiedAt: undefined,
+          sodLeadNote: undefined,
+          eodStatus: "PENDING",
+          eodTime: undefined,
+          eodVerifiedBy: undefined,
+          eodVerifiedAt: undefined,
+          eodLeadRating: undefined,
+          eodLeadComment: undefined,
+          eodLeadActionItem: undefined,
+          overallProgress: 0,
+        });
+      }
+    } catch {}
+
+    return apiSuccess({ deletedCount: deleted.length, message: "Completed tasks deleted, workday/sod/eod reset to PENDING, rollover tasks preserved" });
   } catch (err: any) {
     return apiError(err.message || "Failed to cleanup tasks", 500);
   }

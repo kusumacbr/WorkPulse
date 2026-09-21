@@ -31,10 +31,10 @@ export default function DevelopmentPage() {
   return (
     <PageTransition>
       {/* 3D Hero Header */}
-      <Interactive3DCard className="p-6 md:p-8 border border-rose-500/30 bg-gradient-to-r from-card/80 via-card/60 to-rose-500/10">
+      <Interactive3DCard className="p-4 sm:p-6 md:p-8 border border-rose-500/30 bg-gradient-to-r from-card/80 via-card/60 to-rose-500/10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="brand" className="font-bold text-[10px] uppercase bg-rose-500/15 border-rose-500/30 text-rose-300">
                 <Sparkles className="h-3 w-3 mr-1 text-rose-400" />
                 {isHR ? "Talent Development, L&D & Employee Relations" : "Coaching & Career Growth"}
@@ -44,7 +44,7 @@ export default function DevelopmentPage() {
               </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground">
               {isHR ? "People Enablement, PIP Governance & L&D Matrix" : "Coaching, 1-on-1s & Growth Hub"}
             </h2>
 
@@ -56,7 +56,7 @@ export default function DevelopmentPage() {
           </div>
 
           {/* Glass Tab Switcher */}
-          <div className="flex items-center p-1 rounded-xl bg-background/50 border border-rose-500/30 backdrop-blur-md overflow-x-auto shrink-0 shadow-sm gap-1">
+          <div className="flex items-center p-1 rounded-xl bg-background/50 border border-rose-500/30 backdrop-blur-md overflow-x-auto custom-scrollbar shrink-0 shadow-sm gap-1 max-w-full">
             {isHR && (
               <button
                 type="button"

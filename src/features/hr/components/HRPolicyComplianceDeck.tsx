@@ -235,11 +235,11 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
       )}
 
       {/* Sub-Navigation */}
-      <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto gap-1 text-xs">
+      <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto custom-scrollbar whitespace-nowrap gap-1 text-xs">
         <button
           type="button"
           onClick={() => setSubTab("joiners_probation")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "joiners_probation"
               ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -252,7 +252,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
         <button
           type="button"
           onClick={() => setSubTab("reviews")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "reviews"
               ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -265,7 +265,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
         <button
           type="button"
           onClick={() => setSubTab("pip")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "pip"
               ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -281,7 +281,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
         <button
           type="button"
           onClick={() => setSubTab("exits")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "exits"
               ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -294,7 +294,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
         <button
           type="button"
           onClick={() => setSubTab("holidays")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             subTab === "holidays"
               ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -319,7 +319,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
       {/* 1. TEAM LEAD REVIEW COMPLIANCE TRACKER                         */}
       {/* ============================================================== */}
       {subTab === "reviews" && (
-        <Interactive3DCard className="p-6 border border-amber-500/30 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-amber-500/30 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -336,7 +336,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/60">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[650px]">
               <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
                 <tr>
                   <th className="p-3">Designated Lead</th>
@@ -396,7 +396,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
       {/* 2. CONFIDENTIAL PIP PIPELINE & AUDIT OVERRIDE LOGGING          */}
       {/* ============================================================== */}
       {subTab === "pip" && (
-        <Interactive3DCard className="p-6 border border-rose-500/30 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-rose-500/30 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -470,7 +470,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
       {/* 3. HOLIDAY CALENDAR MANAGEMENT                                  */}
       {/* ============================================================== */}
       {subTab === "holidays" && (
-        <Interactive3DCard className="p-6 border border-cyan-500/30 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-cyan-500/30 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -487,7 +487,7 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
           </div>
 
           {/* Add Holiday Form */}
-          <form onSubmit={handleAddHoliday} className="p-3.5 rounded-xl bg-card/60 border border-border flex flex-col sm:flex-row items-center gap-2 text-xs">
+          <form onSubmit={handleAddHoliday} className="p-3.5 rounded-xl bg-card/60 border border-border flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
             <Input
               value={newHolidayName}
               onChange={(e) => setNewHolidayName(e.target.value)}
@@ -498,9 +498,9 @@ export function HRPolicyComplianceDeck({ defaultSubTab = "joiners_probation" }: 
               type="date"
               value={newHolidayDate}
               onChange={(e) => setNewHolidayDate(e.target.value)}
-              className="h-8 text-xs w-40"
+              className="h-8 text-xs w-full sm:w-40"
             />
-            <Button type="submit" variant="brand" size="sm" className="text-xs font-bold h-8 px-4 shrink-0 gap-1">
+            <Button type="submit" variant="brand" size="sm" className="text-xs font-bold h-8 px-4 shrink-0 gap-1 w-full sm:w-auto justify-center">
               <Plus className="h-3.5 w-3.5" />
               <span>Add Holiday</span>
             </Button>

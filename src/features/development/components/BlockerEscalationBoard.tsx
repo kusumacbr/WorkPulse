@@ -119,7 +119,7 @@ export function BlockerEscalationBoard({ initialBlockers }: BlockerEscalationBoa
         <Button
           variant="brand"
           size="sm"
-          className="text-xs font-semibold gap-1.5 h-8"
+          className="text-xs font-semibold gap-1.5 h-8.5 self-start sm:self-auto"
           onClick={() => setShowCreateModal(true)}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -134,7 +134,7 @@ export function BlockerEscalationBoard({ initialBlockers }: BlockerEscalationBoa
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant={
                         blk.severity === "CRITICAL"
@@ -193,8 +193,8 @@ export function BlockerEscalationBoard({ initialBlockers }: BlockerEscalationBoa
 
       {/* Report Blocker Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-border shadow-2xl bg-card">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <Card className="w-full max-w-md border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -205,10 +205,10 @@ export function BlockerEscalationBoard({ initialBlockers }: BlockerEscalationBoa
               </Button>
             </CardHeader>
 
-            <CardContent className="p-6 space-y-4 text-xs">
+            <CardContent className="p-4 sm:p-6 space-y-4 text-xs">
               <div>
                 <label className="font-semibold block mb-1">Severity *</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((sev) => (
                     <button
                       key={sev}
@@ -255,11 +255,11 @@ export function BlockerEscalationBoard({ initialBlockers }: BlockerEscalationBoa
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-border">
+                <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)} className="h-8.5 text-xs">
                   Cancel
                 </Button>
-                <Button variant="brand" size="sm" onClick={handleCreateBlocker}>
+                <Button variant="brand" size="sm" onClick={handleCreateBlocker} className="h-8.5 text-xs">
                   Submit Blocker
                 </Button>
               </div>

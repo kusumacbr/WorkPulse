@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { Inter } from "next/font/google";
@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "WorkPulse® | Unified Workforce Execution & Operations",
   description:
     "Official internal workforce platform for Start-of-Day planning, biometric shift attendance, two-tier leave governance, and quarterly OKR milestones.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 const themeInitScript = `

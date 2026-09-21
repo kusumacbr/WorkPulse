@@ -91,11 +91,34 @@ export async function GET(req: NextRequest) {
           const matchingLead = supaEmployees.find((s) => s.id === leadId || (s.email && s.email.toLowerCase() === leadId?.toLowerCase()));
           const leadName = se.manager_name || matchingLead?.name || (deptId === "dept-devops" ? "Marcus Vance" : deptId === "dept-data-processing" ? "Vikram Rao" : deptId === "dept-rd" ? "David Director" : deptId === "dept-hr" ? "David Director" : "Alex Lead");
 
-          const wd = todayWorkdays.find(
+          const matchingWds = todayWorkdays.filter(
             (w) =>
               (w.employee_id && w.employee_id.toLowerCase() === se.id?.toLowerCase()) ||
-              (se.email && w.employee_id && w.employee_id.toLowerCase() === se.email.toLowerCase())
+              (se.email && w.employee_id && w.employee_id.toLowerCase() === se.email.toLowerCase()) ||
+              (se.id?.toLowerCase() === "emp-sarah" && w.employee_id?.toLowerCase().includes("employee.test")) ||
+              (se.email?.toLowerCase().includes("employee.test") && w.employee_id?.toLowerCase() === "emp-sarah")
           );
+          const hasVerifiedEod = matchingWds.some((w) => w.eod_status === "VERIFIED");
+          const hasVerifiedSod = matchingWds.some((w) => w.sod_status === "VERIFIED");
+          const verifiedEodWd = matchingWds.find((w) => w.eod_status === "VERIFIED");
+          const verifiedSodWd = matchingWds.find((w) => w.sod_status === "VERIFIED");
+          const primaryWd = verifiedEodWd || verifiedSodWd || matchingWds[0];
+          const wd = primaryWd
+            ? {
+                ...primaryWd,
+                sod_status: hasVerifiedSod ? "VERIFIED" : primaryWd.sod_status,
+                sod_verified_by: (verifiedSodWd || primaryWd).sod_verified_by,
+                sod_verified_at: (verifiedSodWd || primaryWd).sod_verified_at,
+                sod_lead_note: (verifiedSodWd || primaryWd).sod_lead_note || (verifiedSodWd || primaryWd).lead_feedback_note,
+                eod_status: hasVerifiedEod ? "VERIFIED" : primaryWd.eod_status,
+                eod_verified_by: (verifiedEodWd || primaryWd).eod_verified_by,
+                eod_verified_at: (verifiedEodWd || primaryWd).eod_verified_at || (verifiedEodWd || primaryWd).lead_feedback_time,
+                eod_time: (verifiedEodWd || primaryWd).eod_time,
+                lead_rating: (verifiedEodWd || primaryWd).lead_rating,
+                lead_feedback_note: (verifiedEodWd || primaryWd).lead_feedback_note,
+                lead_action_item: (verifiedEodWd || primaryWd).lead_action_item,
+              }
+            : undefined;
 
           // Real-time tasks directly from daily_tasks table in Supabase:
           // Includes today's tasks PLUS incomplete previous day tasks (which roll over until completed)
@@ -155,7 +178,16 @@ export async function GET(req: NextRequest) {
             isLead,
             sodStatus: wd?.sod_status || "PENDING",
             sodTime: wd?.sod_time || undefined,
+            sodVerifiedBy: wd?.sod_verified_by,
+            sodVerifiedAt: wd?.sod_verified_at,
+            sodLeadNote: wd?.sod_lead_note || wd?.lead_feedback_note,
             eodStatus: wd?.sod_status === "VERIFIED" ? (wd?.eod_status || "PENDING") : "PENDING",
+            eodTime: wd?.eod_time,
+            eodVerifiedBy: wd?.eod_verified_by,
+            eodVerifiedAt: wd?.eod_verified_at,
+            eodLeadRating: typeof wd?.lead_rating === "number" ? wd?.lead_rating : undefined,
+            eodLeadComment: wd?.lead_feedback_note,
+            eodLeadActionItem: wd?.lead_action_item,
             overallProgress: calculatedProgress,
             plannedTasks,
           };

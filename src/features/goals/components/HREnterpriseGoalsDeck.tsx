@@ -74,42 +74,50 @@ export function HREnterpriseGoalsDeck() {
   const [newCategory, setNewCategory] = useState("Talent Acquisition");
   const [newTarget, setNewTarget] = useState("");
 
-  // Load Company OKRs from Supabase API
-  useEffect(() => {
-    const loadCompanyOkrs = async () => {
-      try {
-        const res = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
-            setGoals(data.data.goals);
-            return;
-          }
+  // Load Company OKRs from Supabase API with in-flight guard and state comparison
+  const isLoadingRef = React.useRef(false);
+  const loadCompanyOkrs = React.useCallback(async () => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    try {
+      const res = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
+          setGoals((prev) =>
+            JSON.stringify(prev) === JSON.stringify(data.data.goals) ? prev : data.data.goals
+          );
+          return;
         }
-      } catch {}
+      }
+    } catch {} finally {
+      isLoadingRef.current = false;
+    }
 
-      // Fallback to default HR goals
-      setGoals(DEFAULT_GOALS);
-    };
+    // Fallback to default HR goals
+    setGoals((prev) => (prev.length === 0 ? DEFAULT_GOALS : prev));
+  }, []);
+
+  useEffect(() => {
     loadCompanyOkrs();
-  }, []);
+  }, [loadCompanyOkrs]);
 
-  // Listen to cross-component sync events
+  // Listen to cross-component sync events with 1-second debounce
   useEffect(() => {
-    const handleSync = async () => {
-      try {
-        const res = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
-            setGoals(data.data.goals);
-          }
-        }
-      } catch {}
+    let syncTimer: NodeJS.Timeout | null = null;
+    const handleSync = () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        loadCompanyOkrs();
+      }, 1000);
     };
+
     window.addEventListener("workpulse_sync", handleSync);
-    return () => window.removeEventListener("workpulse_sync", handleSync);
-  }, []);
+    return () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      window.removeEventListener("workpulse_sync", handleSync);
+    };
+  }, [loadCompanyOkrs]);
 
   // Save Company OKRs and sync across Employee, TL, and HR
   const saveGoals = async (updated: SimpleHRGoal[]) => {

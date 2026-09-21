@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, getSessionActor } from "@/server/api-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { WorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,78 +15,52 @@ export async function GET(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
-    // Lookup employees map for accurate names and designations
-    const { data: supaEmps } = await supabase.from("employees").select("id, name, email, role_title");
-    const empMap = new Map((supaEmps || []).map((e: any) => [e.id, e]));
+    // Fast in-memory employees lookup (0ms)
+    const storeEmps = WorkpulseSharedStore.getAllEmployees();
+    const empMap = new Map((storeEmps || []).map((e: any) => [e.id, { id: e.id, name: e.name, email: e.email, role_title: e.designation }]));
 
-    // Try primary table `assigned_tasks`
-    let hasAssignedTable = true;
+    // Query assigned daily_tasks directly in one fast query
     let query = supabase
-      .from("assigned_tasks")
+      .from("daily_tasks")
       .select("*")
+      .not("assigned_by", "is", null)
       .order("created_at", { ascending: false });
 
-    if (leadId) {
-      query = query.eq("assigned_by_id", leadId);
-    }
     if (employeeId) {
-      query = query.eq("target_employee_id", employeeId);
+      query = query.eq("employee_id", employeeId);
     }
 
-    let { data, error } = await query;
-
+    const { data: dbRows, error } = await query;
     if (error) {
-      if (error.code === "PGRST205" || error.message?.includes("does not exist")) {
-        hasAssignedTable = false;
-      } else {
-        console.error("[Assigned Tasks API] Error:", error);
-      }
+      console.error("[Assigned Tasks API] Error:", error);
     }
 
-    // If assigned_tasks table does not exist or empty, fallback to daily_tasks with assigned_by
-    if (!hasAssignedTable || (!data || data.length === 0)) {
-      let fallbackQuery = supabase
-        .from("daily_tasks")
-        .select("*")
-        .not("assigned_by", "is", null)
-        .order("created_at", { ascending: false });
+    const data = (dbRows || []).map((row: any) => {
+      const emp = empMap.get(row.employee_id);
+      const empName = emp?.name || (row.employee_id === "emp-sarah" ? "Sarah Dev" : row.employee_id);
+      const empEmail = emp?.email || (row.employee_id === "emp-sarah" ? "employee.test@xorstack.com" : "");
+      const empDesignation = emp?.role_title || "Engineer";
 
-      if (employeeId) {
-        fallbackQuery = fallbackQuery.eq("employee_id", employeeId);
-      }
-
-      const fallbackRes = await fallbackQuery;
-      if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
-        data = fallbackRes.data.map((row: any) => {
-          const emp = empMap.get(row.employee_id);
-          const empName = emp?.name || (row.employee_id === "emp-sarah" ? "Sarah Dev" : row.employee_id);
-          const empEmail = emp?.email || (row.employee_id === "emp-sarah" ? "employee.test@xorstack.com" : "");
-          const empDesignation = emp?.role_title || "Engineer";
-
-          return {
-            id: row.id,
-            title: row.title,
-            category: row.category,
-            priority: row.priority,
-            status: row.status,
-            progress: Number(row.progress) || 0,
-            assigned_by: row.assigned_by,
-            assigned_by_id: leadId || "lead-alex",
-            assigned_at: row.assigned_at || row.created_at,
-            target_employee_id: row.employee_id,
-            target_employee_name: empName,
-            target_employee_email: empEmail,
-            target_employee_designation: empDesignation,
-            target_employee_avatar: empName.slice(0, 2).toUpperCase(),
-            acknowledged: Boolean(row.acknowledged),
-            acknowledged_at: row.acknowledged ? (row.updated_at ? new Date(row.updated_at).toLocaleString() : "Today") : undefined,
-            acknowledgement_note: row.acknowledgement_note,
-          };
-        });
-      } else if (!hasAssignedTable) {
-        data = [];
-      }
-    }
+      return {
+        id: row.id,
+        title: row.title,
+        category: row.category,
+        priority: row.priority,
+        status: row.status,
+        progress: Number(row.progress) || 0,
+        assigned_by: row.assigned_by,
+        assigned_by_id: leadId || "lead-alex",
+        assigned_at: row.assigned_at || row.created_at,
+        target_employee_id: row.employee_id,
+        target_employee_name: empName,
+        target_employee_email: empEmail,
+        target_employee_designation: empDesignation,
+        target_employee_avatar: empName.slice(0, 2).toUpperCase(),
+        acknowledged: Boolean(row.acknowledged),
+        acknowledged_at: row.acknowledged ? (row.updated_at ? new Date(row.updated_at).toLocaleString() : "Today") : undefined,
+        acknowledgement_note: row.acknowledgement_note,
+      };
+    });
 
     const tasks = (data || []).map((t: any) => {
       const emp = empMap.get(t.target_employee_id || t.employee_id);

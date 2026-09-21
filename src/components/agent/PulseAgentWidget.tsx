@@ -183,7 +183,7 @@ export function PulseAgentWidget() {
   return (
     <>
       {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-3">
         {!isOpen && (
           <button
             onClick={() => {
@@ -205,7 +205,7 @@ export function PulseAgentWidget() {
 
       {/* Floating Chat Modal / Drawer */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[95vw] sm:w-[420px] h-[600px] max-h-[85vh] rounded-3xl bg-card/95 backdrop-blur-2xl border border-border/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200">
+        <div className="fixed inset-2 sm:inset-auto sm:bottom-6 sm:right-6 z-50 sm:w-[420px] sm:h-[600px] sm:max-h-[85vh] rounded-2xl sm:rounded-3xl bg-card/95 backdrop-blur-2xl border border-border/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200">
           {/* Header */}
           <div className="px-4 py-3.5 border-b border-border/60 bg-muted/40 backdrop-blur-md flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">

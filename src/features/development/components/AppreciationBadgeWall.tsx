@@ -103,7 +103,7 @@ export function AppreciationBadgeWall() {
         <Button
           variant="brand"
           size="sm"
-          className="text-xs font-semibold gap-1.5 h-8"
+          className="text-xs font-semibold gap-1.5 h-8.5 self-start sm:self-auto"
           onClick={() => setShowAwardModal(true)}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -138,30 +138,39 @@ export function AppreciationBadgeWall() {
             Recent Recognition Feed
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 divide-y divide-border">
-          {awards.map((award) => {
-            const recipientEmp = allEmployees.find((e) => e.id === award.recipientEmployeeId);
-            const recipientName = recipientEmp ? recipientEmp.name : award.recipientEmployeeId;
+        <CardContent className="p-4 sm:p-6 space-y-3 text-xs">
+          {awards.map((award: any) => {
+            const badgeMeta = starterBadgesList.find((b) => b.id === (award.badgeDefinitionId || award.badgeId));
+            const recipientEmp = allEmployees.find((e) => e.id === (award.recipientEmployeeId || award.recipientId));
             const issuerEmp = allEmployees.find((e) => e.id === award.issuerEmployeeId);
-            const issuerName = issuerEmp ? issuerEmp.name : award.issuerEmployeeId;
+            const issuerName = award.awardedByName || (issuerEmp ? issuerEmp.name : award.issuerEmployeeId);
+            const IconComponent = badgeMeta?.icon || Award;
 
             return (
-              <div key={award.id} className="p-4 flex items-start gap-3">
-                <div className="h-9 w-9 rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] flex items-center justify-center shrink-0">
-                  <Award className="h-5 w-5" />
+              <div
+                key={award.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border/60 hover:border-border transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] flex items-center justify-center shrink-0">
+                    <IconComponent className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-foreground">{recipientEmp?.name || award.recipientId || award.recipientEmployeeId}</span>
+                      <span className="text-muted-foreground">was awarded</span>
+                      <strong className="text-[var(--brand-primary)]">{award.badgeName}</strong>
+                    </div>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed italic">
+                      &quot;{award.reason}&quot;
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-1 text-xs">
-                  <div>
-                    <span className="font-bold text-foreground">{recipientName}</span>
-                    <span className="text-muted-foreground"> was awarded </span>
-                    <Badge variant="brand" className="text-[10px] font-bold">
-                      {award.badgeName}
-                    </Badge>
-                    <span className="text-muted-foreground"> by {issuerName}</span>
-                  </div>
-
-                  <p className="text-muted-foreground italic">"{award.reason}"</p>
+                <div className="text-left sm:text-right shrink-0">
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    By {issuerName}
+                  </Badge>
                   <span className="text-[10px] text-muted-foreground block">
                     {new Date(award.awardedAt).toLocaleDateString()} · +{award.points} Points
                   </span>
@@ -174,8 +183,8 @@ export function AppreciationBadgeWall() {
 
       {/* Award Badge Modal */}
       {showAwardModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-border shadow-2xl bg-card">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <Card className="w-full max-w-md border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Award className="h-4 w-4 text-[var(--brand-primary)]" />
@@ -186,7 +195,7 @@ export function AppreciationBadgeWall() {
               </Button>
             </CardHeader>
 
-            <CardContent className="p-6 space-y-4 text-xs">
+            <CardContent className="p-4 sm:p-6 space-y-4 text-xs">
               <div>
                 <label className="font-semibold block mb-1">Select Badge *</label>
                 <select
@@ -227,11 +236,11 @@ export function AppreciationBadgeWall() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button variant="ghost" size="sm" onClick={() => setShowAwardModal(false)}>
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-border">
+                <Button variant="ghost" size="sm" onClick={() => setShowAwardModal(false)} className="h-8.5 text-xs">
                   Cancel
                 </Button>
-                <Button variant="brand" size="sm" onClick={handleIssueAward}>
+                <Button variant="brand" size="sm" onClick={handleIssueAward} className="h-8.5 text-xs">
                   Issue Award
                 </Button>
               </div>

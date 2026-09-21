@@ -88,13 +88,13 @@ export function PipManagementModal() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-border">
           <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            Employee acknowledged on Aug 01, 2026
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            <span>Employee acknowledged on Aug 01, 2026</span>
           </span>
 
-          <Button variant="outline" size="sm" className="h-7 text-xs">
+          <Button variant="outline" size="sm" className="h-8 text-xs w-full sm:w-auto">
             Add Weekly Checkpoint Log
           </Button>
         </div>

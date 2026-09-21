@@ -143,6 +143,11 @@ export function LeadLeaveManager() {
     return `${(totalDays / teamBalances.length).toFixed(1)} Days`;
   }, [teamBalances]);
 
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-email": user.userEmail || (typeof window !== "undefined" ? sessionStorage.getItem("workpulse_session_email") || "" : ""),
+  });
+
   const handleApproveLeave = async (id: string, name: string) => {
     const comment = "Approved by Team Lead (Alex Lead). Forwarded to HR.";
     tlApproveLeave(id, comment);
@@ -152,8 +157,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_1" }),
       });
     } catch (e) {
       console.warn("Failed to persist leave approval to API:", e);
@@ -168,8 +173,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_1" }),
       });
     } catch (e) {
       console.warn("Failed to persist leave rejection to API:", e);
@@ -185,8 +190,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_1" }),
       });
     } catch (e) {
       console.warn("Failed to persist WFH approval to API:", e);
@@ -201,8 +206,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_1" }),
       });
     } catch (e) {
       console.warn("Failed to persist WFH rejection to API:", e);
@@ -218,8 +223,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR leave approval to API:", e);
@@ -234,8 +239,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR leave rejection to API:", e);
@@ -251,8 +256,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH approval to API:", e);
@@ -267,8 +272,8 @@ export function LeadLeaveManager() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH rejection to API:", e);
@@ -669,7 +674,7 @@ export function LeadLeaveManager() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full min-w-[500px] text-xs">
               <thead>
                 <tr className="border-b border-border text-muted-foreground text-left">
                   <th className="pb-3 font-semibold">Team Member</th>

@@ -102,7 +102,7 @@ export function WhosWhereTodayBoard({ initialEmployees }: WhosWhereTodayBoardPro
           </div>
 
           {/* Quick Summary Pill Counters */}
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 text-xs">
             <button
               type="button"
               onClick={() => setFilterMode("OFFICE")}

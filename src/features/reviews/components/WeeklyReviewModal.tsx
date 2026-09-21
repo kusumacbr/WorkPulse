@@ -132,8 +132,8 @@ export function WeeklyReviewModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <Card className="w-full max-w-3xl border-border shadow-2xl bg-card max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <Card className="w-full max-w-3xl border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto custom-scrollbar">
         <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
           <div>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -152,7 +152,7 @@ export function WeeklyReviewModal({
           </Button>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-6">
+        <CardContent className="p-4 sm:p-6 space-y-6">
           {/* STEP 1: Employee Self-Assessment */}
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">

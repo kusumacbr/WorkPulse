@@ -262,6 +262,7 @@ export interface SharedLeaveRequest {
   rejectionReason?: string;
   createdAt: string;
   _isOptimistic?: boolean;
+  _updatedAt?: number;
 }
 
 export interface SharedWfhRequest {
@@ -290,6 +291,7 @@ export interface SharedWfhRequest {
   rejectionReason?: string;
   createdAt: string;
   _isOptimistic?: boolean;
+  _updatedAt?: number;
 }
 
 export const DEFAULT_LEAVE_REQUESTS: SharedLeaveRequest[] = [];
@@ -363,14 +365,14 @@ if (typeof window !== "undefined") {
     const keysToRemove: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
-      if (k && (k.startsWith("workpulse_") || k.includes("sod_") || k.includes("eod_"))) {
+      if (k && !k.startsWith("workpulse_eod_approved_") && (k.startsWith("workpulse_") || k.includes("sod_") || (k.includes("eod_") && !k.includes("eod_approved")))) {
         keysToRemove.push(k);
       }
     }
     for (const k of keysToRemove) {
       window.localStorage.removeItem(k);
     }
-  } catch {}
+  } catch { }
 }
 
 const serverDeletedLeaveIds = new Set<string>();
@@ -445,6 +447,8 @@ let supabaseHydrated = false;
 let supabaseSyncedLeave = false;
 let supabaseSyncedWfh = false;
 let notifyTimer: any = null;
+let cachedAllEmployeesList: OrgEmployee[] | null = null;
+let cachedDepartmentsList: OrgDepartment[] | null = null;
 
 export function subscribeToSharedStore(listener: () => void) {
   listeners.add(listener);
@@ -458,6 +462,8 @@ export function isSupabaseHydrated(): boolean {
 }
 
 function notify() {
+  cachedAllEmployeesList = null;
+  cachedDepartmentsList = null;
   if (notifyTimer) clearTimeout(notifyTimer);
   notifyTimer = setTimeout(() => {
     saveToStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
@@ -471,9 +477,101 @@ function notify() {
     if (typeof window !== "undefined") {
       try {
         window.dispatchEvent(new CustomEvent("workpulse_sync"));
-      } catch {}
+      } catch { }
     }
   }, 10);
+}
+
+export function getLeaveStatusRank(status?: string): number {
+  if (!status) return 0;
+  const s = String(status).toUpperCase();
+  if (s === "APPROVED" || s === "REJECTED") return 3;
+  if (s === "FORWARDED_TO_HR" || s === "PENDING_HR" || s === "STAGE_2") return 2;
+  if (s === "PENDING_TL_STAGE_1" || s === "PENDING" || s === "PENDING_MANAGER") return 1;
+  return 0;
+}
+
+export function getWfhStatusRank(status?: string): number {
+  if (!status) return 0;
+  const s = String(status).toUpperCase();
+  if (s === "APPROVED" || s === "REJECTED") return 3;
+  if (s === "FORWARDED_TO_HR" || s === "PENDING_HR" || s === "STAGE_2") return 2;
+  if (s === "PENDING_TL_STAGE_1" || s === "PENDING" || s === "PENDING_MANAGER") return 1;
+  return 0;
+}
+
+export function broadcastLeaveChange(payload: {
+  type: "leave:created" | "leave:status_updated" | "leave:approved" | "leave:rejected" | "leave:deleted";
+  id?: string;
+  request?: SharedLeaveRequest;
+  stage?: string;
+  daysDeducted?: number;
+  affectedEmployeeId?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+      bc.postMessage({ ...payload, timestamp: Date.now() });
+      bc.close();
+    }
+  } catch {}
+  try {
+    window.dispatchEvent(new CustomEvent("workpulse_sync"));
+    window.dispatchEvent(new CustomEvent(payload.type, { detail: payload }));
+    window.dispatchEvent(new CustomEvent("leave:status_updated", { detail: payload }));
+  } catch {}
+  try {
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: payload.type,
+        payload,
+      });
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: "leave:updated",
+        payload,
+      });
+    }).catch(() => {});
+  } catch {}
+}
+
+export function broadcastWfhChange(payload: {
+  type: "wfh:created" | "wfh:status_updated" | "wfh:approved" | "wfh:rejected" | "wfh:deleted";
+  id?: string;
+  request?: SharedWfhRequest;
+  stage?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    if ("BroadcastChannel" in window) {
+      const bc = new BroadcastChannel("workpulse_realtime_broadcast_v1");
+      bc.postMessage({ ...payload, timestamp: Date.now() });
+      bc.close();
+    }
+  } catch {}
+  try {
+    window.dispatchEvent(new CustomEvent("workpulse_sync"));
+    window.dispatchEvent(new CustomEvent(payload.type, { detail: payload }));
+    window.dispatchEvent(new CustomEvent("wfh:status_updated", { detail: payload }));
+  } catch {}
+  try {
+    import("@/lib/supabase/client").then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: payload.type,
+        payload,
+      });
+      supabase.channel("workpulse-supabase-live-channel").send({
+        type: "broadcast",
+        event: "wfh:updated",
+        payload,
+      });
+    }).catch(() => {});
+  } catch {}
 }
 
 // Global Cross-Tab Realtime BroadcastChannel Receiver
@@ -484,6 +582,129 @@ if (typeof window !== "undefined") {
       globalBc.onmessage = (event) => {
         const data = event.data;
         if (!data || !data.type) return;
+
+        // Real-time Leave Sync
+        if (data.type === "leave:created" && data.request) {
+          const req = data.request as SharedLeaveRequest;
+          if (!globalLeaveRequests.some((l) => l.id === req.id)) {
+            globalLeaveRequests = [req, ...globalLeaveRequests];
+            saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+            notify();
+            window.dispatchEvent(new CustomEvent("leave:created", { detail: req }));
+            window.dispatchEvent(new CustomEvent("workpulse_sync"));
+          }
+        } else if (
+          (data.type === "leave:status_updated" || data.type === "leave:approved" || data.type === "leave:rejected") &&
+          (data.request || data.id)
+        ) {
+          const reqId = data.id || data.request?.id;
+          const incoming = data.request as SharedLeaveRequest | undefined;
+          let changed = false;
+          globalLeaveRequests = globalLeaveRequests.map((l) => {
+            if (l.id === reqId) {
+              changed = true;
+              return incoming
+                ? { ...l, ...incoming }
+                : {
+                    ...l,
+                    status: data.status || l.status,
+                    tlApproverName: data.tlApproverName || l.tlApproverName,
+                    tlApprovedAt: data.tlApprovedAt || l.tlApprovedAt,
+                    tlComment: data.tlComment || l.tlComment,
+                    hrApproverName: data.hrApproverName || l.hrApproverName,
+                    hrApprovedAt: data.hrApprovedAt || l.hrApprovedAt,
+                    hrComment: data.hrComment || l.hrComment,
+                    remainingBalance: data.remainingBalance ?? l.remainingBalance,
+                    rejectionReason: data.rejectionReason || l.rejectionReason,
+                  };
+            }
+            return l;
+          });
+
+          // If this was a stage-2 approval with balance deduction, update employee balance in globalDepartments
+          if (data.stage === "STAGE_2" || incoming?.status === "APPROVED") {
+            const affectedEmpId = data.affectedEmployeeId || incoming?.employeeId;
+            const daysDeducted = data.daysDeducted || incoming?.daysCount || 1.0;
+            if (affectedEmpId) {
+              globalDepartments = globalDepartments.map((dept) => ({
+                ...dept,
+                employees: dept.employees.map((emp) =>
+                  emp.id === affectedEmpId
+                    ? {
+                        ...emp,
+                        remainingLeaveBalance: Math.max(0, emp.remainingLeaveBalance - daysDeducted),
+                      }
+                    : emp
+                ),
+              }));
+              saveToStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
+            }
+          }
+
+          if (changed) {
+            saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+            notify();
+            window.dispatchEvent(new CustomEvent("leave:status_updated", { detail: data }));
+            window.dispatchEvent(new CustomEvent("workpulse_sync"));
+          }
+        } else if (data.type === "leave:deleted" && data.id) {
+          globalLeaveRequests = globalLeaveRequests.filter((l) => l.id !== data.id);
+          saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+          notify();
+          window.dispatchEvent(new CustomEvent("leave:deleted", { detail: data }));
+          window.dispatchEvent(new CustomEvent("workpulse_sync"));
+        }
+
+        // Real-time WFH Sync
+        if (data.type === "wfh:created" && data.request) {
+          const req = data.request as SharedWfhRequest;
+          if (!globalWfhRequests.some((w) => w.id === req.id)) {
+            globalWfhRequests = [req, ...globalWfhRequests];
+            saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+            notify();
+            window.dispatchEvent(new CustomEvent("wfh:created", { detail: req }));
+            window.dispatchEvent(new CustomEvent("workpulse_sync"));
+          }
+        } else if (
+          (data.type === "wfh:status_updated" || data.type === "wfh:approved" || data.type === "wfh:rejected") &&
+          (data.request || data.id)
+        ) {
+          const reqId = data.id || data.request?.id;
+          const incoming = data.request as SharedWfhRequest | undefined;
+          let changed = false;
+          globalWfhRequests = globalWfhRequests.map((w) => {
+            if (w.id === reqId) {
+              changed = true;
+              return incoming
+                ? { ...w, ...incoming }
+                : {
+                    ...w,
+                    status: data.status || w.status,
+                    tlApproverName: data.tlApproverName || w.tlApproverName,
+                    tlApprovedAt: data.tlApprovedAt || w.tlApprovedAt,
+                    tlComment: data.tlComment || w.tlComment,
+                    hrApproverName: data.hrApproverName || w.hrApproverName,
+                    hrApprovedAt: data.hrApprovedAt || w.hrApprovedAt,
+                    hrComment: data.hrComment || w.hrComment,
+                    rejectionReason: data.rejectionReason || w.rejectionReason,
+                  };
+            }
+            return w;
+          });
+
+          if (changed) {
+            saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+            notify();
+            window.dispatchEvent(new CustomEvent("wfh:status_updated", { detail: data }));
+            window.dispatchEvent(new CustomEvent("workpulse_sync"));
+          }
+        } else if (data.type === "wfh:deleted" && data.id) {
+          globalWfhRequests = globalWfhRequests.filter((w) => w.id !== data.id);
+          saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+          notify();
+          window.dispatchEvent(new CustomEvent("wfh:deleted", { detail: data }));
+          window.dispatchEvent(new CustomEvent("workpulse_sync"));
+        }
 
         if (data.type === "workday:sod_verified" && data.employeeId) {
           const targetId = String(data.employeeId).trim().toLowerCase();
@@ -605,10 +826,87 @@ if (typeof window !== "undefined") {
           if (changed) {
             notify();
           }
+        } else if ((data.type === "workday:eod_submitted" || data.type === "employee:eod_submitted") && data.employeeId) {
+          // Real-time EOD submitted: immediately update member's eodStatus to SUBMITTED
+          const targetId = String(data.employeeId).trim().toLowerCase();
+          let changed = false;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const isMatch =
+                emp.id.toLowerCase() === targetId ||
+                emp.email.toLowerCase() === targetId ||
+                (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+                (targetId.includes("employee.test") && emp.id === "emp-sarah");
+              if (isMatch) {
+                changed = true;
+                return {
+                  ...emp,
+                  eodStatus: "SUBMITTED",
+                  eodTime: data.time || emp.eodTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                };
+              }
+              return emp;
+            }),
+          }));
+          if (changed) {
+            notify();
+            window.dispatchEvent(new CustomEvent("workday:eod_submitted", { detail: data }));
+          }
+        } else if (data.type === "workday:day_reset" && data.employeeId) {
+          // Real-time day reset: immediately reset member's SOD & EOD to PENDING for new day
+          const targetId = String(data.employeeId).trim().toLowerCase();
+          let changed = false;
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const isMatch =
+                emp.id.toLowerCase() === targetId ||
+                emp.email.toLowerCase() === targetId ||
+                (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+                (targetId.includes("employee.test") && emp.id === "emp-sarah");
+              if (isMatch) {
+                changed = true;
+                // Keep only rollover tasks (< 100% and not COMPLETED)
+                const rolloverTasks = (emp.plannedTasks || [])
+                  .filter((t: any) => {
+                    const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+                    return p < 100 && t.status !== "COMPLETED";
+                  })
+                  .map((t: any) => {
+                    const p = Number(t.progress !== undefined ? t.progress : t.completionPercentage) || 0;
+                    return { ...t, progress: p, completionPercentage: p, status: p > 0 ? "IN_PROGRESS" : "NOT_STARTED" };
+                  });
+                return {
+                  ...emp,
+                  sodStatus: "PENDING",
+                  sodTime: undefined,
+                  sodVerifiedBy: undefined,
+                  sodVerifiedAt: undefined,
+                  sodLeadNote: undefined,
+                  eodStatus: "PENDING",
+                  eodTime: undefined,
+                  eodVerifiedBy: undefined,
+                  eodVerifiedAt: undefined,
+                  eodLeadRating: undefined,
+                  eodLeadComment: undefined,
+                  eodLeadActionItem: undefined,
+                  plannedTasks: rolloverTasks,
+                  overallProgress: 0,
+                };
+              }
+              return emp;
+            }),
+          }));
+          if (changed) {
+            notify();
+            window.dispatchEvent(new CustomEvent("workday:day_reset", { detail: data }));
+            window.dispatchEvent(new CustomEvent("workpulse_sync"));
+          }
         }
       };
     }
-  } catch {}
+  } catch { }
 }
 
 async function syncEmployeeToSupabase(emp: OrgEmployee): Promise<void> {
@@ -637,7 +935,7 @@ async function syncEmployeeToSupabase(emp: OrgEmployee): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "update_employee", id: emp.id, record: payload }),
-    }).catch(() => {});
+    }).catch(() => { });
   } catch {
     // Graceful offline fallback
   }
@@ -661,8 +959,8 @@ async function syncGoalToSupabase(goal: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "sync_goal", record: goal }),
-    }).catch(() => {});
-  } catch {}
+    }).catch(() => { });
+  } catch { }
 }
 
 async function deleteEmployeeFromSupabase(id: string, email?: string): Promise<void> {
@@ -674,7 +972,7 @@ async function deleteEmployeeFromSupabase(id: string, email?: string): Promise<v
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete_employee", id, record: { email } }),
-    }).catch(() => {});
+    }).catch(() => { });
   } catch {
     // Graceful offline fallback
   }
@@ -712,7 +1010,7 @@ async function syncLeaveRequestToSupabase(req: SharedLeaveRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "upsert", table: "leave_requests", record: payload }),
-    }).catch(() => {});
+    }).catch(() => { });
   } catch {
     // Graceful offline fallback
   }
@@ -749,7 +1047,7 @@ async function syncWfhRequestToSupabase(req: SharedWfhRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "upsert", table: "wfh_requests", record: payload }),
-    }).catch(() => {});
+    }).catch(() => { });
   } catch {
     // Graceful offline fallback
   }
@@ -781,7 +1079,7 @@ async function syncBiometricPunchToSupabase(punch: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "insert", table: "biometric_punches", record: payload }),
-    }).catch(() => {});
+    }).catch(() => { });
   } catch {
     // Graceful offline fallback
   }
@@ -826,10 +1124,22 @@ async function syncWorkdayToSupabase(workdayData: {
 
     if (workdayData.sodStatus !== undefined) payload.sod_status = workdayData.sodStatus;
     if (workdayData.sodTime !== undefined) payload.sod_time = workdayData.sodTime;
-    if (workdayData.sodLeadNote !== undefined) payload.lead_feedback_note = workdayData.sodLeadNote;
-    if (workdayData.sodVerifiedAt !== undefined) payload.lead_feedback_time = workdayData.sodVerifiedAt;
+    if (workdayData.sodVerifiedBy !== undefined) payload.sod_verified_by = workdayData.sodVerifiedBy;
+    if (workdayData.sodVerifiedAt !== undefined) {
+      payload.sod_verified_at = workdayData.sodVerifiedAt;
+      payload.lead_feedback_time = workdayData.sodVerifiedAt;
+    }
+    if (workdayData.sodLeadNote !== undefined) {
+      payload.sod_lead_note = workdayData.sodLeadNote;
+      payload.lead_feedback_note = workdayData.sodLeadNote;
+    }
     if (workdayData.eodStatus !== undefined) payload.eod_status = workdayData.eodStatus;
     if (workdayData.eodTime !== undefined) payload.eod_time = workdayData.eodTime;
+    if (workdayData.eodVerifiedBy !== undefined) payload.eod_verified_by = workdayData.eodVerifiedBy;
+    if (workdayData.eodVerifiedAt !== undefined) {
+      payload.eod_verified_at = workdayData.eodVerifiedAt;
+      payload.lead_feedback_time = workdayData.eodVerifiedAt;
+    }
     if (workdayData.eodLeadRating !== undefined) {
       payload.lead_rating = workdayData.eodLeadRating;
       payload.lead_sentiment = workdayData.eodLeadRating >= 5 ? "EXCELLENT" : workdayData.eodLeadRating >= 4 ? "GREAT" : "ON_TRACK";
@@ -847,7 +1157,7 @@ async function syncWorkdayToSupabase(workdayData: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "upsert", table: "workdays", record: payload }),
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Mirror to email/id alias if applicable
     if (emp?.email && emp.email.toLowerCase() !== workdayData.employeeId.toLowerCase()) {
@@ -856,7 +1166,7 @@ async function syncWorkdayToSupabase(workdayData: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "upsert", table: "workdays", record: aliasPayload }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // Mirror to sod_submissions table
@@ -873,7 +1183,7 @@ async function syncWorkdayToSupabase(workdayData: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "upsert", table: "sod_submissions", record: sodRecord }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // Mirror to eod_submissions table
@@ -893,7 +1203,7 @@ async function syncWorkdayToSupabase(workdayData: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "upsert", table: "eod_submissions", record: eodRecord }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // Mirror to feedbacks table if Lead provided review rating/comment
@@ -911,7 +1221,7 @@ async function syncWorkdayToSupabase(workdayData: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "upsert", table: "feedbacks", record: fbRecord }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // Also sync planned tasks into daily_tasks table in Supabase
@@ -933,7 +1243,7 @@ async function syncWorkdayToSupabase(workdayData: {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "upsert", table: "daily_tasks", record: taskPayload }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   } catch (e) {
@@ -961,7 +1271,11 @@ export const WorkpulseSharedStore = {
     try {
       listeners.forEach((l) => l());
       if (typeof window !== "undefined") {
-        WorkpulseSharedStore.syncWithSupabase(true);
+        // Prevent network thrashing on page navigation: only sync if stale (>30s) or store is empty
+        const now = Date.now();
+        if (now - lastSyncTimestamp > 30000 || WorkpulseSharedStore.getAllEmployees().length === 0) {
+          WorkpulseSharedStore.syncWithSupabase(false);
+        }
       }
     } finally {
       isHydrating = false;
@@ -972,7 +1286,7 @@ export const WorkpulseSharedStore = {
     if (typeof window === "undefined") return;
     if (activeSyncPromise) return activeSyncPromise;
     const now = Date.now();
-    const minThreshold = force ? 600 : 1500;
+    const minThreshold = force ? 1500 : 8000;
     if (now - lastSyncTimestamp < minThreshold) {
       return;
     }
@@ -980,17 +1294,30 @@ export const WorkpulseSharedStore = {
 
     activeSyncPromise = (async () => {
       try {
+        const initialSnapshot = JSON.stringify({
+          d: globalDepartments,
+          l: globalLeaveRequests,
+          w: globalWfhRequests,
+          f: globalFeedbacks,
+        });
+
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
+
+        // Fast session resolution header to eliminate backend auth latency
+        const sessionEmail = (typeof window !== "undefined" ? sessionStorage.getItem("workpulse_session_email") : "") || "";
+        const authHeaders: Record<string, string> = sessionEmail ? { "x-user-email": sessionEmail } : {};
 
         // Run all API and Supabase queries concurrently in parallel
         const todayStr = new Date().toISOString().split("T")[0]!;
         const [empRes, lrRes, wfhRes, fbRes, wdRes, dtRes] = await Promise.all([
-          fetch("/api/v1/employees").catch(() => null),
+          fetch("/api/v1/employees", { headers: authHeaders }).catch(() => null),
           supabase.from("leave_requests").select("*").order("created_at", { ascending: false }).limit(100),
           supabase.from("wfh_requests").select("*").order("created_at", { ascending: false }).limit(100),
           supabase.from("feedbacks").select("*").order("created_at", { ascending: false }).limit(100),
-          supabase.from("workdays").select("*").eq("date", todayStr),
+          fetch(`/api/v1/workdays?all=true&workDate=${todayStr}`, { headers: authHeaders })
+            .then(async (r) => (r.ok ? await r.json() : { data: { workdays: [] } }))
+            .catch(() => ({ data: { workdays: [] } })),
           supabase.from("daily_tasks").select("*").order("created_at", { ascending: false }).limit(100),
         ]);
 
@@ -1030,259 +1357,349 @@ export const WorkpulseSharedStore = {
           }
         }
 
-      if (lrRes.data && lrRes.data.length > 0) {
-        supabaseSyncedLeave = true;
-        const mappedLeaves: SharedLeaveRequest[] = lrRes.data
-          .map((r) => ({
-            id: r.id,
-            employeeId: r.employee_id,
-            employeeName: r.employee_name,
-            departmentId: r.department_id || "dept-development",
-            departmentName: r.department_name || "Development",
-            designation: r.designation || "Engineer",
-            leaveType: r.leave_type || "CASUAL",
-            startDate: r.start_date,
-            endDate: r.end_date,
-            daysCount: Number(r.days_count) || 1,
-            reason: r.reason,
-            handoverNotes: r.handover_notes,
-            backupPersonName: r.backup_person_name,
-            remainingBalance: Number(r.remaining_balance) || 11.0,
-            status: r.status,
-            tlApproverName: r.tl_approver_name,
-            tlApprovedAt: r.tl_approved_at,
-            tlComment: r.tl_comment,
-            hrApproverName: r.hr_approver_name,
-            hrApprovedAt: r.hr_approved_at,
-            hrComment: r.hr_comment,
-            rejectionReason: r.rejection_reason,
-            createdAt: r.created_at,
-          }));
-        const pendingOptimisticLeaves = globalLeaveRequests.filter(
-          (l) => l._isOptimistic && !mappedLeaves.some((r) => r.id === l.id)
-        );
-        globalLeaveRequests = [...pendingOptimisticLeaves, ...mappedLeaves];
-        saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
-      } else if (lrRes.data && lrRes.data.length === 0) {
-        supabaseSyncedLeave = true;
-        const pendingOptimisticLeaves = globalLeaveRequests.filter((l) => l._isOptimistic);
-        globalLeaveRequests = pendingOptimisticLeaves;
-        saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
-      }
+        if (lrRes.data && lrRes.data.length > 0) {
+          supabaseSyncedLeave = true;
+          const mappedLeaves: SharedLeaveRequest[] = lrRes.data
+            .map((r) => ({
+              id: r.id,
+              employeeId: r.employee_id,
+              employeeName: r.employee_name,
+              departmentId: r.department_id || "dept-development",
+              departmentName: r.department_name || "Development",
+              designation: r.designation || "Engineer",
+              leaveType: r.leave_type || "CASUAL",
+              startDate: r.start_date,
+              endDate: r.end_date,
+              daysCount: Number(r.days_count) || 1,
+              reason: r.reason,
+              handoverNotes: r.handover_notes,
+              backupPersonName: r.backup_person_name,
+              remainingBalance: Number(r.remaining_balance) || 11.0,
+              status: r.status,
+              tlApproverName: r.tl_approver_name,
+              tlApprovedAt: r.tl_approved_at,
+              tlComment: r.tl_comment,
+              hrApproverName: r.hr_approver_name,
+              hrApprovedAt: r.hr_approved_at,
+              hrComment: r.hr_comment,
+              rejectionReason: r.rejection_reason,
+              createdAt: r.created_at,
+            }));
 
-      if (wfhRes.data && wfhRes.data.length > 0) {
-        supabaseSyncedWfh = true;
-        const mappedWfh: SharedWfhRequest[] = wfhRes.data
-          .map((r) => ({
-            id: r.id,
-            employeeId: r.employee_id,
-            employeeName: r.employee_name,
-            departmentId: r.department_id || "dept-development",
-            departmentName: r.department_name || "Development",
-            designation: r.designation || "Engineer",
-            startDate: r.start_date,
-            endDate: r.end_date,
-            daysCount: Number(r.days_count) || 1,
-            reason: r.reason,
-            availabilityHours: r.availability_hours || "10:00 AM – 07:00 PM",
-            contactMethod: r.contact_method || "Slack & Zoom",
-            plannedDeliverables: r.planned_deliverables,
-            status: r.status,
-            tlApproverName: r.tl_approver_name,
-            tlApprovedAt: r.tl_approved_at,
-            tlComment: r.tl_comment,
-            hrApproverName: r.hr_approver_name,
-            hrApprovedAt: r.hr_approved_at,
-            hrComment: r.hr_comment,
-            rejectionReason: r.rejection_reason,
-            createdAt: r.created_at,
-          }));
-        const pendingOptimisticWfh = globalWfhRequests.filter(
-          (w) => w._isOptimistic && !mappedWfh.some((r) => r.id === w.id)
-        );
-        globalWfhRequests = [...pendingOptimisticWfh, ...mappedWfh];
-        saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
-      } else if (wfhRes.data && wfhRes.data.length === 0) {
-        supabaseSyncedWfh = true;
-        const pendingOptimisticWfh = globalWfhRequests.filter((w) => w._isOptimistic);
-        globalWfhRequests = pendingOptimisticWfh;
-        saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
-      }
+          const mergedLeaves = mappedLeaves.map((supaReq) => {
+            const local = globalLeaveRequests.find((l) => l.id === supaReq.id);
+            if (!local) return supaReq;
+            // If local status is more advanced (e.g. local was forwarded to HR, approved, or rejected, but supa is still pending), preserve local status and approver metadata
+            if (getLeaveStatusRank(local.status) > getLeaveStatusRank(supaReq.status)) {
+              return {
+                ...supaReq,
+                status: local.status,
+                tlApproverName: local.tlApproverName || supaReq.tlApproverName,
+                tlApprovedAt: local.tlApprovedAt || supaReq.tlApprovedAt,
+                tlComment: local.tlComment || supaReq.tlComment,
+                hrApproverName: local.hrApproverName || supaReq.hrApproverName,
+                hrApprovedAt: local.hrApprovedAt || supaReq.hrApprovedAt,
+                hrComment: local.hrComment || supaReq.hrComment,
+                remainingBalance: local.remainingBalance ?? supaReq.remainingBalance,
+                rejectionReason: local.rejectionReason || supaReq.rejectionReason,
+                _isOptimistic: local._isOptimistic,
+                _updatedAt: local._updatedAt,
+              };
+            }
+            return supaReq;
+          });
 
-      if (fbRes.data && fbRes.data.length > 0) {
-        const mappedFb: SharedEODFeedback[] = [];
-        const mappedHelp: SharedLeadHelpRequest[] = [];
-
-        for (const f of fbRes.data) {
-          const isHelpReq =
-            f.action_item === "HELP_REQUEST" ||
-            (f.id && (f.id.startsWith("help-") || f.id.startsWith("blocker-")));
-
-          if (isHelpReq) {
-            let meta: any = {};
-            try {
-              if (f.notes && typeof f.notes === "string" && f.notes.startsWith("{")) {
-                meta = JSON.parse(f.notes);
-              }
-            } catch {}
-
-            mappedHelp.push({
-              id: f.id,
-              employeeId: f.employee_id,
-              employeeName: f.employee_name,
-              employeeEmail: meta.employeeEmail || `${f.employee_id}@xorstack.com`,
-              department: meta.department || "Development",
-              leadName: meta.leadName || "Alex Lead",
-              topic: meta.topic || "Blocker / Technical Issue",
-              details:
-                meta.details ||
-                (typeof f.notes === "string" && !f.notes.startsWith("{") ? f.notes : "") ||
-                "Assistance needed on daily sprint deliverables.",
-              urgency: meta.urgency || (f.rating === 1 ? "URGENT" : "NORMAL"),
-              status: (f.sentiment as any) || "PENDING",
-              createdAt:
-                meta.createdAt ||
-                (f.created_at
-                  ? `Today at ${new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                  : "Today"),
-              acknowledgedAt: meta.acknowledgedAt,
-              resolvedAt: meta.resolvedAt,
-              leadResponse: meta.leadResponse,
-              resolvedByEmployee: Boolean(meta.resolvedByEmployee),
-              resolvedByEmployeeAt: meta.resolvedByEmployeeAt,
-              resolvedByLead: Boolean(meta.resolvedByLead),
-              resolvedByLeadAt: meta.resolvedByLeadAt,
-            });
-          } else {
-            mappedFb.push({
-              id: f.id,
-              employeeId: f.employee_id,
-              employeeName: f.employee_name,
-              departmentName: "Development",
-              date: f.date || "Today",
-              dayName: "Today",
-              employeeEodSummary: f.notes || "Completed assigned sprint deliverables.",
-              tasksCompleted: "Planned deliverables completed",
-              hoursLogged: 8.0,
-              leadFeedbackTime: f.created_at
-                ? new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "Today",
-              leadFeedbackNote: f.notes,
-              leadRating: Number(f.rating) || 5.0,
-              leadSentiment: f.sentiment || "EXCELLENT",
-              leadActionItem: f.action_item,
-              isToday: true,
-            });
-          }
+          const pendingOptimisticLeaves = globalLeaveRequests.filter(
+            (l) => (l._isOptimistic || (l._updatedAt && Date.now() - l._updatedAt < 60000)) && !mappedLeaves.some((r) => r.id === l.id)
+          );
+          globalLeaveRequests = [...pendingOptimisticLeaves, ...mergedLeaves];
+          saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
+        } else if (lrRes.data && lrRes.data.length === 0) {
+          supabaseSyncedLeave = true;
+          const pendingOptimisticLeaves = globalLeaveRequests.filter((l) => l._isOptimistic || (l._updatedAt && Date.now() - l._updatedAt < 60000));
+          globalLeaveRequests = pendingOptimisticLeaves;
+          saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
         }
 
-        globalFeedbacks = mappedFb;
+        if (wfhRes.data && wfhRes.data.length > 0) {
+          supabaseSyncedWfh = true;
+          const mappedWfh: SharedWfhRequest[] = wfhRes.data
+            .map((r) => ({
+              id: r.id,
+              employeeId: r.employee_id,
+              employeeName: r.employee_name,
+              departmentId: r.department_id || "dept-development",
+              departmentName: r.department_name || "Development",
+              designation: r.designation || "Engineer",
+              startDate: r.start_date,
+              endDate: r.end_date,
+              daysCount: Number(r.days_count) || 1,
+              reason: r.reason,
+              availabilityHours: r.availability_hours || "10:00 AM – 07:00 PM",
+              contactMethod: r.contact_method || "Slack & Zoom",
+              plannedDeliverables: r.planned_deliverables,
+              status: r.status,
+              tlApproverName: r.tl_approver_name,
+              tlApprovedAt: r.tl_approved_at,
+              tlComment: r.tl_comment,
+              hrApproverName: r.hr_approver_name,
+              hrApprovedAt: r.hr_approved_at,
+              hrComment: r.hr_comment,
+              rejectionReason: r.rejection_reason,
+              createdAt: r.created_at,
+            }));
 
-        // Merge mappedHelp with any unsynced optimistic local items
-        const serverIds = new Set(mappedHelp.map((h) => h.id));
-        const unsyncedOptimistic = globalHelpRequests.filter((h) => !serverIds.has(h.id));
-        globalHelpRequests = [...unsyncedOptimistic, ...mappedHelp];
-      } else if (fbRes.data && fbRes.data.length === 0) {
-        globalFeedbacks = [];
-      }
+          const mergedWfh = mappedWfh.map((supaReq) => {
+            const local = globalWfhRequests.find((w) => w.id === supaReq.id);
+            if (!local) return supaReq;
+            // If local status is more advanced, preserve local status
+            if (getWfhStatusRank(local.status) > getWfhStatusRank(supaReq.status)) {
+              return {
+                ...supaReq,
+                status: local.status,
+                tlApproverName: local.tlApproverName || supaReq.tlApproverName,
+                tlApprovedAt: local.tlApprovedAt || supaReq.tlApprovedAt,
+                tlComment: local.tlComment || supaReq.tlComment,
+                hrApproverName: local.hrApproverName || supaReq.hrApproverName,
+                hrApprovedAt: local.hrApprovedAt || supaReq.hrApprovedAt,
+                hrComment: local.hrComment || supaReq.hrComment,
+                rejectionReason: local.rejectionReason || supaReq.rejectionReason,
+                _isOptimistic: local._isOptimistic,
+                _updatedAt: local._updatedAt,
+              };
+            }
+            return supaReq;
+          });
 
-      // Always synchronize employee plannedTasks directly from Supabase daily_tasks
-      if (Array.isArray(dtRes.data)) {
-        globalDepartments = globalDepartments.map((dept) => ({
-          ...dept,
-          employees: dept.employees.map((emp) => {
-            const empIdLower = emp.id.toLowerCase();
-            const empEmailLower = emp.email?.toLowerCase() || "";
-            const supaTasks = supaTasksByEmp.get(empIdLower) || supaTasksByEmp.get(empEmailLower) || [];
-            return {
-              ...emp,
-              plannedTasks: supaTasks,
-            };
-          }),
-        }));
-      }
+          const pendingOptimisticWfh = globalWfhRequests.filter(
+            (w) => (w._isOptimistic || (w._updatedAt && Date.now() - w._updatedAt < 60000)) && !mappedWfh.some((r) => r.id === w.id)
+          );
+          globalWfhRequests = [...pendingOptimisticWfh, ...mergedWfh];
+          saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+        } else if (wfhRes.data && wfhRes.data.length === 0) {
+          supabaseSyncedWfh = true;
+          const pendingOptimisticWfh = globalWfhRequests.filter((w) => w._isOptimistic || (w._updatedAt && Date.now() - w._updatedAt < 60000));
+          globalWfhRequests = pendingOptimisticWfh;
+          saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
+        }
 
-      // Merge Supabase workdays into employee states using a single Map pass for maximum performance
-      if (wdRes.data && wdRes.data.length > 0) {
-        const today = new Date().toISOString().split("T")[0]!;
-        const workdaysList = wdRes.data.filter((wd) => wd.date === today && wd.id !== "wd-sarah-today");
-        const wdMap = new Map<string, any>();
-        for (const wd of workdaysList) {
-          if (wd.employee_id) {
-            const key = wd.employee_id.toLowerCase();
-            if (!wdMap.has(key)) {
-              wdMap.set(key, wd);
+        if (fbRes.data && fbRes.data.length > 0) {
+          const mappedFb: SharedEODFeedback[] = [];
+          const mappedHelp: SharedLeadHelpRequest[] = [];
+
+          for (const f of fbRes.data) {
+            const isHelpReq =
+              f.action_item === "HELP_REQUEST" ||
+              (f.id && (f.id.startsWith("help-") || f.id.startsWith("blocker-")));
+
+            if (isHelpReq) {
+              let meta: any = {};
+              try {
+                if (f.notes && typeof f.notes === "string" && f.notes.startsWith("{")) {
+                  meta = JSON.parse(f.notes);
+                }
+              } catch { }
+
+              mappedHelp.push({
+                id: f.id,
+                employeeId: f.employee_id,
+                employeeName: f.employee_name,
+                employeeEmail: meta.employeeEmail || `${f.employee_id}@xorstack.com`,
+                department: meta.department || "Development",
+                leadName: meta.leadName || "Alex Lead",
+                topic: meta.topic || "Blocker / Technical Issue",
+                details:
+                  meta.details ||
+                  (typeof f.notes === "string" && !f.notes.startsWith("{") ? f.notes : "") ||
+                  "Assistance needed on daily sprint deliverables.",
+                urgency: meta.urgency || (f.rating === 1 ? "URGENT" : "NORMAL"),
+                status: (f.sentiment as any) || "PENDING",
+                createdAt:
+                  meta.createdAt ||
+                  (f.created_at
+                    ? `Today at ${new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : "Today"),
+                acknowledgedAt: meta.acknowledgedAt,
+                resolvedAt: meta.resolvedAt,
+                leadResponse: meta.leadResponse,
+                resolvedByEmployee: Boolean(meta.resolvedByEmployee),
+                resolvedByEmployeeAt: meta.resolvedByEmployeeAt,
+                resolvedByLead: Boolean(meta.resolvedByLead),
+                resolvedByLeadAt: meta.resolvedByLeadAt,
+              });
+            } else {
+              mappedFb.push({
+                id: f.id,
+                employeeId: f.employee_id,
+                employeeName: f.employee_name,
+                departmentName: "Development",
+                date: f.date || "Today",
+                dayName: "Today",
+                employeeEodSummary: f.notes || "Completed assigned sprint deliverables.",
+                tasksCompleted: "Planned deliverables completed",
+                hoursLogged: 8.0,
+                leadFeedbackTime: f.created_at
+                  ? new Date(f.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : "Today",
+                leadFeedbackNote: f.notes,
+                leadRating: Number(f.rating) || 5.0,
+                leadSentiment: f.sentiment || "EXCELLENT",
+                leadActionItem: f.action_item,
+                isToday: true,
+              });
             }
           }
+
+          globalFeedbacks = mappedFb;
+
+          // Merge mappedHelp with any unsynced optimistic local items
+          const serverIds = new Set(mappedHelp.map((h) => h.id));
+          const unsyncedOptimistic = globalHelpRequests.filter((h) => !serverIds.has(h.id));
+          globalHelpRequests = [...unsyncedOptimistic, ...mappedHelp];
+        } else if (fbRes.data && fbRes.data.length === 0) {
+          globalFeedbacks = [];
         }
 
-        globalDepartments = globalDepartments.map((dept) => ({
-          ...dept,
-          employees: dept.employees.map((emp) => {
-            const empIdLower = emp.id.toLowerCase();
-            const empEmailLower = emp.email?.toLowerCase() || "";
-            const wd = wdMap.get(empIdLower) || wdMap.get(empEmailLower);
-            if (!wd) return emp;
+        // Always synchronize employee plannedTasks directly from Supabase daily_tasks
+        if (Array.isArray(dtRes.data)) {
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const empIdLower = emp.id.toLowerCase();
+              const empEmailLower = emp.email?.toLowerCase() || "";
+              const supaTasks = supaTasksByEmp.get(empIdLower) || supaTasksByEmp.get(empEmailLower) || [];
+              return {
+                ...emp,
+                plannedTasks: supaTasks,
+              };
+            }),
+          }));
+        }
 
-            const supaTasks = supaTasksByEmp.get(empIdLower) || supaTasksByEmp.get(empEmailLower) || [];
-            const finalTasks = supaTasks.length > 0 ? supaTasks : (wd.planned_tasks && Array.isArray(wd.planned_tasks) ? wd.planned_tasks : emp.plannedTasks);
+        // Merge Supabase workdays into employee states using a single Map pass for maximum performance
+        const rawWdData = wdRes?.data?.workdays || wdRes?.workdays || (Array.isArray(wdRes?.data) ? wdRes.data : []);
+        if (Array.isArray(rawWdData) && rawWdData.length > 0) {
+          const today = new Date().toISOString().split("T")[0]!;
+          const workdaysList = rawWdData.filter((wd: any) => wd.date === today && wd.id !== "wd-sarah-today");
 
-            const sodStatus = wd.sod_status === "VERIFIED"
-              ? "VERIFIED"
-              : wd.sod_status === "SUBMITTED"
-              ? "SUBMITTED"
-              : wd.sod_status === "CHANGES_REQUESTED"
-              ? "CHANGES_REQUESTED"
-              : wd.sod_status === "PENDING"
-              ? "PENDING"
-              : emp.sodStatus;
+          // Sort so VERIFIED workdays take precedence over older unverified rows
+          workdaysList.sort((a, b) => {
+            if (a.sod_status === "VERIFIED" && b.sod_status !== "VERIFIED") return -1;
+            if (b.sod_status === "VERIFIED" && a.sod_status !== "VERIFIED") return 1;
+            return (b.created_at || "").localeCompare(a.created_at || "");
+          });
 
-            // EOD status is strictly valid ONLY AFTER SOD is verified
-            const eodStatus = sodStatus === "VERIFIED"
-              ? (wd.eod_status === "VERIFIED"
-                ? "VERIFIED"
-                : wd.eod_status === "SUBMITTED"
-                ? "SUBMITTED"
-                : "PENDING")
-              : "PENDING";
+          const wdMap = new Map<string, any>();
+          for (const wd of workdaysList) {
+            if (wd.employee_id) {
+              const key = wd.employee_id.toLowerCase();
+              const existing = wdMap.get(key);
+              if (!existing) {
+                wdMap.set(key, wd);
+              } else {
+                wdMap.set(key, {
+                  ...existing,
+                  ...wd,
+                  sod_status: (existing.sod_status === "VERIFIED" || wd.sod_status === "VERIFIED") ? "VERIFIED" : (wd.sod_status || existing.sod_status),
+                  eod_status: (existing.eod_status === "VERIFIED" || wd.eod_status === "VERIFIED") ? "VERIFIED" : (wd.eod_status || existing.eod_status),
+                  sod_verified_by: wd.sod_verified_by || existing.sod_verified_by,
+                  sod_verified_at: wd.sod_verified_at || existing.sod_verified_at,
+                  sod_lead_note: wd.sod_lead_note || existing.sod_lead_note,
+                  eod_verified_by: wd.eod_verified_by || existing.eod_verified_by,
+                  eod_verified_at: wd.eod_verified_at || existing.eod_verified_at,
+                  lead_rating: wd.lead_rating || existing.lead_rating,
+                  lead_feedback_note: wd.lead_feedback_note || existing.lead_feedback_note,
+                  lead_action_item: wd.lead_action_item || existing.lead_action_item,
+                });
+              }
+            }
+          }
 
-            return {
-              ...emp,
-              sodStatus,
-              sodTime: wd.sod_time || emp.sodTime,
-              sodVerifiedBy: wd.sod_verified_by || emp.sodVerifiedBy,
-              sodVerifiedAt: wd.sod_verified_at || emp.sodVerifiedAt,
-              sodLeadNote: wd.sod_lead_note || wd.lead_feedback_note || emp.sodLeadNote,
-              eodStatus,
-              eodTime: eodStatus !== "PENDING" ? (wd.eod_time || emp.eodTime) : undefined,
-              eodVerifiedBy: eodStatus === "VERIFIED" ? (wd.eod_verified_by || emp.eodVerifiedBy) : undefined,
-              eodVerifiedAt: eodStatus === "VERIFIED" ? (wd.eod_verified_at || emp.eodVerifiedAt) : undefined,
-              eodLeadRating: eodStatus === "VERIFIED" ? (typeof wd.lead_rating === "number" ? wd.lead_rating : (Number(wd.lead_rating) || emp.eodLeadRating)) : undefined,
-              eodLeadComment: eodStatus === "VERIFIED" ? (wd.lead_feedback_note || emp.eodLeadComment) : undefined,
-              eodLeadActionItem: eodStatus === "VERIFIED" ? (wd.lead_action_item || emp.eodLeadActionItem) : undefined,
-              plannedTasks: finalTasks,
-              overallProgress: typeof wd.overall_progress === "number" ? wd.overall_progress : emp.overallProgress,
-              eodAchievements: eodStatus !== "PENDING" ? (wd.achievements || emp.eodAchievements) : undefined,
-              eodBlockers: eodStatus !== "PENDING" ? (wd.blockers || emp.eodBlockers) : undefined,
-              eodTomorrowFocus: eodStatus !== "PENDING" ? (wd.tomorrow_focus || emp.eodTomorrowFocus) : undefined,
-            };
-          }),
-        }));
+          globalDepartments = globalDepartments.map((dept) => ({
+            ...dept,
+            employees: dept.employees.map((emp) => {
+              const empIdLower = emp.id.toLowerCase();
+              const empEmailLower = emp.email?.toLowerCase() || "";
+              const wd =
+                wdMap.get(empIdLower) ||
+                wdMap.get(empEmailLower) ||
+                (empIdLower === "emp-sarah" || empEmailLower.includes("employee.test")
+                  ? wdMap.get("emp-sarah") || wdMap.get("employee.test@xorstack.com")
+                  : undefined);
+              if (!wd) return emp;
+
+              const supaTasks = supaTasksByEmp.get(empIdLower) || supaTasksByEmp.get(empEmailLower) || [];
+              const finalTasks = supaTasks.length > 0 ? supaTasks : (wd.planned_tasks && Array.isArray(wd.planned_tasks) ? wd.planned_tasks : emp.plannedTasks);
+
+              // Supabase is authoritative: if Supabase says PENDING (e.g. after day reset cleanup),
+              // allow downgrade from VERIFIED → PENDING. Otherwise prefer the highest status.
+              const sodStatus = wd.sod_status === "PENDING"
+                ? "PENDING"
+                : emp.sodStatus === "VERIFIED" || wd.sod_status === "VERIFIED"
+                  ? "VERIFIED"
+                  : wd.sod_status === "SUBMITTED"
+                    ? "SUBMITTED"
+                    : wd.sod_status === "CHANGES_REQUESTED"
+                      ? "CHANGES_REQUESTED"
+                      : emp.sodStatus;
+
+              // EOD status is strictly valid ONLY AFTER SOD is verified
+              // Supabase PENDING overrides in-memory VERIFIED (day reset)
+              const eodStatus = wd.eod_status === "PENDING"
+                ? "PENDING"
+                : (emp.eodStatus === "VERIFIED" || wd.eod_status === "VERIFIED")
+                  ? "VERIFIED"
+                  : sodStatus === "VERIFIED"
+                    ? (wd.eod_status === "SUBMITTED"
+                      ? "SUBMITTED"
+                      : "PENDING")
+                    : "PENDING";
+
+              return {
+                ...emp,
+                sodStatus,
+                sodTime: wd.sod_time || emp.sodTime,
+                sodVerifiedBy: wd.sod_verified_by || emp.sodVerifiedBy,
+                sodVerifiedAt: wd.sod_verified_at || emp.sodVerifiedAt,
+                sodLeadNote: wd.sod_lead_note || wd.lead_feedback_note || emp.sodLeadNote,
+                eodStatus,
+                eodTime: eodStatus !== "PENDING" ? (wd.eod_time || emp.eodTime) : undefined,
+                eodVerifiedBy: eodStatus === "VERIFIED" ? (wd.eod_verified_by || emp.eodVerifiedBy) : undefined,
+                eodVerifiedAt: eodStatus === "VERIFIED" ? (wd.eod_verified_at || emp.eodVerifiedAt) : undefined,
+                eodLeadRating: eodStatus === "VERIFIED" ? (typeof wd.lead_rating === "number" ? wd.lead_rating : (Number(wd.lead_rating) || emp.eodLeadRating)) : undefined,
+                eodLeadComment: eodStatus === "VERIFIED" ? (wd.lead_feedback_note || emp.eodLeadComment) : undefined,
+                eodLeadActionItem: eodStatus === "VERIFIED" ? (wd.lead_action_item || emp.eodLeadActionItem) : undefined,
+                plannedTasks: finalTasks,
+                overallProgress: typeof wd.overall_progress === "number" ? wd.overall_progress : emp.overallProgress,
+                eodAchievements: eodStatus !== "PENDING" ? (wd.achievements || emp.eodAchievements) : undefined,
+                eodBlockers: eodStatus !== "PENDING" ? (wd.blockers || emp.eodBlockers) : undefined,
+                eodTomorrowFocus: eodStatus !== "PENDING" ? (wd.tomorrow_focus || emp.eodTomorrowFocus) : undefined,
+              };
+            }),
+          }));
+        }
+
+        supabaseHydrated = true;
+        const finalSnapshot = JSON.stringify({
+          d: globalDepartments,
+          l: globalLeaveRequests,
+          w: globalWfhRequests,
+          f: globalFeedbacks,
+        });
+        if (initialSnapshot !== finalSnapshot) {
+          notify();
+        }
+      } catch {
+        // Graceful offline fallback
       }
+    })();
 
-      supabaseHydrated = true;
-      notify();
-    } catch {
-      // Graceful offline fallback
+    try {
+      await activeSyncPromise;
+    } finally {
+      activeSyncPromise = null;
     }
-  })();
-
-  try {
-    await activeSyncPromise;
-  } finally {
-    activeSyncPromise = null;
-  }
-},
+  },
 
   setEmployeesFromSupabase: (supaEmployees: any[]) => {
     if (!Array.isArray(supaEmployees) || supaEmployees.length === 0) return;
@@ -1310,14 +1727,14 @@ export const WorkpulseSharedStore = {
           (deptName.toLowerCase().includes("devops")
             ? "dept-devops"
             : deptName.toLowerCase().includes("data")
-            ? "dept-data-processing"
-            : deptName.toLowerCase().includes("r & d") || deptName.toLowerCase().includes("rd")
-            ? "dept-rd"
-            : deptName.toLowerCase().includes("configtap") || deptName.toLowerCase().includes("service")
-            ? "dept-configtap"
-            : deptName.toLowerCase().includes("hr") || deptName.toLowerCase().includes("human")
-            ? "dept-hr"
-            : "dept-development");
+              ? "dept-data-processing"
+              : deptName.toLowerCase().includes("r & d") || deptName.toLowerCase().includes("rd")
+                ? "dept-rd"
+                : deptName.toLowerCase().includes("configtap") || deptName.toLowerCase().includes("service")
+                  ? "dept-configtap"
+                  : deptName.toLowerCase().includes("hr") || deptName.toLowerCase().includes("human")
+                    ? "dept-hr"
+                    : "dept-development");
 
         const teamLeadId =
           se.teamLeadId ||
@@ -1325,14 +1742,14 @@ export const WorkpulseSharedStore = {
           (deptId === "dept-devops"
             ? "lead-marcus"
             : deptId === "dept-data-processing"
-            ? "lead-vikram"
-            : deptId === "dept-rd"
-            ? "admin-david"
-            : deptId === "dept-configtap"
-            ? "lead-alex"
-            : deptId === "dept-hr"
-            ? "admin-david"
-            : "lead-alex");
+              ? "lead-vikram"
+              : deptId === "dept-rd"
+                ? "admin-david"
+                : deptId === "dept-configtap"
+                  ? "lead-alex"
+                  : deptId === "dept-hr"
+                    ? "admin-david"
+                    : "lead-alex");
 
         const matchingLead = supaEmployees.find((s) => s.id === teamLeadId || (s.email && s.email.toLowerCase() === teamLeadId?.toLowerCase()));
         const teamLeadName =
@@ -1342,10 +1759,20 @@ export const WorkpulseSharedStore = {
           (teamLeadId === "lead-marcus"
             ? "Marcus Vance"
             : teamLeadId === "lead-vikram"
-            ? "Vikram Rao"
-            : teamLeadId === "admin-david"
-            ? "David Director"
-            : "Alex Lead");
+              ? "Vikram Rao"
+              : teamLeadId === "admin-david"
+                ? "David Director"
+                : "Alex Lead");
+
+        const existingEmp = globalDepartments
+          .flatMap((d) => d.employees)
+          .find(
+            (e) =>
+              e.id === se.id ||
+              (se.email && e.email.toLowerCase() === se.email.toLowerCase()) ||
+              (se.id === "emp-sarah" && e.email?.toLowerCase().includes("employee.test")) ||
+              (se.email?.toLowerCase().includes("employee.test") && e.id === "emp-sarah")
+          );
 
         return {
           id: se.id,
@@ -1360,21 +1787,29 @@ export const WorkpulseSharedStore = {
           workMode: se.workMode || se.work_mode || "OFFICE",
           status: se.status || "ACTIVE",
           employmentType: se.employmentType || se.employment_type || "Full-Time",
-          sodStatus: se.sodStatus || "PENDING",
-          sodTime: se.sodTime,
-          eodStatus: se.eodStatus || "PENDING",
-          overallProgress: typeof se.overallProgress === "number" ? se.overallProgress : 0,
-          remainingLeaveBalance: Number(se.remainingLeaveBalance ?? se.leave_balance) || 12.0,
+          sodStatus: se.sodStatus === "PENDING" ? "PENDING" : (existingEmp?.sodStatus === "VERIFIED" ? "VERIFIED" : (se.sodStatus || existingEmp?.sodStatus || "PENDING")),
+          sodTime: se.sodTime || existingEmp?.sodTime,
+          sodVerifiedBy: (existingEmp?.sodStatus === "VERIFIED" ? existingEmp.sodVerifiedBy : se.sodVerifiedBy) || existingEmp?.sodVerifiedBy,
+          sodVerifiedAt: (existingEmp?.sodStatus === "VERIFIED" ? existingEmp.sodVerifiedAt : se.sodVerifiedAt) || existingEmp?.sodVerifiedAt,
+          sodLeadNote: (existingEmp?.sodStatus === "VERIFIED" ? existingEmp.sodLeadNote : se.sodLeadNote) || existingEmp?.sodLeadNote,
+          eodStatus: se.eodStatus === "PENDING" ? "PENDING" : (existingEmp?.eodStatus === "VERIFIED" ? "VERIFIED" : (se.eodStatus || existingEmp?.eodStatus || "PENDING")),
+          eodVerifiedBy: (existingEmp?.eodStatus === "VERIFIED" ? existingEmp.eodVerifiedBy : se.eodVerifiedBy) || existingEmp?.eodVerifiedBy,
+          eodVerifiedAt: (existingEmp?.eodStatus === "VERIFIED" ? existingEmp.eodVerifiedAt : se.eodVerifiedAt) || existingEmp?.eodVerifiedAt,
+          eodLeadRating: (existingEmp?.eodStatus === "VERIFIED" ? existingEmp.eodLeadRating : se.eodLeadRating) || existingEmp?.eodLeadRating,
+          eodLeadComment: (existingEmp?.eodStatus === "VERIFIED" ? existingEmp.eodLeadComment : se.eodLeadComment) || existingEmp?.eodLeadComment,
+          eodLeadActionItem: (existingEmp?.eodStatus === "VERIFIED" ? existingEmp.eodLeadActionItem : se.eodLeadActionItem) || existingEmp?.eodLeadActionItem,
+          overallProgress: typeof se.overallProgress === "number" ? se.overallProgress : (existingEmp?.overallProgress || 0),
+          remainingLeaveBalance: Number(se.remainingLeaveBalance ?? se.leave_balance) || (existingEmp?.remainingLeaveBalance || 12.0),
           phoneNumber: se.phoneNumber || se.phone_number || "+91 98450 11223",
           location: se.location || se.workLocation || "Bangalore HQ",
           workLocation: se.workLocation || se.location || "Bangalore HQ",
           joiningDate: se.joiningDate || se.joining_date || "2025-06-01",
-          plannedTasks: se.plannedTasks || [],
+          plannedTasks: (Array.isArray(se.plannedTasks) && se.plannedTasks.length > 0) ? se.plannedTasks : (existingEmp?.plannedTasks || []),
         };
       });
 
     // Populate each department cleanly with mapped employees and latest teamLead
-    globalDepartments = globalDepartments.map((baseDept) => {
+    const updatedDepartments = globalDepartments.map((baseDept) => {
       const deptEmployees = allMapped.filter(
         (emp) =>
           emp.departmentId === baseDept.id ||
@@ -1385,12 +1820,12 @@ export const WorkpulseSharedStore = {
       );
       const updatedTeamLead = leadFromSupa
         ? {
-            id: leadFromSupa.id,
-            name: leadFromSupa.name,
-            email: leadFromSupa.email,
-            designation: leadFromSupa.designation,
-            avatar: leadFromSupa.avatar,
-          }
+          id: leadFromSupa.id,
+          name: leadFromSupa.name,
+          email: leadFromSupa.email,
+          designation: leadFromSupa.designation,
+          avatar: leadFromSupa.avatar,
+        }
         : baseDept.teamLead;
 
       return {
@@ -1400,7 +1835,10 @@ export const WorkpulseSharedStore = {
       };
     });
 
-    notify();
+    if (JSON.stringify(globalDepartments) !== JSON.stringify(updatedDepartments)) {
+      globalDepartments = updatedDepartments;
+      notify();
+    }
   },
 
   addOrUpdateEmployeeFromSupabase: (emp: any) => {
@@ -1431,18 +1869,18 @@ export const WorkpulseSharedStore = {
             employees: dept.employees.map((e) =>
               e.id === existingEmp.id
                 ? {
-                    ...e,
-                    name: empName,
-                    email: empEmail,
-                    designation: empDesignation,
-                    workMode: empWorkMode,
-                    status: empStatus,
-                    remainingLeaveBalance: empLeaveBalance,
-                    avatar: empAvatar,
-                  }
+                  ...e,
+                  name: empName,
+                  email: empEmail,
+                  designation: empDesignation,
+                  workMode: empWorkMode,
+                  status: empStatus,
+                  remainingLeaveBalance: empLeaveBalance,
+                  avatar: empAvatar,
+                }
                 : isLead
-                ? { ...e, teamLeadName: empName }
-                : e
+                  ? { ...e, teamLeadName: empName }
+                  : e
             ),
           };
         } else if (!dept.employees.some((e) => e.id === empId)) {
@@ -1476,10 +1914,10 @@ export const WorkpulseSharedStore = {
       }
       return isLead
         ? {
-            ...dept,
-            teamLead: updatedLead,
-            employees: dept.employees.map((e) => ({ ...e, teamLeadName: empName })),
-          }
+          ...dept,
+          teamLead: updatedLead,
+          employees: dept.employees.map((e) => ({ ...e, teamLeadName: empName })),
+        }
         : dept;
     });
 
@@ -1520,13 +1958,12 @@ export const WorkpulseSharedStore = {
 
   // Departments & Org CRUD
   getDepartments: () => {
-    const deletedEmployeeIds = getDeletedEmployeeIds();
-    return globalDepartments.map((dept) => ({
-      ...dept,
-      employees: dept.employees.filter((e) => !deletedEmployeeIds.has(e.id) && !deletedEmployeeIds.has(e.email?.toLowerCase())),
-    }));
+    if (cachedDepartmentsList !== null) return cachedDepartmentsList;
+    cachedDepartmentsList = globalDepartments;
+    return globalDepartments;
   },
   getAllEmployees: () => {
+    if (cachedAllEmployeesList !== null) return cachedAllEmployeesList;
     const deletedEmployeeIds = getDeletedEmployeeIds();
     const seen = new Set<string>();
     const list: OrgEmployee[] = [];
@@ -1581,6 +2018,7 @@ export const WorkpulseSharedStore = {
         }
       }
     }
+    cachedAllEmployeesList = list;
     return list;
   },
   getDepartmentById: (id: string) => globalDepartments.find((d) => d.id === id),
@@ -1858,12 +2296,12 @@ export const WorkpulseSharedStore = {
       const isThisLead = d.teamLead.id.toLowerCase() === targetId || d.teamLead.email.toLowerCase() === targetId;
       const updatedLead = isThisLead
         ? {
-            ...d.teamLead,
-            name: updated.name,
-            designation: updated.designation,
-            email: updated.email,
-            avatar: newAvatar,
-          }
+          ...d.teamLead,
+          name: updated.name,
+          designation: updated.designation,
+          email: updated.email,
+          avatar: newAvatar,
+        }
         : d.teamLead;
 
       const updatedEmployees = d.employees.map((emp) => {
@@ -1944,15 +2382,15 @@ export const WorkpulseSharedStore = {
 
       return rModified
         ? {
-            ...r,
-            employeeName: empName,
-            departmentName: deptName,
-            designation: desig,
-            remainingBalance: remBal,
-            backupPersonName: backupPerson,
-            tlApproverName: tlApprover,
-            hrApproverName: hrApprover,
-          }
+          ...r,
+          employeeName: empName,
+          departmentName: deptName,
+          designation: desig,
+          remainingBalance: remBal,
+          backupPersonName: backupPerson,
+          tlApproverName: tlApprover,
+          hrApproverName: hrApprover,
+        }
         : r;
     });
 
@@ -1982,13 +2420,13 @@ export const WorkpulseSharedStore = {
 
       return rModified
         ? {
-            ...r,
-            employeeName: empName,
-            departmentName: deptName,
-            designation: desig,
-            tlApproverName: tlApprover,
-            hrApproverName: hrApprover,
-          }
+          ...r,
+          employeeName: empName,
+          departmentName: deptName,
+          designation: desig,
+          tlApproverName: tlApprover,
+          hrApproverName: hrApprover,
+        }
         : r;
     });
 
@@ -2171,13 +2609,13 @@ export const WorkpulseSharedStore = {
       globalFeedbacks = globalFeedbacks.map((f, i) =>
         i === existingIndex
           ? {
-              ...f,
-              leadFeedbackNote: feedback.note,
-              leadRating: feedback.rating,
-              leadFeedbackTime: timeString,
-              leadActionItem: feedback.actionItem || f.leadActionItem,
-              leadSentiment: feedback.rating >= 5 ? "EXCELLENT" : feedback.rating >= 4 ? "GREAT" : "ON_TRACK",
-            }
+            ...f,
+            leadFeedbackNote: feedback.note,
+            leadRating: feedback.rating,
+            leadFeedbackTime: timeString,
+            leadActionItem: feedback.actionItem || f.leadActionItem,
+            leadSentiment: feedback.rating >= 5 ? "EXCELLENT" : feedback.rating >= 4 ? "GREAT" : "ON_TRACK",
+          }
           : f
       );
     } else {
@@ -2322,13 +2760,13 @@ export const WorkpulseSharedStore = {
             bc.postMessage({ type: "workday:lead_feedback_updated", employeeId, timestamp: Date.now() });
             bc.close();
           }
-        } catch {}
+        } catch { }
       }
     }
 
     try {
       realtimeEventBus.emit("workday:sod_submitted", { employeeId, tasks: formattedTasks, morningNote });
-    } catch {}
+    } catch { }
 
     return updatedEmp;
   },
@@ -2373,7 +2811,7 @@ export const WorkpulseSharedStore = {
           bc.postMessage({ type: "workday:lead_feedback_updated", employeeId, timestamp: Date.now() });
           bc.close();
         }
-      } catch {}
+      } catch { }
     }
 
     notify();
@@ -2389,7 +2827,7 @@ export const WorkpulseSharedStore = {
 
     try {
       realtimeEventBus.emit("workday:sod_verified", { employeeId, leadName, note: verifiedNote });
-    } catch {}
+    } catch { }
 
     return updatedEmp;
   },
@@ -2423,7 +2861,7 @@ export const WorkpulseSharedStore = {
           bc.postMessage({ type: "workday:lead_feedback_updated", employeeId, timestamp: Date.now() });
           bc.close();
         }
-      } catch {}
+      } catch { }
     }
 
     notify();
@@ -2436,7 +2874,7 @@ export const WorkpulseSharedStore = {
 
     try {
       realtimeEventBus.emit("workday:sod_changes_requested", { employeeId, leadName, reason });
-    } catch {}
+    } catch { }
 
     return updatedEmp;
   },
@@ -2523,7 +2961,7 @@ export const WorkpulseSharedStore = {
 
     try {
       realtimeEventBus.emit("workday:task_assigned", { employeeId: targetId, task: newTask });
-    } catch {}
+    } catch { }
 
     return updatedEmp;
   },
@@ -2591,7 +3029,7 @@ export const WorkpulseSharedStore = {
         note: ackNote,
         time: ackTime,
       });
-    } catch {}
+    } catch { }
 
     return updatedTask;
   },
@@ -2651,7 +3089,12 @@ export const WorkpulseSharedStore = {
     globalDepartments = globalDepartments.map((dept) => ({
       ...dept,
       employees: dept.employees.map((emp) => {
-        if (emp.id.toLowerCase() === targetId || emp.email.toLowerCase() === targetId) {
+        const isMatch =
+          emp.id.toLowerCase() === targetId ||
+          emp.email.toLowerCase() === targetId ||
+          (targetId === "emp-sarah" && emp.email.toLowerCase().includes("employee.test")) ||
+          (targetId.includes("employee.test") && emp.id === "emp-sarah");
+        if (isMatch) {
           updatedEmp = {
             ...emp,
             sodStatus: emp.sodStatus || "VERIFIED",
@@ -2717,13 +3160,13 @@ export const WorkpulseSharedStore = {
             bc.postMessage({ type: "workday:lead_feedback_updated", employeeId, timestamp: Date.now() });
             bc.close();
           }
-        } catch {}
+        } catch { }
       }
     }
 
     try {
       realtimeEventBus.emit("workday:eod_submitted", { employeeId, tasks: formattedTasks, summary });
-    } catch {}
+    } catch { }
 
     return updatedEmp;
   },
@@ -2804,7 +3247,7 @@ export const WorkpulseSharedStore = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId, rolloverTasks: carriedOverTasks }),
-      }).catch(() => {});
+      }).catch(() => { });
 
       window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "new_workday" } }));
       window.dispatchEvent(new CustomEvent("workpulse:tasks_changed", { detail: { employeeId, tasks: carriedOverTasks } }));
@@ -2845,19 +3288,19 @@ export const WorkpulseSharedStore = {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId }),
-      }).catch(() => {});
+      }).catch(() => { });
       fetch("/api/v1/supabase/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete_sod", employeeId }),
-      }).catch(() => {});
+      }).catch(() => { });
       window.dispatchEvent(new CustomEvent("workpulse_sync"));
     }
 
     notify();
     try {
       realtimeEventBus.emit("workday:sod_deleted", { employeeId });
-    } catch {}
+    } catch { }
     return updatedEmp;
   },
 
@@ -2891,19 +3334,19 @@ export const WorkpulseSharedStore = {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId }),
-      }).catch(() => {});
+      }).catch(() => { });
       fetch("/api/v1/supabase/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete_eod", employeeId }),
-      }).catch(() => {});
+      }).catch(() => { });
       window.dispatchEvent(new CustomEvent("workpulse_sync"));
     }
 
     notify();
     try {
       realtimeEventBus.emit("workday:eod_deleted", { employeeId });
-    } catch {}
+    } catch { }
     return updatedEmp;
   },
 
@@ -2960,6 +3403,7 @@ export const WorkpulseSharedStore = {
     // Persist to Supabase
     syncWorkdayToSupabase({
       employeeId,
+      sodStatus: updatedEmp?.sodStatus || "VERIFIED",
       eodStatus: "VERIFIED",
       eodVerifiedBy: leadName || "Alex Lead",
       eodVerifiedAt: timeStr,
@@ -2970,6 +3414,14 @@ export const WorkpulseSharedStore = {
 
     if (typeof window !== "undefined") {
       const approvedTs = Date.now();
+      try {
+        localStorage.setItem(`workpulse_eod_approved_${targetId}`, String(approvedTs));
+        localStorage.setItem(`workpulse_eod_approved_${employeeId}`, String(approvedTs));
+        if (targetId === "emp-sarah" || targetId.includes("employee.test")) {
+          localStorage.setItem("workpulse_eod_approved_emp-sarah", String(approvedTs));
+          localStorage.setItem("workpulse_eod_approved_employee.test@xorstack.com", String(approvedTs));
+        }
+      } catch {}
       window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: { employeeId, type: "eod_verified", eodApprovedTimestamp: approvedTs } }));
       window.dispatchEvent(new CustomEvent("workpulse_sync"));
       try {
@@ -2980,12 +3432,12 @@ export const WorkpulseSharedStore = {
           bc.postMessage({ type: "workday:lead_feedback_updated", employeeId, timestamp: approvedTs });
           bc.close();
         }
-      } catch {}
+      } catch { }
     }
 
     try {
       realtimeEventBus.emit("workday:eod_verified", { employeeId, leadName, feedback });
-    } catch {}
+    } catch { }
 
     return updatedEmp;
   },
@@ -2999,14 +3451,41 @@ export const WorkpulseSharedStore = {
     if (Array.isArray(requests)) {
       supabaseSyncedLeave = true; // Mark Supabase as authoritative for leave data
       const deletedIds = getDeletedLeaveIds();
-      // Supabase is authoritative. Only preserve active optimistic requests from the current session that have _isOptimistic === true and are not yet in requests.
-      const pendingOptimistic = globalLeaveRequests.filter(
-        (localReq) =>
-          localReq._isOptimistic &&
-          !deletedIds.has(localReq.id) &&
-          !requests.some((r) => r.id === localReq.id)
-      );
-      globalLeaveRequests = [...pendingOptimistic, ...requests].filter((r) => !deletedIds.has(r.id));
+      const incomingMap = new Map(requests.map((r) => [r.id, r]));
+
+      let updatedList = globalLeaveRequests
+        .map((local) => {
+          if (deletedIds.has(local.id)) return null;
+          const incoming = incomingMap.get(local.id);
+          if (!incoming) return local; // Keep other team members' requests intact!
+          incomingMap.delete(local.id);
+          if (getLeaveStatusRank(local.status) > getLeaveStatusRank(incoming.status)) {
+            return {
+              ...incoming,
+              status: local.status,
+              tlApproverName: local.tlApproverName || incoming.tlApproverName,
+              tlApprovedAt: local.tlApprovedAt || incoming.tlApprovedAt,
+              tlComment: local.tlComment || incoming.tlComment,
+              hrApproverName: local.hrApproverName || incoming.hrApproverName,
+              hrApprovedAt: local.hrApprovedAt || incoming.hrApprovedAt,
+              hrComment: local.hrComment || incoming.hrComment,
+              remainingBalance: local.remainingBalance ?? incoming.remainingBalance,
+              rejectionReason: local.rejectionReason || incoming.rejectionReason,
+              _isOptimistic: local._isOptimistic,
+              _updatedAt: local._updatedAt,
+            };
+          }
+          return incoming;
+        })
+        .filter(Boolean) as SharedLeaveRequest[];
+
+      for (const [, newReq] of incomingMap) {
+        if (!deletedIds.has(newReq.id)) {
+          updatedList.push(newReq);
+        }
+      }
+
+      globalLeaveRequests = updatedList;
       saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
       notify();
     }
@@ -3021,6 +3500,8 @@ export const WorkpulseSharedStore = {
           tlApproverName: leadName || "Alex Lead (Team Lead)",
           tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
           tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
+          _isOptimistic: true,
+          _updatedAt: Date.now(),
         };
         return updatedReq;
       }
@@ -3028,7 +3509,15 @@ export const WorkpulseSharedStore = {
     });
     saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
-    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    if (updatedReq) {
+      syncLeaveRequestToSupabase(updatedReq);
+      broadcastLeaveChange({
+        type: "leave:status_updated",
+        id: requestId,
+        request: updatedReq,
+        stage: "STAGE_1",
+      });
+    }
     try {
       realtimeEventBus.emit("leave:approved", { id: requestId, stage: "STAGE_1", comment });
     } catch {
@@ -3043,6 +3532,8 @@ export const WorkpulseSharedStore = {
           ...req,
           status: "REJECTED",
           rejectionReason: reason || "Rejected by Team Lead",
+          _isOptimistic: true,
+          _updatedAt: Date.now(),
         };
         return updatedReq;
       }
@@ -3050,7 +3541,15 @@ export const WorkpulseSharedStore = {
     });
     saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
-    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    if (updatedReq) {
+      syncLeaveRequestToSupabase(updatedReq);
+      broadcastLeaveChange({
+        type: "leave:rejected",
+        id: requestId,
+        request: updatedReq,
+        stage: "STAGE_1",
+      });
+    }
     try {
       realtimeEventBus.emit("leave:rejected", { id: requestId, stage: "STAGE_1", reason });
     } catch {
@@ -3074,6 +3573,8 @@ export const WorkpulseSharedStore = {
           hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
           hrComment: comment || "Final HR Approval granted.",
           remainingBalance: newBalance,
+          _isOptimistic: true,
+          _updatedAt: Date.now(),
         };
         return updatedReq;
       }
@@ -3093,6 +3594,7 @@ export const WorkpulseSharedStore = {
             : emp
         ),
       }));
+      saveToStorage(STORAGE_KEYS.DEPARTMENTS, globalDepartments);
 
       // 2. Persist updated leave balance to Supabase
       if (typeof window !== "undefined") {
@@ -3109,7 +3611,17 @@ export const WorkpulseSharedStore = {
 
     saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
-    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    if (updatedReq) {
+      syncLeaveRequestToSupabase(updatedReq);
+      broadcastLeaveChange({
+        type: "leave:status_updated",
+        id: requestId,
+        request: updatedReq,
+        stage: "STAGE_2",
+        daysDeducted,
+        affectedEmployeeId,
+      });
+    }
     try {
       realtimeEventBus.emit("leave:approved", { id: requestId, stage: "STAGE_2", comment });
     } catch {
@@ -3124,6 +3636,8 @@ export const WorkpulseSharedStore = {
           ...req,
           status: "REJECTED",
           rejectionReason: reason || "Rejected by HR",
+          _isOptimistic: true,
+          _updatedAt: Date.now(),
         };
         return updatedReq;
       }
@@ -3131,7 +3645,15 @@ export const WorkpulseSharedStore = {
     });
     saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
-    if (updatedReq) syncLeaveRequestToSupabase(updatedReq);
+    if (updatedReq) {
+      syncLeaveRequestToSupabase(updatedReq);
+      broadcastLeaveChange({
+        type: "leave:rejected",
+        id: requestId,
+        request: updatedReq,
+        stage: "STAGE_2",
+      });
+    }
   },
 
   addLeaveRequest: (req: {
@@ -3168,13 +3690,19 @@ export const WorkpulseSharedStore = {
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
       _isOptimistic: true,
+      _updatedAt: Date.now(),
     };
     globalLeaveRequests = [newReq, ...globalLeaveRequests];
     saveToStorage(STORAGE_KEYS.LEAVE, globalLeaveRequests);
     notify();
+    broadcastLeaveChange({
+      type: "leave:created",
+      id: newReq.id,
+      request: newReq,
+    });
     try {
       realtimeEventBus.emit("leave:created", { id: newReq.id });
-    } catch {}
+    } catch { }
     syncLeaveRequestToSupabase(newReq);
     return newReq;
   },
@@ -3215,24 +3743,32 @@ export const WorkpulseSharedStore = {
           employeeId: target?.employeeId,
           startDate: target?.startDate,
         }),
-      }).catch(() => {});
+      }).catch(() => { });
 
-      fetch(`/api/v1/leave/${requestId}`, { method: "DELETE" }).catch(() => {});
-      fetch(`/api/v1/leave-requests/${requestId}`, { method: "DELETE" }).catch(() => {});
+      fetch(`/api/v1/leave/${requestId}`, { method: "DELETE" }).catch(() => { });
+      fetch(`/api/v1/leave-requests/${requestId}`, { method: "DELETE" }).catch(() => { });
     }
     notify();
+    broadcastLeaveChange({
+      type: "leave:deleted",
+      id: requestId,
+    });
     try {
       realtimeEventBus.emit("leave:deleted", { id: requestId });
-    } catch {}
+    } catch { }
   },
 
   removeLeaveRequestFromRealtime: (requestId: string) => {
     serverDeletedLeaveIds.add(requestId);
     globalLeaveRequests = globalLeaveRequests.filter((req) => req.id !== requestId);
     notify();
+    broadcastLeaveChange({
+      type: "leave:deleted",
+      id: requestId,
+    });
     try {
       realtimeEventBus.emit("leave:deleted", { id: requestId });
-    } catch {}
+    } catch { }
   },
 
   addWfhRequest: (req: {
@@ -3267,14 +3803,20 @@ export const WorkpulseSharedStore = {
       status: "PENDING_TL_STAGE_1",
       createdAt: new Date().toISOString(),
       _isOptimistic: true,
+      _updatedAt: Date.now(),
     };
 
     globalWfhRequests = [newReq, ...globalWfhRequests];
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
+    broadcastWfhChange({
+      type: "wfh:created",
+      id: newReq.id,
+      request: newReq,
+    });
     try {
       realtimeEventBus.emit("wfh:created", { id: newReq.id });
-    } catch {}
+    } catch { }
 
     syncWfhRequestToSupabase(newReq);
     return newReq;
@@ -3284,9 +3826,13 @@ export const WorkpulseSharedStore = {
     globalWfhRequests = globalWfhRequests.filter((req) => req.id !== requestId);
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
+    broadcastWfhChange({
+      type: "wfh:deleted",
+      id: requestId,
+    });
     try {
       realtimeEventBus.emit("wfh:deleted", { id: requestId });
-    } catch {}
+    } catch { }
 
     if (typeof window !== "undefined") {
       fetch("/api/v1/supabase/sync", {
@@ -3297,8 +3843,8 @@ export const WorkpulseSharedStore = {
           table: "wfh_requests",
           id: requestId,
         }),
-      }).catch(() => {});
-      fetch(`/api/v1/leave/wfh/${requestId}`, { method: "DELETE" }).catch(() => {});
+      }).catch(() => { });
+      fetch(`/api/v1/leave/wfh/${requestId}`, { method: "DELETE" }).catch(() => { });
     }
   },
 
@@ -3306,9 +3852,13 @@ export const WorkpulseSharedStore = {
     globalWfhRequests = globalWfhRequests.filter((req) => req.id !== requestId);
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
+    broadcastWfhChange({
+      type: "wfh:deleted",
+      id: requestId,
+    });
     try {
       realtimeEventBus.emit("wfh:deleted", { id: requestId });
-    } catch {}
+    } catch { }
   },
 
   // WFH Requests
@@ -3319,13 +3869,35 @@ export const WorkpulseSharedStore = {
   setWfhRequestsFromSupabase: (requests: SharedWfhRequest[]) => {
     if (Array.isArray(requests)) {
       supabaseSyncedWfh = true; // Mark Supabase as authoritative for WFH data
-      // Supabase is authoritative. Only preserve active optimistic requests from the current session that have _isOptimistic === true and are not yet in requests.
-      const pendingOptimistic = globalWfhRequests.filter(
-        (localReq) =>
-          localReq._isOptimistic &&
-          !requests.some((r) => r.id === localReq.id)
-      );
-      globalWfhRequests = [...pendingOptimistic, ...requests];
+      const incomingMap = new Map(requests.map((r) => [r.id, r]));
+
+      let updatedList = globalWfhRequests.map((local) => {
+        const incoming = incomingMap.get(local.id);
+        if (!incoming) return local; // Keep other team members' requests intact!
+        incomingMap.delete(local.id);
+        if (getWfhStatusRank(local.status) > getWfhStatusRank(incoming.status)) {
+          return {
+            ...incoming,
+            status: local.status,
+            tlApproverName: local.tlApproverName || incoming.tlApproverName,
+            tlApprovedAt: local.tlApprovedAt || incoming.tlApprovedAt,
+            tlComment: local.tlComment || incoming.tlComment,
+            hrApproverName: local.hrApproverName || incoming.hrApproverName,
+            hrApprovedAt: local.hrApprovedAt || incoming.hrApprovedAt,
+            hrComment: local.hrComment || incoming.hrComment,
+            rejectionReason: local.rejectionReason || incoming.rejectionReason,
+            _isOptimistic: local._isOptimistic,
+            _updatedAt: local._updatedAt,
+          };
+        }
+        return incoming;
+      });
+
+      for (const [, newReq] of incomingMap) {
+        updatedList.push(newReq);
+      }
+
+      globalWfhRequests = updatedList;
       saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
       notify();
     }
@@ -3340,22 +3912,34 @@ export const WorkpulseSharedStore = {
       tlApproverName: leadName || "Alex Lead (Team Lead)",
       tlApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
       tlComment: comment || "Approved by Team Lead. Forwarded to HR for final sign-off.",
+      _isOptimistic: true,
+      _updatedAt: Date.now(),
     };
 
     globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
     syncWfhRequestToSupabase(updatedReq);
+    broadcastWfhChange({
+      type: "wfh:status_updated",
+      id: requestId,
+      request: updatedReq,
+      stage: "STAGE_1",
+    });
     try {
       realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_1", comment });
-    } catch {}
+    } catch { }
 
     if (typeof window !== "undefined") {
+      const emailHeader = sessionStorage.getItem("workpulse_session_email") || "";
       fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tlComment: updatedReq.tlComment, tlApproverName: updatedReq.tlApproverName }),
-      }).catch(() => {});
+        headers: {
+          "Content-Type": "application/json",
+          ...(emailHeader ? { "x-user-email": emailHeader } : {}),
+        },
+        body: JSON.stringify({ tlComment: updatedReq.tlComment, tlApproverName: updatedReq.tlApproverName, stage: "STAGE_1" }),
+      }).catch(() => { });
     }
   },
   tlRejectWfh: (requestId: string, reason: string) => {
@@ -3366,22 +3950,34 @@ export const WorkpulseSharedStore = {
       ...req,
       status: "REJECTED",
       rejectionReason: reason || "Rejected by Team Lead",
+      _isOptimistic: true,
+      _updatedAt: Date.now(),
     };
 
     globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
     syncWfhRequestToSupabase(updatedReq);
+    broadcastWfhChange({
+      type: "wfh:rejected",
+      id: requestId,
+      request: updatedReq,
+      stage: "STAGE_1",
+    });
     try {
       realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_1", reason });
-    } catch {}
+    } catch { }
 
     if (typeof window !== "undefined") {
+      const emailHeader = sessionStorage.getItem("workpulse_session_email") || "";
       fetch(`/api/v1/leave/wfh/${requestId}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason }),
-      }).catch(() => {});
+        headers: {
+          "Content-Type": "application/json",
+          ...(emailHeader ? { "x-user-email": emailHeader } : {}),
+        },
+        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason, stage: "STAGE_1" }),
+      }).catch(() => { });
     }
   },
   hrApproveWfh: (requestId: string, comment?: string) => {
@@ -3394,22 +3990,34 @@ export const WorkpulseSharedStore = {
       hrApproverName: "Rachel HR (People Ops Lead)",
       hrApprovedAt: `Today at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
       hrComment: comment || "Final HR Approval granted for remote workday.",
+      _isOptimistic: true,
+      _updatedAt: Date.now(),
     };
 
     globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
     syncWfhRequestToSupabase(updatedReq);
+    broadcastWfhChange({
+      type: "wfh:status_updated",
+      id: requestId,
+      request: updatedReq,
+      stage: "STAGE_2",
+    });
     try {
       realtimeEventBus.emit("wfh:approved", { id: requestId, stage: "STAGE_2", comment });
-    } catch {}
+    } catch { }
 
     if (typeof window !== "undefined") {
+      const emailHeader = sessionStorage.getItem("workpulse_session_email") || "";
       fetch(`/api/v1/leave/wfh/${requestId}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hrComment: updatedReq.hrComment, hrApproverName: updatedReq.hrApproverName }),
-      }).catch(() => {});
+        headers: {
+          "Content-Type": "application/json",
+          ...(emailHeader ? { "x-user-email": emailHeader } : {}),
+        },
+        body: JSON.stringify({ hrComment: updatedReq.hrComment, hrApproverName: updatedReq.hrApproverName, stage: "STAGE_2" }),
+      }).catch(() => { });
     }
   },
   hrRejectWfh: (requestId: string, reason: string) => {
@@ -3420,22 +4028,34 @@ export const WorkpulseSharedStore = {
       ...req,
       status: "REJECTED",
       rejectionReason: reason || "Rejected by HR",
+      _isOptimistic: true,
+      _updatedAt: Date.now(),
     };
 
     globalWfhRequests = globalWfhRequests.map((r) => (r.id === requestId ? updatedReq : r));
     saveToStorage(STORAGE_KEYS.WFH, globalWfhRequests);
     notify();
     syncWfhRequestToSupabase(updatedReq);
+    broadcastWfhChange({
+      type: "wfh:rejected",
+      id: requestId,
+      request: updatedReq,
+      stage: "STAGE_2",
+    });
     try {
       realtimeEventBus.emit("wfh:rejected", { id: requestId, stage: "STAGE_2", reason });
-    } catch {}
+    } catch { }
 
     if (typeof window !== "undefined") {
+      const emailHeader = sessionStorage.getItem("workpulse_session_email") || "";
       fetch(`/api/v1/leave/wfh/${requestId}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason }),
-      }).catch(() => {});
+        headers: {
+          "Content-Type": "application/json",
+          ...(emailHeader ? { "x-user-email": emailHeader } : {}),
+        },
+        body: JSON.stringify({ rejectionReason: updatedReq.rejectionReason, stage: "STAGE_2" }),
+      }).catch(() => { });
     }
   },
 
@@ -3581,12 +4201,12 @@ export const WorkpulseSharedStore = {
           timestamp: Date.now(),
         });
         bc.close();
-      } catch {}
+      } catch { }
       try {
         window.dispatchEvent(
           new CustomEvent("workpulse:help_changed", { detail: newHelp })
         );
-      } catch {}
+      } catch { }
     }
 
     // 2. Persist to Supabase feedbacks table (bypassing RLS via universal admin sync)
@@ -3621,7 +4241,7 @@ export const WorkpulseSharedStore = {
             created_at: new Date().toISOString(),
           },
         }),
-      }).catch(() => {});
+      }).catch(() => { });
 
       // Dispatch notification to Team Lead
       fetch("/api/v1/supabase/sync", {
@@ -3641,12 +4261,12 @@ export const WorkpulseSharedStore = {
             createdAt: new Date().toISOString(),
           },
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     try {
       realtimeEventBus.emit("workday:help_requested", newHelp);
-    } catch {}
+    } catch { }
     return newHelp;
   },
   acknowledgeHelpRequest: (id: string, responseNote?: string) => {
@@ -3679,12 +4299,12 @@ export const WorkpulseSharedStore = {
           timestamp: Date.now(),
         });
         bc.close();
-      } catch {}
+      } catch { }
       try {
         window.dispatchEvent(
           new CustomEvent("workpulse:help_changed", { detail: targetReq })
         );
-      } catch {}
+      } catch { }
 
       // Persist update to Supabase
       const notesData = JSON.stringify({
@@ -3711,7 +4331,7 @@ export const WorkpulseSharedStore = {
             notes: notesData,
           },
         }),
-      }).catch(() => {});
+      }).catch(() => { });
 
       // Dispatch notification to employee
       fetch("/api/v1/supabase/sync", {
@@ -3731,12 +4351,12 @@ export const WorkpulseSharedStore = {
             createdAt: new Date().toISOString(),
           },
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     try {
       realtimeEventBus.emit("workday:help_acknowledged", { id, responseNote: note });
-    } catch {}
+    } catch { }
   },
   resolveHelpRequest: (
     id: string,
@@ -3786,12 +4406,12 @@ export const WorkpulseSharedStore = {
           timestamp: Date.now(),
         });
         bc.close();
-      } catch {}
+      } catch { }
       try {
         window.dispatchEvent(
           new CustomEvent("workpulse:help_changed", { detail: resolvedItem })
         );
-      } catch {}
+      } catch { }
 
       // Persist update to Supabase
       const notesData = JSON.stringify({
@@ -3823,12 +4443,12 @@ export const WorkpulseSharedStore = {
             notes: notesData,
           },
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     try {
       realtimeEventBus.emit("workday:help_resolved", { id, actor });
-    } catch {}
+    } catch { }
   },
   cancelHelpRequest: (id: string) => {
     globalHelpRequests = globalHelpRequests.filter((h) => h.id !== id);
@@ -3843,14 +4463,14 @@ export const WorkpulseSharedStore = {
           timestamp: Date.now(),
         });
         bc.close();
-      } catch {}
+      } catch { }
       try {
         window.dispatchEvent(
           new CustomEvent("workpulse:help_changed", {
             detail: { id, cancelled: true },
           })
         );
-      } catch {}
+      } catch { }
 
       fetch("/api/v1/supabase/sync", {
         method: "POST",
@@ -3860,12 +4480,12 @@ export const WorkpulseSharedStore = {
           table: "feedbacks",
           id,
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     try {
       realtimeEventBus.emit("workday:help_cancelled", { id });
-    } catch {}
+    } catch { }
   },
   getTeamPresence: () => [...globalTeamPresence],
   verifyMemberPresence: (id: string, verifierName: string = "Alex Lead") => {
@@ -3874,18 +4494,18 @@ export const WorkpulseSharedStore = {
     globalTeamPresence = globalTeamPresence.map((p) =>
       p.id === id
         ? {
-            ...p,
-            verified: true,
-            verifiedAt: timeStr,
-            verifiedBy: verifierName,
-            status: "ON_TIME",
-          }
+          ...p,
+          verified: true,
+          verifiedAt: timeStr,
+          verifiedBy: verifierName,
+          status: "ON_TIME",
+        }
         : p
     );
     notify();
     try {
       realtimeEventBus.emit("attendance:presence_verified", { id, verifierName, verifiedAt: timeStr });
-    } catch {}
+    } catch { }
   },
   verifyAllMemberPresence: (verifierName: string = "Alex Lead") => {
     const now = new Date();
@@ -3900,17 +4520,17 @@ export const WorkpulseSharedStore = {
     notify();
     try {
       realtimeEventBus.emit("attendance:all_presence_verified", { verifierName, verifiedAt: timeStr });
-    } catch {}
+    } catch { }
   },
   unverifyMemberPresence: (id: string) => {
     globalTeamPresence = globalTeamPresence.map((p) =>
       p.id === id
         ? {
-            ...p,
-            verified: false,
-            verifiedAt: undefined,
-            verifiedBy: undefined,
-          }
+          ...p,
+          verified: false,
+          verifiedAt: undefined,
+          verifiedBy: undefined,
+        }
         : p
     );
     notify();

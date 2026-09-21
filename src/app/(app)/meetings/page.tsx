@@ -110,19 +110,19 @@ export default function MeetingsPage() {
         )}
 
         {/* Hero Banner */}
-        <Interactive3DCard className="p-6 md:p-8 border border-purple-500/30 bg-gradient-to-r from-card/90 via-card/70 to-purple-500/10 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 md:p-8 border border-purple-500/30 bg-gradient-to-r from-card/90 via-card/70 to-purple-500/10 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="brand" className="bg-purple-500/15 border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase">
                   <Video className="h-3 w-3 mr-1 text-purple-400" />
-                  Collaboration & Alignment
+                  Collaboration &amp; Alignment
                 </Badge>
                 <span className="text-xs text-muted-foreground font-mono">
                   {user.userName} · {user.primaryRole}
                 </span>
               </div>
-              <h2 className="text-2xl font-black text-foreground">1-on-1s, Standups & Team Syncs</h2>
+              <h2 className="text-xl sm:text-2xl font-black text-foreground">1-on-1s, Standups &amp; Team Syncs</h2>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 Connect with reporting managers, conduct private 1-on-1 career coaching syncs, and track sprint deliverables with structured meeting action items.
               </p>
@@ -132,7 +132,7 @@ export default function MeetingsPage() {
               variant="brand"
               size="sm"
               onClick={() => handleJoinMeeting("Instant Team Room")}
-              className="text-xs h-9 px-4 font-bold bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1.5 shadow-md shrink-0"
+              className="text-xs h-9 px-4 font-bold bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1.5 shadow-md shrink-0 self-stretch sm:self-auto justify-center"
             >
               <Video className="h-3.5 w-3.5" />
               <span>Start Instant Team Sync</span>
@@ -180,12 +180,12 @@ export default function MeetingsPage() {
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Calendar className="h-4 w-4 text-purple-400" />
-            Scheduled Meetings & Agendas
+            Scheduled Meetings &amp; Agendas
           </h3>
 
           <div className="space-y-4">
             {meetings.map((meet) => (
-              <Interactive3DCard key={meet.id} className="p-6 border border-border/80 space-y-4 bg-card/60">
+              <Interactive3DCard key={meet.id} className="p-4 sm:p-6 border border-border/80 space-y-4 bg-card/60">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -208,7 +208,7 @@ export default function MeetingsPage() {
                     size="sm"
                     variant="brand"
                     onClick={() => handleJoinMeeting(meet.title)}
-                    className="text-xs font-bold h-8 px-3.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1.5 shrink-0 shadow-sm"
+                    className="text-xs font-bold h-8 px-3.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1.5 shrink-0 shadow-sm self-stretch sm:self-auto justify-center"
                   >
                     <Video className="h-3.5 w-3.5" />
                     <span>Join Room</span>

@@ -74,6 +74,13 @@ export function HREnterpriseLeaveDesk() {
   );
   const totalPendingStage2 = pendingLeaves.length + pendingWfhs.length;
 
+  const getHrAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-email": typeof window !== "undefined"
+      ? sessionStorage.getItem("workpulse_session_email") || sessionStorage.getItem("workpulse_user_email") || "hr.test@xorstack.com"
+      : "hr.test@xorstack.com",
+  });
+
   const handleApproveLeave = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Authorized by HR People Operations with standard balance deduction.";
     hrApproveLeave(id, comment);
@@ -83,8 +90,8 @@ export function HREnterpriseLeaveDesk() {
     try {
       await fetch(`/api/v1/leave/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR leave approval to API:", e);
@@ -100,8 +107,8 @@ export function HREnterpriseLeaveDesk() {
     try {
       await fetch(`/api/v1/leave/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ reason: comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR leave rejection to API:", e);
@@ -117,8 +124,8 @@ export function HREnterpriseLeaveDesk() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH approval to API:", e);
@@ -134,8 +141,8 @@ export function HREnterpriseLeaveDesk() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ reason: comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH rejection to API:", e);

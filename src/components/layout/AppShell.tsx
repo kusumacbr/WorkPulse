@@ -44,7 +44,7 @@ function InnerAppShell({ children, fallbackUser }: { children: React.ReactNode; 
           userEmail={currentUser?.userEmail || fallbackUser.userEmail}
           userRoles={effectiveRoles}
         />
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl w-full mx-auto space-y-6">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto max-w-7xl w-full mx-auto space-y-4 sm:space-y-6">
           {children}
         </main>
       </div>

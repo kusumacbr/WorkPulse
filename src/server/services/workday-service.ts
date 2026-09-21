@@ -116,7 +116,7 @@ export class WorkdayService {
     let workday = inMemoryWorkdays.get(key);
 
     const now = new Date().toISOString();
-    const workdayId = workday?.id || `wd-${crypto.randomUUID()}`;
+    const workdayId = workday?.id || `wd-${targetEmployeeId}-${params.input.workDate}`;
 
     const tasks: TaskRecord[] = params.input.tasks.map((t, idx) => ({
       id: `task-${crypto.randomUUID()}`,
@@ -326,7 +326,7 @@ export class WorkdayService {
       const today = new Date().toISOString().split("T")[0]!;
       workdayKey = `${empId}_${today}`;
       existingWorkday = {
-        id: params.input.workdayId || `wd-${empId}`,
+        id: params.input.workdayId || `wd-${empId}-${today}`,
         employeeId: empId,
         workDate: today,
         workMode: "OFFICE",

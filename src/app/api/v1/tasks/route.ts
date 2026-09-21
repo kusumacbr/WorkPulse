@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function GET(req: NextRequest) {
   const { actor } = await getSessionActor(req);
   const searchParams = req.nextUrl.searchParams;
+  const employeeIdsParam = searchParams.get("employeeIds");
   const employeeId = searchParams.get("employeeId") || actor.employeeId;
   const status = searchParams.get("status");
 
@@ -13,6 +14,114 @@ export async function GET(req: NextRequest) {
     const supabaseAdmin = createAdminClient();
     if (!supabaseAdmin) {
       return apiError("Database connection failed", 500);
+    }
+
+    const today = new Date().toISOString().split("T")[0]!;
+
+    // Batch query for multiple team members at once (dramatically reduces page load time)
+    if (employeeIdsParam) {
+      const rawIds = employeeIdsParam.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+      const allTargetIds = new Set<string>();
+      for (const id of rawIds) {
+        allTargetIds.add(id);
+        if (id === "emp-sarah" || id.includes("employee.test") || id.includes("sarah")) {
+          allTargetIds.add("emp-sarah");
+          allTargetIds.add("employee.test@xorstack.com");
+          allTargetIds.add("dev-employee-test-xorstack-com");
+          allTargetIds.add("emp-sarah-devi");
+        }
+        if (id === "lead-alex" || id.includes("lead.test") || id.includes("alex")) {
+          allTargetIds.add("lead-alex");
+          allTargetIds.add("lead.test@xorstack.com");
+          allTargetIds.add("dev-lead-test-xorstack-com");
+        }
+      }
+
+      let query = supabaseAdmin
+        .from("daily_tasks")
+        .select("*")
+        .in("employee_id", Array.from(allTargetIds))
+        .order("created_at", { ascending: false });
+
+      if (status) {
+        query = query.eq("status", status);
+      }
+
+      const { data: dbTasks, error } = await query;
+      if (error) {
+        console.error("[Tasks API] Error fetching batch tasks", error);
+        return apiError("Database query failed", 500);
+      }
+
+      const tasksByEmployee: Record<string, any[]> = {};
+      for (const id of rawIds) {
+        tasksByEmployee[id] = [];
+      }
+
+      const seenIdsByEmp: Record<string, Set<string>> = {};
+      const seenTitlesByEmp: Record<string, Map<string, number>> = {};
+
+      for (const t of (dbTasks || [])) {
+        const rawEmpId = String(t.employee_id || "").trim().toLowerCase();
+        const targetEmpKey = (rawEmpId === "employee.test@xorstack.com" || rawEmpId.includes("sarah"))
+          ? (tasksByEmployee["emp-sarah"] ? "emp-sarah" : rawEmpId)
+          : rawEmpId;
+
+        if (!tasksByEmployee[targetEmpKey]) {
+          tasksByEmployee[targetEmpKey] = [];
+        }
+        if (!seenIdsByEmp[targetEmpKey]) seenIdsByEmp[targetEmpKey] = new Set();
+        if (!seenTitlesByEmp[targetEmpKey]) seenTitlesByEmp[targetEmpKey] = new Map();
+
+        const id = String(t.id || "").trim();
+        const rawTitle = String(t.title || "").trim();
+        if (!rawTitle) continue;
+        const titleKey = rawTitle.toLowerCase();
+
+        if (id && seenIdsByEmp[targetEmpKey].has(id)) continue;
+
+        const progress = Number(t.progress !== undefined ? t.progress : (t.completion_percentage !== undefined ? t.completion_percentage : 0)) || 0;
+        const isCompleted = t.status === "COMPLETED" || progress >= 100;
+        const taskDate = t.date || today;
+
+        if (taskDate < today && isCompleted) continue;
+
+        const taskItem = {
+          id: t.id,
+          title: rawTitle,
+          category: t.category || "General",
+          project: t.category || "General",
+          priority: t.priority || "MEDIUM",
+          status: t.status || (progress === 100 ? "COMPLETED" : progress > 0 ? "IN_PROGRESS" : "NOT_STARTED"),
+          progress,
+          completionPercentage: progress,
+          assignedBy: t.assigned_by,
+          assignedAt: t.assigned_at,
+          acknowledged: Boolean(t.acknowledged),
+          acknowledgementNote: t.acknowledgement_note,
+        };
+
+        if (seenTitlesByEmp[targetEmpKey].has(titleKey)) {
+          const idx = seenTitlesByEmp[targetEmpKey].get(titleKey)!;
+          const existing = tasksByEmployee[targetEmpKey][idx];
+          if (existing && ((taskItem.assignedBy && !existing.assignedBy) || (taskItem.acknowledged && !existing.acknowledged) || progress > existing.progress)) {
+            tasksByEmployee[targetEmpKey][idx] = {
+              ...existing,
+              ...taskItem,
+              assignedBy: taskItem.assignedBy || existing.assignedBy,
+              acknowledged: Boolean(taskItem.acknowledged || existing.acknowledged),
+              acknowledgementNote: taskItem.acknowledgementNote || existing.acknowledgementNote,
+            };
+          }
+          continue;
+        }
+
+        if (id) seenIdsByEmp[targetEmpKey].add(id);
+        seenTitlesByEmp[targetEmpKey].set(titleKey, tasksByEmployee[targetEmpKey].length);
+        tasksByEmployee[targetEmpKey].push(taskItem);
+      }
+
+      return apiSuccess({ tasksByEmployee, total: (dbTasks || []).length });
     }
 
     const isSarah = employeeId === "emp-sarah" || employeeId?.toLowerCase().includes("employee.test") || employeeId?.toLowerCase().includes("sarah");
@@ -23,8 +132,6 @@ export async function GET(req: NextRequest) {
       ...(isSarah ? ["emp-sarah", "employee.test@xorstack.com", "dev-employee-test-xorstack-com", "emp-sarah-devi"] : []),
       ...(isAlex ? ["lead-alex", "lead.test@xorstack.com", "dev-lead-test-xorstack-com"] : []),
     ].filter(Boolean)));
-
-    const today = new Date().toISOString().split("T")[0]!;
 
     let query = supabaseAdmin
       .from("daily_tasks")

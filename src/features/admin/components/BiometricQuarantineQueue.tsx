@@ -99,11 +99,11 @@ export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarant
                     </p>
                   </div>
 
-                  <div className="shrink-0">
+                  <div className="shrink-0 w-full sm:w-auto">
                     <Button
                       variant="brand"
                       size="sm"
-                      className="text-xs gap-1.5"
+                      className="w-full sm:w-auto text-xs gap-1.5 justify-center"
                       onClick={() => setResolvingTx(tx)}
                     >
                       <UserCheck className="h-3.5 w-3.5" />
@@ -119,8 +119,8 @@ export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarant
 
       {/* Resolution Modal */}
       {resolvingTx && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-border shadow-2xl bg-card">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-md border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto custom-scrollbar">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-[var(--brand-primary)]" />
@@ -131,7 +131,7 @@ export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarant
               </Button>
             </CardHeader>
 
-            <CardContent className="p-6 space-y-4 text-xs">
+            <CardContent className="p-4 sm:p-6 space-y-4 text-xs">
               <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Device Employee Code:</span>
@@ -170,11 +170,11 @@ export function BiometricQuarantineQueue({ initialQuarantine }: BiometricQuarant
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button variant="ghost" size="sm" onClick={() => setResolvingTx(null)}>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-border">
+                <Button variant="ghost" size="sm" onClick={() => setResolvingTx(null)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button variant="brand" size="sm" onClick={handleResolve}>
+                <Button variant="brand" size="sm" onClick={handleResolve} className="w-full sm:w-auto">
                   Confirm & Recalculate Attendance
                 </Button>
               </div>

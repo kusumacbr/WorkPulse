@@ -23,6 +23,13 @@ export function TeamLeadLeaveApprovals() {
   const pendingRequests = leaveRequests.filter((r) => r.status === "PENDING_TL_STAGE_1");
   const processedRequests = leaveRequests.filter((r) => r.status !== "PENDING_TL_STAGE_1");
 
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-email": typeof window !== "undefined"
+      ? sessionStorage.getItem("workpulse_session_email") || sessionStorage.getItem("workpulse_user_email") || "lead.test@xorstack.com"
+      : "lead.test@xorstack.com",
+  });
+
   const handleApprove = async (id: string, name: string) => {
     const comment = commentInputs[id] || "Approved by Team Lead (Alex Lead). Forwarded to HR.";
     tlApproveLeave(id, comment);
@@ -31,8 +38,8 @@ export function TeamLeadLeaveApprovals() {
     try {
       await fetch(`/api/v1/leave/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_1" }),
       });
     } catch (e) {
       console.warn("Failed to persist lead leave approval to API:", e);
@@ -47,8 +54,8 @@ export function TeamLeadLeaveApprovals() {
     try {
       await fetch(`/api/v1/leave/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_1" }),
       });
     } catch (e) {
       console.warn("Failed to persist lead leave rejection to API:", e);

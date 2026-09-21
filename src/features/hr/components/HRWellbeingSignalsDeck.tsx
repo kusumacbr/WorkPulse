@@ -225,7 +225,7 @@ export function HRWellbeingSignalsDeck() {
       {/* Main 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Left: Staff Needing Check-In */}
-        <Interactive3DCard className="p-5 border border-border/80 space-y-4 bg-card/70">
+        <Interactive3DCard className="p-4 sm:p-5 border border-border/80 space-y-4 bg-card/70">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Users className="h-4 w-4 text-purple-400" />
@@ -240,10 +240,10 @@ export function HRWellbeingSignalsDeck() {
             {checkins.map((item) => (
               <div
                 key={item.id}
-                className="p-3.5 rounded-xl bg-card/80 border border-border/70 flex items-center justify-between gap-3 text-xs shadow-sm hover:border-border transition-all"
+                className="p-3.5 rounded-xl bg-card/80 border border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm hover:border-border transition-all"
               >
                 <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <strong className="text-foreground text-xs font-bold block truncate">{item.name}</strong>
                     <Badge
                       variant="brand"
@@ -266,13 +266,13 @@ export function HRWellbeingSignalsDeck() {
                     variant="brand"
                     size="sm"
                     onClick={() => handleMarkCheckedIn(item.id, item.name)}
-                    className="text-xs font-bold h-8 px-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1 rounded-xl shadow-sm shrink-0 hover:opacity-90 transition-opacity"
+                    className="w-full sm:w-auto text-xs font-bold h-8 px-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white gap-1 rounded-xl shadow-sm shrink-0 hover:opacity-90 transition-opacity justify-center"
                   >
                     <MessageSquare className="h-3 w-3" />
                     <span>Check-In</span>
                   </Button>
                 ) : (
-                  <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 shrink-0 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                  <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 shrink-0 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 self-start sm:self-auto">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     <span>Done</span>
                   </span>
@@ -283,7 +283,7 @@ export function HRWellbeingSignalsDeck() {
         </Interactive3DCard>
 
         {/* Right: Team Workload Levels */}
-        <Interactive3DCard className="p-5 border border-border/80 space-y-4 bg-card/70">
+        <Interactive3DCard className="p-4 sm:p-5 border border-border/80 space-y-4 bg-card/70">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-400" />

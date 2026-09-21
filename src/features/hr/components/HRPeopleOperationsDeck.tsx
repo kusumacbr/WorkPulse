@@ -784,19 +784,19 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
 
       {/* Sub-Navigation Tabs */}
       {!hideSubTabBar && (!allowedSubTabs || allowedSubTabs.length > 1) && (
-        <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto gap-1 text-xs">
+        <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto gap-1 text-xs custom-scrollbar">
           {(!allowedSubTabs || allowedSubTabs.includes("directory")) && (
             <button
               type="button"
               onClick={() => setSubTab("directory")}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all shrink-0 whitespace-nowrap ${
                 subTab === "directory"
                   ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
               <Users className="h-3.5 w-3.5" />
-              <span>Employee Directory & CRUD Hub</span>
+              <span>Employee Directory &amp; CRUD Hub</span>
               <span className="text-[10px] opacity-75 font-mono">({fullDirectory.length})</span>
             </button>
           )}
@@ -805,14 +805,14 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
             <button
               type="button"
               onClick={() => setSubTab("joiners_probation")}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all shrink-0 whitespace-nowrap ${
                 subTab === "joiners_probation"
                   ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
               <UserPlus className="h-3.5 w-3.5" />
-              <span>New Joiners & Probation Due</span>
+              <span>New Joiners &amp; Probation Due</span>
               <Badge variant="outline" className="text-[9px] ml-1 bg-white/20 text-white border-transparent">
                 {probationList.filter((p) => p.status === "PENDING_HR_DECISION").length}
               </Badge>
@@ -823,14 +823,14 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
             <button
               type="button"
               onClick={() => setSubTab("org_tree")}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all shrink-0 whitespace-nowrap ${
                 subTab === "org_tree"
                   ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
               <Building2 className="h-3.5 w-3.5" />
-              <span>Org Structure & Headcount</span>
+              <span>Org Structure &amp; Headcount</span>
             </button>
           )}
 
@@ -838,14 +838,14 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
             <button
               type="button"
               onClick={() => setSubTab("exits")}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all shrink-0 whitespace-nowrap ${
                 subTab === "exits"
                   ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
               <UserMinus className="h-3.5 w-3.5" />
-              <span>Notice Period & Exits</span>
+              <span>Notice Period &amp; Exits</span>
             </button>
           )}
 
@@ -853,7 +853,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
             <button
               type="button"
               onClick={() => setSubTab("profile_queries")}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all shrink-0 whitespace-nowrap ${
                 subTab === "profile_queries"
                   ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -912,7 +912,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
               </div>
 
               {/* Right: Upload CSV & Add Employee */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
@@ -937,7 +937,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
 
             {/* Clean Directory Table */}
             <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card/40">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[680px]">
                 <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/50 text-[11px]">
                   <tr>
                     <th className="p-3.5 pl-4">Staff Member</th>
@@ -1277,7 +1277,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
               </Badge>
             </div>
 
-            <div className="grid grid-cols-4 gap-3 text-center text-xs pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs pt-2">
               <div className="p-3 rounded-xl bg-card/60 border border-border">
                 <span className="text-muted-foreground block text-[10px]">Q4 2025</span>
                 <strong className="text-base font-black text-foreground">15 Staff</strong>
@@ -1348,7 +1348,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                       </Badge>
                     </div>
 
-                    <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-mono">
                       <span>Resignation: {rec.resignationDate}</span>
                       <span>LWD: {rec.lastWorkingDate}</span>
                       <span>
@@ -1376,7 +1376,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1466,7 +1466,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {qry.status === "PENDING_HR_REVIEW" ? (
                         <>
                           <Button
@@ -1533,9 +1533,9 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
       {/* 5. MODAL: ONBOARD / ADD NEW EMPLOYEE                            */}
       {/* ============================================================== */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)} />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-cyan-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-cyan-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-cyan-50 dark:bg-cyan-500/20 border border-cyan-200 dark:border-cyan-500/40 flex items-center justify-center text-cyan-600 dark:text-cyan-300 shadow-sm">
@@ -1543,7 +1543,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Onboard New Employee</h3>
-                  <span className="text-[11px] text-muted-foreground">Add new staff record with designated department & lead</span>
+                  <span className="text-[11px] text-muted-foreground">Add new staff record with designated department &amp; lead</span>
                 </div>
               </div>
               <Button
@@ -1683,22 +1683,22 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/80">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-border/80">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAddModal(false)}
-                  className="text-xs h-8 text-foreground"
+                  className="text-xs h-8.5 text-foreground"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="text-xs font-bold h-8 bg-sky-600 hover:bg-sky-700 text-white shadow-sm px-4"
+                  className="text-xs font-bold h-8.5 bg-sky-600 hover:bg-sky-700 text-white shadow-sm px-4"
                 >
-                  Confirm & Onboard Staff
+                  Confirm &amp; Onboard Staff
                 </Button>
               </div>
             </form>
@@ -1710,17 +1710,17 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
       {/* 6. MODAL: EDIT EMPLOYEE RECORD                                  */}
       {/* ============================================================== */}
       {editingEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setEditingEmployee(null)} />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-amber-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-amber-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-300 shadow-sm">
                   <Pencil className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Edit Employee Record</h3>
-                  <span className="text-[11px] text-muted-foreground">{editingEmployee.name} ({editingEmployee.id})</span>
+                  <h3 className="text-base font-bold text-foreground">Edit Staff Record</h3>
+                  <span className="text-[11px] text-muted-foreground">Modify employment details, designation, &amp; department</span>
                 </div>
               </div>
               <Button
@@ -1736,7 +1736,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
             <form onSubmit={handleEditEmployeeSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-foreground">Full Name</label>
+                  <label className="text-[11px] font-bold text-foreground">Full Name *</label>
                   <Input
                     required
                     value={editingEmployee.name}
@@ -1746,7 +1746,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-foreground">Work Email</label>
+                  <label className="text-[11px] font-bold text-foreground">Work Email *</label>
                   <Input
                     required
                     type="email"
@@ -1759,7 +1759,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-foreground">Designation</label>
+                  <label className="text-[11px] font-bold text-foreground">Job Title / Designation *</label>
                   <Input
                     required
                     value={editingEmployee.designation}
@@ -1769,21 +1769,23 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-foreground">Department</label>
+                  <label className="text-[11px] font-bold text-foreground">Department *</label>
                   <select
                     value={editingEmployee.departmentId}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const selDept = departments.find((d) => d.id === e.target.value);
                       setEditingEmployee({
                         ...editingEmployee,
                         departmentId: e.target.value,
-                        department: departments.find((d) => d.id === e.target.value)?.name || editingEmployee.department,
-                      })
-                    }
+                        department: selDept ? selDept.name : editingEmployee.department,
+                        teamLeadName: selDept ? selDept.teamLead.name : editingEmployee.teamLeadName,
+                      });
+                    }}
                     className="w-full h-8.5 px-3 rounded-md border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {departments.map((d) => (
                       <option key={d.id} value={d.id} className="bg-card text-foreground">
-                        {d.name}
+                        {d.name} (Lead: {d.teamLead.name})
                       </option>
                     ))}
                   </select>
@@ -1866,20 +1868,20 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/80">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-border/80">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setEditingEmployee(null)}
-                  className="text-xs h-8 text-foreground"
+                  className="text-xs h-8.5 text-foreground"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="text-xs font-bold h-8 bg-amber-600 hover:bg-amber-700 text-white shadow-sm px-4"
+                  className="text-xs font-bold h-8.5 bg-amber-600 hover:bg-amber-700 text-white shadow-sm px-4"
                 >
                   Save Changes
                 </Button>
@@ -1893,9 +1895,9 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
       {/* 7. MODAL: DELETE / OFFBOARD EMPLOYEE DIALOG                     */}
       {/* ============================================================== */}
       {deletingEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setDeletingEmployee(null)} />
-          <div className="relative z-10 w-full max-w-md rounded-3xl border border-border/80 dark:border-rose-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-border/80 dark:border-rose-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-4 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
                 <Trash2 className="h-5 w-5" />
@@ -1911,13 +1913,13 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
               <strong className="text-foreground">{deletingEmployee.name}</strong> ({deletingEmployee.designation} · {deletingEmployee.department})? This will archive their active biometric punch credentials and update the active census.
             </p>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/80">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-border/80">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setDeletingEmployee(null)}
-                className="text-xs h-8 text-foreground"
+                className="text-xs h-8.5 text-foreground"
               >
                 Cancel
               </Button>
@@ -1926,7 +1928,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 variant="destructive"
                 size="sm"
                 onClick={handleDeleteEmployeeConfirm}
-                className="text-xs font-bold h-8 bg-rose-600 hover:bg-rose-700 text-white px-4"
+                className="text-xs font-bold h-8.5 bg-rose-600 hover:bg-rose-700 text-white px-4"
               >
                 Confirm Offboard
               </Button>
@@ -1939,9 +1941,9 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
       {/* 8. MODAL: VIEW EMPLOYEE PROFILE 3D DRAWER                      */}
       {/* ============================================================== */}
       {viewingEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/75 backdrop-blur-sm transition-opacity" onClick={() => setViewingEmployee(null)} />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-cyan-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative z-10 w-full max-w-lg rounded-3xl border border-border/80 dark:border-cyan-500/40 bg-card text-card-foreground shadow-2xl shadow-slate-900/10 dark:shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-[2px] shadow-sm">
@@ -2040,12 +2042,12 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2.5 pt-2 border-t border-border/80">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 border-t border-border/80">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setViewingEmployee(null)}
-                className="text-xs h-8 text-foreground"
+                className="text-xs h-8.5 text-foreground"
               >
                 Close
               </Button>
@@ -2058,7 +2060,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                     setViewingEmployee(null);
                     setEditingEmployee(toEdit);
                   }}
-                  className="text-xs h-8 font-medium text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-500/10 gap-1.5"
+                  className="w-full sm:w-auto text-xs h-8.5 font-medium text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-500/10 gap-1.5 justify-center"
                 >
                   <Pencil className="h-3 w-3" />
                   <span>Edit Profile</span>
@@ -2073,9 +2075,9 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
       {/* 9. MODAL: UPLOAD STAFF DIRECTORY CSV / EXCEL                   */}
       {/* ============================================================== */}
       {showCsvModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/80 backdrop-blur-sm" onClick={() => setShowCsvModal(false)} />
-          <div className="relative z-10 w-full max-w-2xl rounded-3xl border border-indigo-500/40 bg-card p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+          <div className="relative z-10 w-full max-w-2xl rounded-3xl border border-indigo-500/40 bg-card p-4 sm:p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border/80 pb-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
@@ -2152,8 +2154,8 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                   <span>Parsed Employees Preview ({csvPreview.length} records ready)</span>
                   <span className="text-[11px] text-emerald-400 font-semibold">✓ Verified Header Schema</span>
                 </div>
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-border/70 bg-card">
-                  <table className="w-full text-left text-[11px]">
+                <div className="max-h-48 overflow-y-auto overflow-x-auto rounded-xl border border-border/70 bg-card">
+                  <table className="w-full text-left text-[11px] min-w-[500px]">
                     <thead className="bg-muted/40 text-muted-foreground font-semibold sticky top-0 border-b border-border/50">
                       <tr>
                         <th className="p-2 pl-3">Name</th>
@@ -2185,7 +2187,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
             )}
 
             {/* Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-border/80">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3 border-t border-border/80">
               <Button variant="outline" size="sm" onClick={() => setShowCsvModal(false)} className="text-xs h-9 rounded-xl">
                 Cancel
               </Button>
@@ -2194,7 +2196,7 @@ Priya Sharma,priya.sharma@xorstack.com,QA Automation Engineer,Service Providers 
                 type="button"
                 onClick={handleUploadCsvSubmit}
                 disabled={csvPreview.length === 0 || isUploadingCsv}
-                className="text-xs font-bold h-9 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white gap-2 shadow-md"
+                className="text-xs font-bold h-9 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white gap-2 shadow-md justify-center"
               >
                 {isUploadingCsv ? (
                   <span>Syncing to Supabase...</span>

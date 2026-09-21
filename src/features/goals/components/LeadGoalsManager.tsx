@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Interactive3DCard } from "@/components/3d/Interactive3DCard";
 import { fireCelebrationConfetti, fireSuccessBurst } from "@/lib/ui/confetti";
 import { useWorkpulseSharedStore } from "@/lib/stores/workpulse-shared-store";
+import { useCurrentUser } from "@/components/layout/UserContext";
 import {
   Target,
   CheckCircle2,
@@ -204,92 +205,122 @@ export function LeadGoalsManager() {
     return DEFAULT_DIRECT_REPORTS.filter((d) => !d.email.includes("lead"));
   }, [allEmployees]);
 
-  // Function to refresh all direct reports goals from storage and Supabase
-  const refreshMemberGoals = React.useCallback(async () => {
-    const updatedMap: Record<string, SimpleGoalItem[]> = {};
-
-    for (const emp of directReports) {
-      let loaded: SimpleGoalItem[] = [];
-
-      // Try Supabase API
-      try {
-        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(emp.id)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
-            loaded = data.data.goals;
-          }
-        }
-      } catch {}
-
-      updatedMap[emp.id] = loaded;
-    }
-
-    setMemberGoalsMap((prevMap) => {
-      if (JSON.stringify(prevMap) === JSON.stringify(updatedMap)) {
-        return prevMap;
-      }
-      return updatedMap;
-    });
+  const directReportsRef = React.useRef(directReports);
+  useEffect(() => {
+    directReportsRef.current = directReports;
   }, [directReports]);
 
-  // Load saved team sprint goals, live Company OKRs, and member goals on client mount
+  const currentUser = useCurrentUser();
+  const userEmail = currentUser?.userEmail || "lead.test@xorstack.com";
+
+  // Function to refresh all direct reports goals from storage and Supabase
+  const isRefreshingMemberGoalsRef = React.useRef(false);
+  const refreshMemberGoals = React.useCallback(async () => {
+    if (isRefreshingMemberGoalsRef.current) return;
+    isRefreshingMemberGoalsRef.current = true;
+    try {
+      const list = directReportsRef.current;
+      if (!list || list.length === 0) return;
+      const updatedMap: Record<string, SimpleGoalItem[]> = {};
+
+      const memberPromises = list.map(async (emp) => {
+        let loaded: SimpleGoalItem[] = [];
+        try {
+          const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(emp.id)}`, {
+            headers: { "x-user-email": userEmail }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
+              loaded = data.data.goals;
+            }
+          }
+        } catch {}
+        return { id: emp.id, goals: loaded };
+      });
+
+      const results = await Promise.all(memberPromises);
+      for (const r of results) {
+        updatedMap[r.id] = r.goals;
+      }
+
+      setMemberGoalsMap((prevMap) => {
+        if (JSON.stringify(prevMap) === JSON.stringify(updatedMap)) {
+          return prevMap;
+        }
+        return updatedMap;
+      });
+    } finally {
+      isRefreshingMemberGoalsRef.current = false;
+    }
+  }, [userEmail]);
+
+  // Load team sprint goals and live Company OKRs
+  const isTeamGoalsLoadingRef = React.useRef(false);
+  const loadTeamGoals = React.useCallback(async () => {
+    if (isTeamGoalsLoadingRef.current) return;
+    isTeamGoalsLoadingRef.current = true;
+    try {
+      const [resSprint, resOkrs] = await Promise.all([
+        fetch("/api/v1/goals?employeeId=TEAM_SPRINT", {
+          headers: { "x-user-email": userEmail }
+        }).catch(() => null),
+        fetch("/api/v1/goals?employeeId=COMPANY_OKRS", {
+          headers: { "x-user-email": userEmail }
+        }).catch(() => null),
+      ]);
+
+      if (resSprint && resSprint.ok) {
+        const data = await resSprint.json();
+        if (Array.isArray(data.data?.goals)) {
+          setGoals((prev) => (JSON.stringify(prev) === JSON.stringify(data.data.goals) ? prev : data.data.goals));
+        }
+      }
+
+      if (resOkrs && resOkrs.ok) {
+        const okrsData = await resOkrs.json();
+        if (Array.isArray(okrsData.data?.goals)) {
+          setCompanyOkrs((prev) => (JSON.stringify(prev) === JSON.stringify(okrsData.data.goals) ? prev : okrsData.data.goals));
+        }
+      }
+    } finally {
+      isTeamGoalsLoadingRef.current = false;
+    }
+  }, []);
+
+  // Initial load once on client mount
   useEffect(() => {
-    const loadTeamGoals = async () => {
-      try {
-        const res = await fetch("/api/v1/goals?employeeId=TEAM_SPRINT");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
-            setGoals(data.data.goals);
-          }
-        }
-      } catch {}
-
-      // Load Company OKRs managed by HR from Supabase
-      try {
-        const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
-        if (resOkrs.ok) {
-          const okrsData = await resOkrs.json();
-          if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
-            setCompanyOkrs(okrsData.data.goals);
-          }
-        }
-      } catch {}
-    };
-
     loadTeamGoals();
     refreshMemberGoals();
-  }, [refreshMemberGoals]);
+  }, [loadTeamGoals, refreshMemberGoals]);
 
-  // Listen for real-time cross-component sync events
+  // Re-fetch member goals only when the list of direct report IDs actually changes
+  const directReportIds = useMemo(() => directReports.map((d) => d.id).sort().join(","), [directReports]);
+  const prevDirectReportIdsRef = React.useRef(directReportIds);
   useEffect(() => {
-    const handleSync = async () => {
-      try {
-        const res = await fetch("/api/v1/goals?employeeId=TEAM_SPRINT");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
-            setGoals(data.data.goals);
-          }
-        }
-      } catch {}
-
-      try {
-        const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
-        if (resOkrs.ok) {
-          const okrsData = await resOkrs.json();
-          if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
-            setCompanyOkrs(okrsData.data.goals);
-          }
-        }
-      } catch {}
-
+    if (prevDirectReportIdsRef.current !== directReportIds) {
+      prevDirectReportIdsRef.current = directReportIds;
       refreshMemberGoals();
+    }
+  }, [directReportIds, refreshMemberGoals]);
+
+  // Listen for real-time cross-component sync events with 1-second debounce
+  useEffect(() => {
+    let syncTimer: NodeJS.Timeout | null = null;
+    const handleSync = () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        loadTeamGoals();
+        refreshMemberGoals();
+      }, 1000);
     };
+
     window.addEventListener("workpulse_sync", handleSync);
-    return () => window.removeEventListener("workpulse_sync", handleSync);
-  }, [refreshMemberGoals]);
+    return () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      window.removeEventListener("workpulse_sync", handleSync);
+    };
+  }, [loadTeamGoals, refreshMemberGoals]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);

@@ -66,7 +66,7 @@ export function MemberHeroMetrics({
           CARD 1: TODAY'S ATTENDANCE (Biometric Pulse & Shift Timeline)
          ------------------------------------------------------------- */}
       <Link prefetch={true} href="/attendance" className="block group">
-        <div className="h-full p-5 rounded-3xl border border-cyan-500/30 dark:border-cyan-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-cyan-500/60 group-hover:shadow-[0_8px_30px_rgba(6,182,212,0.15)] group-hover:-translate-y-1">
+        <div className="h-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-cyan-500/30 dark:border-cyan-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-cyan-500/60 group-hover:shadow-[0_8px_30px_rgba(6,182,212,0.15)] group-hover:-translate-y-1">
           {/* Subtle Accent Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 dark:bg-cyan-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -96,11 +96,11 @@ export function MemberHeroMetrics({
 
             {/* Middle: Big Metric & Check-In Tag */}
             <div className="space-y-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-foreground tracking-tight font-mono">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-mono break-words">
                   {isPresent ? "Present" : "Not Checked In"}
                 </span>
-                <span className="text-xs font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 dark:bg-cyan-500/20 px-2 py-0.5 rounded-md border border-cyan-500/30 font-mono">
+                <span className="text-xs font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 dark:bg-cyan-500/20 px-2 py-0.5 rounded-md border border-cyan-500/30 font-mono shrink-0">
                   In: {checkInTime}
                 </span>
               </div>
@@ -130,7 +130,7 @@ export function MemberHeroMetrics({
           CARD 2: MY TASKS VELOCITY (Circular Donut Ring & Pill Tags)
          ------------------------------------------------------------- */}
       <Link prefetch={true} href="/my-work" className="block group">
-        <div className="h-full p-5 rounded-3xl border border-amber-500/30 dark:border-amber-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-amber-500/60 group-hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] group-hover:-translate-y-1">
+        <div className="h-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-amber-500/30 dark:border-amber-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-amber-500/60 group-hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] group-hover:-translate-y-1">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 dark:bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -160,12 +160,12 @@ export function MemberHeroMetrics({
             {/* Middle: Big Metric with Visual Ring */}
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
-                <div className="text-3xl font-black text-foreground tracking-tight font-mono">
+                <div className="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-mono">
                   {tasksCount === 0 ? (
-                    <span className="text-xl text-amber-600 dark:text-amber-400">Not Started</span>
+                    <span className="text-lg sm:text-xl text-amber-600 dark:text-amber-400">Not Started</span>
                   ) : (
                     <>
-                      {safeCompletedTasks} <span className="text-lg text-muted-foreground">/ {safeTasksCount}</span>
+                      {safeCompletedTasks} <span className="text-base sm:text-lg text-muted-foreground">/ {safeTasksCount}</span>
                     </>
                   )}
                 </div>
@@ -216,7 +216,7 @@ export function MemberHeroMetrics({
           CARD 3: OVERALL GOAL PROGRESS (OKR Trajectory & Milestones)
          ------------------------------------------------------------- */}
       <Link prefetch={true} href="/goals" className="block group">
-        <div className="h-full p-5 rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-emerald-500/60 group-hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] group-hover:-translate-y-1">
+        <div className="h-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-emerald-500/60 group-hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] group-hover:-translate-y-1">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -242,8 +242,8 @@ export function MemberHeroMetrics({
 
             {/* Middle: Big Metric with Delta */}
             <div className="space-y-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-foreground tracking-tight font-mono">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-mono">
                   {goalsProgress}%
                 </span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -281,7 +281,7 @@ export function MemberHeroMetrics({
           CARD 4: LEAVE BALANCE & TIME-OFF (Dual Quota Gauges)
          ------------------------------------------------------------- */}
       <Link prefetch={true} href="/leave" className="block group">
-        <div className="h-full p-5 rounded-3xl border border-rose-500/30 dark:border-rose-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-rose-500/60 group-hover:shadow-[0_8px_30px_rgba(244,63,94,0.15)] group-hover:-translate-y-1">
+        <div className="h-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-rose-500/30 dark:border-rose-500/25 bg-card/90 dark:bg-card/75 backdrop-blur-xl shadow-sm relative overflow-hidden transition-all duration-300 group-hover:border-rose-500/60 group-hover:shadow-[0_8px_30px_rgba(244,63,94,0.15)] group-hover:-translate-y-1">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 dark:bg-rose-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -306,8 +306,8 @@ export function MemberHeroMetrics({
 
             {/* Middle: Big Metric with Days */}
             <div className="space-y-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-rose-600 dark:text-rose-400 font-mono tracking-tight">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 font-mono tracking-tight">
                   {casualLeaveBalance} <span className="text-xl text-foreground font-black">Days</span>
                 </span>
                 <span className="text-xs text-muted-foreground font-medium">/ 12 Casual</span>

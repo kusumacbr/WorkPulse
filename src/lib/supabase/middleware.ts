@@ -39,6 +39,9 @@ export async function updateSession(request: NextRequest) {
 
     // Check dev cookie first (1-click login & demo personas)
     const devEmail = request.cookies.get("workpulse_dev_email")?.value;
+    if (devEmail) {
+      return supabaseResponse;
+    }
 
     let user: any = null;
     try {
@@ -48,7 +51,7 @@ export async function updateSession(request: NextRequest) {
       // safe fallback
     }
 
-    const isAuthenticated = !!user || !!devEmail;
+    const isAuthenticated = !!user;
 
     // Protected routes — redirect to login if not authenticated
     const pathname = request.nextUrl.pathname;

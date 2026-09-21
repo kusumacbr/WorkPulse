@@ -265,11 +265,11 @@ export function EmployeeCelebrationBroadcastDeck() {
 
       {/* Control Bar: View Mode Switcher + Filter Pills */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/60 p-2.5 rounded-2xl border border-border/80">
-        <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/60">
+        <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/60 overflow-x-auto custom-scrollbar whitespace-nowrap">
           <button
             type="button"
             onClick={() => setActiveTab("birthdays")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === "birthdays"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -282,7 +282,7 @@ export function EmployeeCelebrationBroadcastDeck() {
           <button
             type="button"
             onClick={() => setActiveTab("festivals")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === "festivals"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -294,7 +294,7 @@ export function EmployeeCelebrationBroadcastDeck() {
         </div>
 
         {activeTab === "birthdays" && (
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <button
               type="button"
               onClick={() => setFilter("all")}

@@ -189,8 +189,8 @@ export function ExportReportModal({ onClose }: ExportReportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border-border shadow-2xl bg-card">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <Card className="w-full max-w-md border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto custom-scrollbar">
         <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
           <CardTitle className="text-base font-bold flex items-center gap-2">
             <Download className="h-4 w-4 text-[var(--brand-primary)]" />
@@ -201,7 +201,7 @@ export function ExportReportModal({ onClose }: ExportReportModalProps) {
           </Button>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-4 text-xs">
+        <CardContent className="p-4 sm:p-6 space-y-4 text-xs">
           <div className="p-3 rounded-xl bg-muted/40 border border-border text-muted-foreground text-[11px] space-y-1">
             <span className="font-semibold text-foreground block">Row-Level RBAC Enforcement:</span>
             <span>Reports automatically filter strictly to the records permitted under your system role. Large jobs execute asynchronously in the background.</span>
@@ -283,8 +283,8 @@ export function ExportReportModal({ onClose }: ExportReportModalProps) {
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <Button variant="ghost" size="sm" onClick={onClose} className="rounded-xl text-xs">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="ghost" size="sm" onClick={onClose} className="rounded-xl text-xs w-full sm:w-auto">
               Cancel
             </Button>
             {!completedJob && (
@@ -293,7 +293,7 @@ export function ExportReportModal({ onClose }: ExportReportModalProps) {
                 size="sm"
                 onClick={handleStartExport}
                 disabled={isProcessing}
-                className="rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-black cursor-pointer"
+                className="rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-black cursor-pointer w-full sm:w-auto"
               >
                 Generate Async Export
               </Button>

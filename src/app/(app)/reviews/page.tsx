@@ -20,9 +20,9 @@ export default function ReviewsPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Simple & Clean Header */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+        <Interactive3DCard className="p-4 sm:p-6 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="brand" className="font-bold text-[10px] uppercase">
                 {isLead ? (
                   <>
@@ -43,7 +43,7 @@ export default function ReviewsPage() {
               )}
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground">
               {isLead ? "Team Reviews & Evaluations" : "Performance & Reviews"}
             </h2>
 

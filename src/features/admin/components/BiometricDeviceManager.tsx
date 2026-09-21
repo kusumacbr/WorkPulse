@@ -120,7 +120,7 @@ export function BiometricDeviceManager({ initialDevices }: BiometricDeviceManage
         <Button
           variant="brand"
           size="sm"
-          className="text-xs font-semibold gap-1.5 h-8"
+          className="w-full sm:w-auto text-xs font-semibold gap-1.5 h-8 shrink-0 justify-center"
           onClick={() => {
             setGeneratedCredentials(null);
             setShowRegisterModal(true);
@@ -196,8 +196,8 @@ export function BiometricDeviceManager({ initialDevices }: BiometricDeviceManage
 
       {/* Register Device Modal */}
       {showRegisterModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-border shadow-2xl bg-card">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-md border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto custom-scrollbar">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Cpu className="h-4 w-4 text-[var(--brand-primary)]" />
@@ -208,7 +208,7 @@ export function BiometricDeviceManager({ initialDevices }: BiometricDeviceManage
               </Button>
             </CardHeader>
 
-            <CardContent className="p-6 space-y-4 text-xs">
+            <CardContent className="p-4 sm:p-6 space-y-4 text-xs">
               {!generatedCredentials ? (
                 <div className="space-y-3">
                   <div>
@@ -240,11 +240,11 @@ export function BiometricDeviceManager({ initialDevices }: BiometricDeviceManage
                     />
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                    <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(false)}>
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-border">
+                    <Button variant="ghost" size="sm" onClick={() => setShowRegisterModal(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                    <Button variant="brand" size="sm" onClick={handleRegister}>
+                    <Button variant="brand" size="sm" onClick={handleRegister} className="w-full sm:w-auto">
                       Generate Credentials & Save
                     </Button>
                   </div>
@@ -271,7 +271,7 @@ export function BiometricDeviceManager({ initialDevices }: BiometricDeviceManage
                   </div>
 
                   <div className="flex justify-end pt-2">
-                    <Button variant="brand" size="sm" onClick={() => setShowRegisterModal(false)}>
+                    <Button variant="brand" size="sm" onClick={() => setShowRegisterModal(false)} className="w-full sm:w-auto">
                       Done
                     </Button>
                   </div>

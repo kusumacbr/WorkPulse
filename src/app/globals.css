@@ -97,11 +97,17 @@
   * {
     @apply border-border;
   }
+  html {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-body), sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     transition: background-color 0.25s ease, color 0.25s ease;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }
 
@@ -708,6 +714,104 @@ html.light textarea::placeholder {
   border: 2px solid #ffffff;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.45);
   cursor: pointer;
+}
+
+/* =========================================================
+   MOBILE RESPONSIVE UTILITIES & SAFE AREA SUPPORT
+   ========================================================= */
+
+/* Safe area insets for notched/rounded devices (iPhone, etc.) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Fixed bottom elements should respect the home indicator bar */
+  .fixed.bottom-6,
+  .fixed.bottom-4 {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile-optimized touch target utility */
+@media (max-width: 640px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent iOS form zoom */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Compact scrollbars on mobile */
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  /* Allow horizontal scrolling for table-like data on mobile */
+  .mobile-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Prevent body scroll when mobile drawer/modal is open */
+  body.mobile-menu-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+}
+
+/* Responsive table wrapper for data-heavy tables on small screens */
+.responsive-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .responsive-table-wrapper table {
+    min-width: 600px;
+  }
+}
+
+/* Mobile-friendly card stacking transitions */
+@media (max-width: 768px) {
+  .outcrowd-card:hover,
+  .dark .outcrowd-card:hover {
+    transform: none;
+  }
+
+  .glass-panel-hover:hover {
+    transform: none;
+  }
+}
+
+/* Responsive text truncation helper */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 

@@ -13,10 +13,17 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const reason = body.reason || "WFH request rejected";
     const isHr = actor.roles.includes("HR");
+    const existingReq = WorkpulseSharedStore.getWfhRequests().find((r) => r.id === id);
+    const isStage2 =
+      isHr ||
+      body.stage === "STAGE_2" ||
+      existingReq?.status === "FORWARDED_TO_HR" ||
+      (existingReq?.status as string) === "PENDING_HR" ||
+      (existingReq?.status as string) === "STAGE_2";
 
     const supabaseAdmin = createAdminClient();
 
-    if (isHr) {
+    if (isStage2) {
       WorkpulseSharedStore.hrRejectWfh(id, reason);
 
       if (supabaseAdmin) {

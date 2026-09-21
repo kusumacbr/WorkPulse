@@ -166,11 +166,11 @@ export function HRTalentDevelopmentDesk() {
       </div>
 
       {/* Sub Tab Navigation */}
-      <div className="flex items-center p-1.5 rounded-2xl bg-card/60 border border-border/80 backdrop-blur-xl overflow-x-auto gap-1 shadow-sm">
+      <div className="flex items-center p-1.5 rounded-2xl bg-card/60 border border-border/80 backdrop-blur-xl overflow-x-auto custom-scrollbar whitespace-nowrap gap-1 shadow-sm">
         <button
           type="button"
           onClick={() => setActiveTab("pip")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
             activeTab === "pip"
               ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-[0_0_15px_rgba(245,158,11,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -184,46 +184,46 @@ export function HRTalentDevelopmentDesk() {
         <button
           type="button"
           onClick={() => setActiveTab("compliance")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
             activeTab === "compliance"
               ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <GraduationCap className="h-3.5 w-3.5" />
-          <span>Mandatory L&D & POSH Compliance Matrix</span>
+          <span>Mandatory L&amp;D &amp; POSH Compliance Matrix</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("grievances")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
             activeTab === "grievances"
               ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <HeartHandshake className="h-3.5 w-3.5" />
-          <span>Employee Relations & Confidential Pulse</span>
+          <span>Employee Relations &amp; Confidential Pulse</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("recognition")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
             activeTab === "recognition"
               ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
           }`}
         >
           <Award className="h-3.5 w-3.5" />
-          <span>Organization Recognition & Values Feed</span>
+          <span>Organization Recognition &amp; Values Feed</span>
         </button>
       </div>
 
       {/* TAB 1: FORMAL PIP GOVERNANCE */}
       {activeTab === "pip" && (
-        <Interactive3DCard className="p-6 space-y-4 border-border/80">
+        <Interactive3DCard className="p-4 sm:p-6 space-y-4 border-border/80">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -235,7 +235,7 @@ export function HRTalentDevelopmentDesk() {
               </p>
             </div>
 
-            <Badge variant="outline" className="text-[10px] text-amber-300 border-amber-500/30">
+            <Badge variant="outline" className="text-[10px] text-amber-300 border-amber-500/30 self-start sm:self-auto">
               Confidential HR Workspace
             </Badge>
           </div>
@@ -244,11 +244,11 @@ export function HRTalentDevelopmentDesk() {
             {pipCases.map((c) => (
               <div
                 key={c.id}
-                className="p-5 rounded-2xl bg-card/60 border border-amber-500/30 space-y-3 shadow-sm"
+                className="p-4 sm:p-5 rounded-2xl bg-card/60 border border-amber-500/30 space-y-3 shadow-sm"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-sm text-foreground">{c.employeeName}</span>
                       <span className="text-xs text-muted-foreground">({c.designation})</span>
                       <Badge variant="brand" className="text-[10px] bg-purple-500/15 text-purple-300 border-purple-500/30">
@@ -256,7 +256,7 @@ export function HRTalentDevelopmentDesk() {
                       </Badge>
                     </div>
 
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-1">
                       <span>Coaching Lead: <strong className="text-foreground">{c.leadName}</strong></span>
                       <span>·</span>
                       <span className="font-mono text-amber-400">
@@ -321,11 +321,11 @@ export function HRTalentDevelopmentDesk() {
 
       {/* TAB 2: L&D & POSH COMPLIANCE MATRIX */}
       {activeTab === "compliance" && (
-        <Interactive3DCard className="p-6 space-y-4 border-border/80">
+        <Interactive3DCard className="p-4 sm:p-6 space-y-4 border-border/80">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-emerald-400" />
-              Organizational L&D, POSH & Statutory Compliance Matrix
+              Organizational L&amp;D, POSH &amp; Statutory Compliance Matrix
             </h3>
             <p className="text-xs text-muted-foreground">
               Monitor enterprise compliance across statutory mandatory trainings and engineering certifications.
@@ -373,18 +373,18 @@ export function HRTalentDevelopmentDesk() {
 
       {/* TAB 3: EMPLOYEE RELATIONS & GRIEVANCES */}
       {activeTab === "grievances" && (
-        <Interactive3DCard className="p-6 space-y-4 border-border/80">
+        <Interactive3DCard className="p-4 sm:p-6 space-y-4 border-border/80">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <HeartHandshake className="h-4 w-4 text-cyan-400" />
-              Employee Relations & Confidential Pulse Log
+              Employee Relations &amp; Confidential Pulse Log
             </h3>
             <p className="text-xs text-muted-foreground">
               Confidential case registry for dispute resolution, workplace inquiries, and anonymous sentiment feedback.
             </p>
           </div>
 
-          <div className="p-8 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
+          <div className="p-5 sm:p-8 text-center bg-card/40 rounded-2xl border border-border/60 text-xs text-muted-foreground space-y-2">
             <ShieldCheck className="h-8 w-8 text-emerald-400 mx-auto" />
             <p className="font-bold text-foreground text-sm">All Employee Relations Inquiries Clear</p>
             <p className="max-w-md mx-auto">
@@ -396,11 +396,11 @@ export function HRTalentDevelopmentDesk() {
 
       {/* TAB 4: RECOGNITION & KUDOS */}
       {activeTab === "recognition" && (
-        <Interactive3DCard className="p-6 space-y-4 border-border/80">
+        <Interactive3DCard className="p-4 sm:p-6 space-y-4 border-border/80">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <Award className="h-4 w-4 text-rose-400" />
-              Enterprise Kudos & Values Recognition Feed
+              Enterprise Kudos &amp; Values Recognition Feed
             </h3>
             <p className="text-xs text-muted-foreground">
               Real-time peer recognitions aligned with company core values: Ownership, Velocity, Collaboration, and Innovation.

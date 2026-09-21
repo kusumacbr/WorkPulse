@@ -140,33 +140,54 @@ export function SimpleGoalsManager() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Load goals and live Company OKRs from Supabase API on mount
-  useEffect(() => {
-    const loadGoals = async () => {
-      // 1. Try Supabase API for employee personal goals
-      try {
-        const res = await fetch(`/api/v1/goals?employeeId=${encodeURIComponent(empId)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.data?.goals) && data.data.goals.length > 0) {
-            setGoals(data.data.goals);
-          }
-        }
-      } catch {}
+  const isLoadingGoalsRef = React.useRef(false);
+  const loadGoals = React.useCallback(async () => {
+    if (isLoadingGoalsRef.current) return;
+    isLoadingGoalsRef.current = true;
+    try {
+      const [res, resOkrs] = await Promise.all([
+        fetch(`/api/v1/goals?employeeId=${encodeURIComponent(empId)}`).catch(() => null),
+        fetch("/api/v1/goals?employeeId=COMPANY_OKRS").catch(() => null),
+      ]);
 
-      // 2. Try Supabase API for live Company OKRs managed by HR
-      try {
-        const resOkrs = await fetch("/api/v1/goals?employeeId=COMPANY_OKRS");
-        if (resOkrs.ok) {
-          const okrsData = await resOkrs.json();
-          if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
-            setCompanyOkrs(okrsData.data.goals);
-            return;
-          }
+      if (res && res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.data?.goals)) {
+          setGoals((prev) => (JSON.stringify(prev) === JSON.stringify(data.data.goals) ? prev : data.data.goals));
         }
-      } catch {}
-    };
+      }
+
+      if (resOkrs && resOkrs.ok) {
+        const okrsData = await resOkrs.json();
+        if (Array.isArray(okrsData.data?.goals) && okrsData.data.goals.length > 0) {
+          setCompanyOkrs((prev) => (JSON.stringify(prev) === JSON.stringify(okrsData.data.goals) ? prev : okrsData.data.goals));
+        }
+      }
+    } finally {
+      isLoadingGoalsRef.current = false;
+    }
+  }, [empId]);
+
+  useEffect(() => {
     loadGoals();
-  }, [empId, userEmail]);
+  }, [loadGoals]);
+
+  // Real-time sync listener with 1-second debounce
+  useEffect(() => {
+    let syncTimer: NodeJS.Timeout | null = null;
+    const handleSync = () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        loadGoals();
+      }, 1000);
+    };
+
+    window.addEventListener("workpulse_sync", handleSync);
+    return () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      window.removeEventListener("workpulse_sync", handleSync);
+    };
+  }, [loadGoals]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -292,7 +313,7 @@ export function SimpleGoalsManager() {
       )}
 
       {/* 1. Distinct Radial Gauge & Milestone Progress Hub */}
-      <Interactive3DCard className="p-6 border border-border/80 bg-gradient-to-r from-card via-card/90 to-card/60 shadow-md">
+      <Interactive3DCard className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-gradient-to-r from-card via-card/90 to-card/60 shadow-md">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           {/* Left: Circular Radial Progress Dial */}
           <div className="flex items-center gap-5 shrink-0">
@@ -385,7 +406,7 @@ export function SimpleGoalsManager() {
           {/* Right: Add Goal Action */}
           <Button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="h-11 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs gap-2 shrink-0 shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.02]"
+            className="h-10 sm:h-11 px-4 sm:px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs gap-2 shrink-0 shadow-md shadow-emerald-500/20 transition-all w-full md:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>{showAddForm ? "Close Form" : "Add Goal"}</span>
@@ -464,8 +485,8 @@ export function SimpleGoalsManager() {
       )}
 
       {/* 3. Simple Tab Pills */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/40 border border-border/60 text-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/40 border border-border/60 text-xs overflow-x-auto w-full sm:w-auto">
           <button
             type="button"
             onClick={() => {

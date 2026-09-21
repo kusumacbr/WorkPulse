@@ -430,7 +430,7 @@ export default function AnnouncementsPage() {
         )}
 
         {/* Clean, Simple Top Header with Real-Time Supabase Status */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/60 p-5 rounded-2xl border border-border/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/60 p-4 sm:p-5 rounded-2xl border border-border/80">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold text-foreground">Broadcasts &amp; Culture</h2>
@@ -452,7 +452,7 @@ export default function AnnouncementsPage() {
               variant="brand"
               size="sm"
               onClick={() => setShowPostModal(true)}
-              className="text-xs font-bold bg-gradient-to-r from-pink-500 to-rose-600 text-white gap-1.5 shadow-sm rounded-xl shrink-0 h-8 px-3.5 hover:opacity-90 transition-opacity"
+              className="w-full sm:w-auto justify-center text-xs font-bold bg-gradient-to-r from-pink-500 to-rose-600 text-white gap-1.5 shadow-sm rounded-xl shrink-0 h-8 px-3.5 hover:opacity-90 transition-opacity"
             >
               <Plus className="h-4 w-4" />
               <span>Post Notice</span>
@@ -461,11 +461,11 @@ export default function AnnouncementsPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center p-1 rounded-xl bg-card/60 border border-border/80 overflow-x-auto gap-1 shadow-sm">
+        <div className="flex items-center p-1 rounded-xl bg-card/60 border border-border/80 overflow-x-auto custom-scrollbar whitespace-nowrap gap-1 shadow-sm">
           <button
             type="button"
             onClick={() => setActiveTab("celebrations")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === "celebrations"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -478,7 +478,7 @@ export default function AnnouncementsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("broadcasts")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === "broadcasts"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -491,7 +491,7 @@ export default function AnnouncementsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("wellbeing")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === "wellbeing"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -579,8 +579,8 @@ export default function AnnouncementsPage() {
 
         {/* Post Modal with Supabase Persistence */}
         {showPostModal && (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md rounded-2xl bg-card border border-border p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-card border border-border p-4 sm:p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 custom-scrollbar">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center gap-2">
                   <Megaphone className="h-4 w-4 text-pink-400" />
@@ -634,13 +634,13 @@ export default function AnnouncementsPage() {
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-border">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setShowPostModal(false)}
-                    className="text-xs h-7 rounded-lg"
+                    className="text-xs h-8 rounded-xl w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -649,7 +649,7 @@ export default function AnnouncementsPage() {
                     size="sm"
                     variant="brand"
                     disabled={isSubmitting}
-                    className="text-xs font-bold h-7 bg-pink-600 hover:bg-pink-700 text-white rounded-lg gap-1 shadow-sm"
+                    className="text-xs font-bold h-8 bg-pink-600 hover:bg-pink-700 text-white rounded-xl gap-1 shadow-sm w-full sm:w-auto"
                   >
                     {isSubmitting ? (
                       <>

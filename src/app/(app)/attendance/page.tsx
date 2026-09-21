@@ -286,14 +286,14 @@ export default function AttendancePage() {
   return (
     <PageTransition>
       {/* Simplified Clean Header */}
-      <Interactive3DCard className="p-5 border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
+      <Interactive3DCard className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-border/80 bg-gradient-to-r from-card/90 via-card/70 to-card/50">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-black tracking-tight text-foreground">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
               Attendance Monitor
             </h2>
-            <Badge variant="outline" className="text-[11px] font-mono text-cyan-300 border-cyan-500/30 bg-cyan-500/10">
-              10:00 AM – 07:00 PM (10:15 AM Grace)
+            <Badge variant="outline" className="text-[10px] sm:text-[11px] font-mono text-cyan-300 border-cyan-500/30 bg-cyan-500/10">
+              10:00 AM – 07:00 PM
             </Badge>
           </div>
 
@@ -370,7 +370,7 @@ export default function AttendancePage() {
         {activeTab === "punches" && (
           <div className="space-y-6">
             {/* PART 1: BIOMETRIC PUNCH LOGS (Hardware Terminal / HR CSV Upload) */}
-            <Interactive3DCard className="p-6 space-y-4 border-border/80 shadow-sm">
+            <Interactive3DCard className="p-4 sm:p-6 space-y-4 border-border/80 shadow-sm rounded-2xl sm:rounded-3xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/50">
                 <div>
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -423,7 +423,7 @@ export default function AttendancePage() {
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-left sm:text-right shrink-0">
                       <span className="text-sm font-black text-cyan-400 font-mono">
                         {formatWorkedHours(log.workedHours)}
                       </span>
@@ -437,7 +437,7 @@ export default function AttendancePage() {
             </Interactive3DCard>
 
             {/* PART 2: VIRTUAL PUNCH LOGS (Header Bar Login & Logout Sessions) */}
-            <Interactive3DCard className="p-6 space-y-4 border-border/80 shadow-sm">
+            <Interactive3DCard className="p-4 sm:p-6 space-y-4 border-border/80 shadow-sm rounded-2xl sm:rounded-3xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/50">
                 <div>
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -473,7 +473,7 @@ export default function AttendancePage() {
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
+                  <div className="text-left sm:text-right shrink-0">
                     <div className="text-base font-black text-emerald-400 font-mono">
                       In: {formatRunningTimer(activeVirtualSession.elapsedSeconds)}
                     </div>
@@ -512,7 +512,7 @@ export default function AttendancePage() {
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-left sm:text-right shrink-0">
                       <span className="text-sm font-black text-emerald-400 font-mono">
                         {formatWorkedHours(vlog.workedHours)}
                       </span>

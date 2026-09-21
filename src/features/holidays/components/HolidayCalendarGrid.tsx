@@ -294,8 +294,8 @@ export function HolidayCalendarGrid({
 
       {/* HR Bulk Import Modal */}
       {canBulkImport && showBulkModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg border-border shadow-2xl bg-card rounded-2xl animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-lg max-h-[92vh] overflow-y-auto border-border shadow-2xl bg-card rounded-2xl animate-in fade-in zoom-in-95 custom-scrollbar">
             <CardHeader className="flex flex-row items-center justify-between p-5 pb-3 border-b border-border">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Upload className="h-4 w-4 text-pink-400" />
@@ -311,11 +311,11 @@ export function HolidayCalendarGrid({
               </Button>
             </CardHeader>
 
-            <CardContent className="p-5 space-y-4 text-xs">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-4 sm:p-5 space-y-4 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className="text-muted-foreground text-[11px]">
                   Paste a comma-separated list of holidays (one per line): <br />
-                  <code className="bg-muted px-1.5 py-0.5 rounded text-[10px] text-foreground font-mono">
+                  <code className="bg-muted px-1.5 py-0.5 rounded text-[10px] text-foreground font-mono inline-block mt-1">
                     YYYY-MM-DD, Holiday Name, NATIONAL | FESTIVAL
                   </code>
                 </p>
@@ -325,7 +325,7 @@ export function HolidayCalendarGrid({
                   variant="outline"
                   size="sm"
                   onClick={handleLoadSample}
-                  className="text-[10px] h-7 px-2 gap-1 rounded-lg border-dashed shrink-0"
+                  className="text-[10px] h-7 px-2 gap-1 rounded-lg border-dashed self-start sm:self-auto shrink-0"
                 >
                   <FileCode className="h-3 w-3" />
                   <span>Load Sample</span>
@@ -350,12 +350,12 @@ export function HolidayCalendarGrid({
                 className="w-full p-3 rounded-xl border border-input bg-background font-mono text-xs text-foreground focus:outline-none focus:border-pink-500/50 resize-none"
               />
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-border">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowBulkModal(false)}
-                  className="text-xs h-8 rounded-xl"
+                  className="text-xs h-8 rounded-xl w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
@@ -363,7 +363,7 @@ export function HolidayCalendarGrid({
                   variant="brand"
                   size="sm"
                   onClick={handleBulkImport}
-                  className="text-xs font-bold h-8 bg-gradient-to-r from-pink-500 to-rose-600 hover:opacity-95 text-white rounded-xl shadow-sm"
+                  className="text-xs font-bold h-8 bg-gradient-to-r from-pink-500 to-rose-600 hover:opacity-95 text-white rounded-xl shadow-sm w-full sm:w-auto"
                 >
                   Import Holidays
                 </Button>

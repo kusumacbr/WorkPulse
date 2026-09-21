@@ -130,19 +130,19 @@ export function TeamManagementDeck() {
       )}
 
       {/* Team Management Hero */}
-      <Interactive3DCard className="p-6 border border-indigo-500/30 bg-gradient-to-r from-card/90 via-card/70 to-indigo-500/10 space-y-4">
+      <Interactive3DCard className="p-4 sm:p-6 border border-indigo-500/30 bg-gradient-to-r from-card/90 via-card/70 to-indigo-500/10 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="brand" className="bg-indigo-500/15 border-indigo-500/30 text-indigo-300 text-[10px] font-bold uppercase">
                 <Users className="h-3 w-3 mr-1 text-indigo-400" />
-                Team Management & Direct Reports Roster
+                Team Management &amp; Direct Reports Roster
               </Badge>
               <span className="text-xs text-muted-foreground font-mono">
                 {directReports.length} Direct Reports · Alex Lead
               </span>
             </div>
-            <h2 className="text-2xl font-black text-foreground">Direct Reports Management Desk</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-foreground">Direct Reports Management Desk</h2>
             <p className="text-xs text-muted-foreground">
               Manage member work modes, delegate tasks, schedule 1-on-1 coaching checkpoints, and monitor individual sprint progress.
             </p>
@@ -168,14 +168,14 @@ export function TeamManagementDeck() {
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar whitespace-nowrap">
             <span className="text-[11px] text-muted-foreground font-bold uppercase shrink-0">Mode:</span>
             {["ALL", "OFFICE", "WFH", "HYBRID"].map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => setFilterMode(mode)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
                   filterMode === mode
                     ? "bg-indigo-500 text-white shadow-sm"
                     : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -311,8 +311,8 @@ export function TeamManagementDeck() {
       {/* MODAL 1: ASSIGN NEW TASK / DELIVERABLE                                    */}
       {/* ========================================================================= */}
       {selectedEmpForTask && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-indigo-500/40 rounded-2xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="w-full max-w-md bg-card border border-indigo-500/40 rounded-2xl p-4 sm:p-6 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-indigo-400" />
@@ -341,7 +341,7 @@ export function TeamManagementDeck() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-muted-foreground font-bold">Project</label>
                   <Input
@@ -374,19 +374,19 @@ export function TeamManagementDeck() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setSelectedEmpForTask(null)}
-                  className="text-xs h-8"
+                  className="text-xs h-8.5"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   variant="brand"
-                  className="text-xs font-bold h-8 bg-indigo-500 hover:bg-indigo-600 text-white gap-1"
+                  className="text-xs font-bold h-8.5 bg-indigo-500 hover:bg-indigo-600 text-white gap-1"
                 >
                   <Send className="h-3 w-3" />
                   <span>Assign Deliverable</span>
@@ -401,8 +401,8 @@ export function TeamManagementDeck() {
       {/* MODAL 2: SCHEDULE 1-ON-1 MEETING                                          */}
       {/* ========================================================================= */}
       {selectedEmpFor121 && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-cyan-500/40 rounded-2xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="w-full max-w-md bg-card border border-cyan-500/40 rounded-2xl p-4 sm:p-6 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-cyan-400" />
@@ -421,7 +421,7 @@ export function TeamManagementDeck() {
 
             <form onSubmit={handleSchedule121Submit} className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="text-muted-foreground font-bold">Date & Time</label>
+                <label className="text-muted-foreground font-bold">Date &amp; Time</label>
                 <Input
                   value={oneToOneDate}
                   onChange={(e) => setOneToOneDate(e.target.value)}
@@ -442,19 +442,19 @@ export function TeamManagementDeck() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setSelectedEmpFor121(null)}
-                  className="text-xs h-8"
+                  className="text-xs h-8.5"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   variant="brand"
-                  className="text-xs font-bold h-8 bg-cyan-500 hover:bg-cyan-600 text-white gap-1"
+                  className="text-xs font-bold h-8.5 bg-cyan-500 hover:bg-cyan-600 text-white gap-1"
                 >
                   <Calendar className="h-3 w-3" />
                   <span>Confirm Schedule</span>
@@ -469,13 +469,13 @@ export function TeamManagementDeck() {
       {/* MODAL 3: PROVIDE DAILY COACHING & FEEDBACK                                */}
       {/* ========================================================================= */}
       {selectedEmpForFeedback && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-amber-500/40 rounded-2xl p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="w-full max-w-md bg-card border border-amber-500/40 rounded-2xl p-4 sm:p-6 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-amber-400" />
                 <h3 className="text-sm font-bold text-foreground">
-                  Coaching & Feedback for {selectedEmpForFeedback.name}
+                  Coaching &amp; Feedback for {selectedEmpForFeedback.name}
                 </h3>
               </div>
               <button
@@ -527,7 +527,7 @@ export function TeamManagementDeck() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-muted-foreground font-bold">Coaching Takeaways & Notes</label>
+                <label className="text-muted-foreground font-bold">Coaching Takeaways &amp; Notes</label>
                 <textarea
                   value={feedbackNotes}
                   onChange={(e) => setFeedbackNotes(e.target.value)}
@@ -537,19 +537,19 @@ export function TeamManagementDeck() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setSelectedEmpForFeedback(null)}
-                  className="text-xs h-8"
+                  className="text-xs h-8.5"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   variant="brand"
-                  className="text-xs font-bold h-8 bg-amber-500 hover:bg-amber-600 text-black gap-1"
+                  className="text-xs font-bold h-8.5 bg-amber-500 hover:bg-amber-600 text-black gap-1"
                 >
                   <Check className="h-3 w-3" />
                   <span>Sync Feedback</span>

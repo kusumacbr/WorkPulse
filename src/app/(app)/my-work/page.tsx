@@ -56,7 +56,7 @@ export default function MyWorkPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Simple & Clean Header */}
-        <Interactive3DCard className="p-6 border border-slate-200/90 dark:border-border/80 bg-gradient-to-r from-white via-slate-50/50 to-white dark:from-card/90 dark:via-card/70 dark:to-card/50 shadow-sm rounded-3xl">
+        <Interactive3DCard className="p-4 sm:p-6 border border-slate-200/90 dark:border-border/80 bg-gradient-to-r from-white via-slate-50/50 to-white dark:from-card/90 dark:via-card/70 dark:to-card/50 shadow-sm rounded-2xl sm:rounded-3xl">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase border shadow-xs ${

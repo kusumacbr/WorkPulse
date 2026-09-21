@@ -42,15 +42,23 @@ export function useRealtimeSync() {
             msg.type?.startsWith("leave:") ||
             msg.type?.startsWith("wfh:")
           ) {
-            WorkpulseSharedStore.syncWithSupabase(true);
             if (typeof window !== "undefined") {
               if (msg.type?.includes("help")) {
-                window.dispatchEvent(new CustomEvent("workpulse:help_changed", { detail: msg.payload }));
+                window.dispatchEvent(new CustomEvent("workpulse:help_changed", { detail: msg.payload || msg }));
               } else {
                 window.dispatchEvent(new CustomEvent("workpulse:lead_feedback_updated", { detail: msg.payload || msg }));
+                if (msg.type === "workday:sod_verified") {
+                  window.dispatchEvent(new CustomEvent("workday:sod_verified", { detail: msg.payload || msg }));
+                } else if (msg.type === "workday:eod_verified" || msg.type === "workday:eod_approved") {
+                  window.dispatchEvent(new CustomEvent("workday:eod_verified", { detail: msg.payload || msg }));
+                }
               }
               window.dispatchEvent(new CustomEvent("workpulse_sync"));
             }
+            // Allow sender's Supabase upsert to complete before querying
+            setTimeout(() => {
+              WorkpulseSharedStore.syncWithSupabase(true);
+            }, 800);
           }
         };
       }
@@ -298,7 +306,32 @@ export function useRealtimeSync() {
             "broadcast",
             { event: "leave:updated" },
             (payload) => {
-              console.log("[Supabase Realtime] Live leave update broadcast:", payload);
+              const data = payload.payload || payload;
+              if (data?.request) {
+                WorkpulseSharedStore.setLeaveRequestsFromSupabase([data.request]);
+              }
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "leave:status_updated" },
+            (payload) => {
+              const data = payload.payload || payload;
+              if (data?.request) {
+                WorkpulseSharedStore.setLeaveRequestsFromSupabase([data.request]);
+              }
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "leave:created" },
+            (payload) => {
+              const data = payload.payload || payload;
+              if (data?.request) {
+                WorkpulseSharedStore.setLeaveRequestsFromSupabase([data.request]);
+              }
               WorkpulseSharedStore.syncWithSupabase();
             }
           )
@@ -306,7 +339,32 @@ export function useRealtimeSync() {
             "broadcast",
             { event: "wfh:updated" },
             (payload) => {
-              console.log("[Supabase Realtime] Live WFH update broadcast:", payload);
+              const data = payload.payload || payload;
+              if (data?.request) {
+                WorkpulseSharedStore.setWfhRequestsFromSupabase([data.request]);
+              }
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "wfh:status_updated" },
+            (payload) => {
+              const data = payload.payload || payload;
+              if (data?.request) {
+                WorkpulseSharedStore.setWfhRequestsFromSupabase([data.request]);
+              }
+              WorkpulseSharedStore.syncWithSupabase();
+            }
+          )
+          .on(
+            "broadcast",
+            { event: "wfh:created" },
+            (payload) => {
+              const data = payload.payload || payload;
+              if (data?.request) {
+                WorkpulseSharedStore.setWfhRequestsFromSupabase([data.request]);
+              }
               WorkpulseSharedStore.syncWithSupabase();
             }
           )

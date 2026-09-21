@@ -17,46 +17,26 @@ export async function GET(req: NextRequest) {
       return apiError("Database connection failed", 500);
     }
 
-    // 1. Try primary lead_tasks table if it exists
-    let hasLeadTasksTable = true;
-    let { data, error } = await supabase
-      .from("lead_tasks")
+    // Directly query daily_tasks where employee_id = leadId
+    const fallbackRes = await supabase
+      .from("daily_tasks")
       .select("*")
-      .eq("lead_id", leadId)
+      .eq("employee_id", leadId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      if (error.code === "PGRST205" || error.message?.includes("does not exist")) {
-        hasLeadTasksTable = false;
-      } else {
-        console.error("[Lead Tasks API] Error:", error);
-      }
-    }
-
-    // 2. Query daily_tasks where employee_id = leadId and assigned_by = 'LEAD_SELF'
-    if (!hasLeadTasksTable || (!data || data.length === 0)) {
-      const fallbackRes = await supabase
-        .from("daily_tasks")
-        .select("*")
-        .eq("employee_id", leadId)
-        .eq("assigned_by", "LEAD_SELF")
-        .order("created_at", { ascending: false });
-
-      if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
-        data = fallbackRes.data.map((row: any) => ({
-          id: row.id,
-          lead_id: leadId,
-          title: row.title,
-          category: row.category || "Operations",
-          priority: row.priority || "MEDIUM",
-          status: row.status || "NOT_STARTED",
-          progress: Number(row.progress) || 0,
-          time_slot: "Today",
-          created_at: row.created_at,
-        }));
-      } else {
-        data = [];
-      }
+    let data: any[] = [];
+    if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
+      data = fallbackRes.data.map((row: any) => ({
+        id: row.id,
+        lead_id: leadId,
+        title: row.title,
+        category: row.category || "Operations",
+        priority: row.priority || "MEDIUM",
+        status: row.status || "NOT_STARTED",
+        progress: Number(row.progress) || 0,
+        time_slot: "Today",
+        created_at: row.created_at,
+      }));
     }
 
     const tasks = (data || []).map((t: any) => ({

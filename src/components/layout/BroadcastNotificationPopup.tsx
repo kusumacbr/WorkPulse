@@ -248,7 +248,7 @@ export function BroadcastNotificationPopup() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           {/* Backdrop Blur with smooth fade */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -293,7 +293,7 @@ export function BroadcastNotificationPopup() {
             animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
             exit={{ opacity: 0, scale: 0.85, y: 25 }}
             transition={{ type: "spring", damping: 22, stiffness: 280 }}
-            className={`relative z-20 w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden glass-panel ${theme.borderStyle} ${theme.glowShadow} bg-white/95 dark:bg-gradient-to-b dark:from-slate-950/95 dark:via-card/95 dark:to-slate-950/95`}
+            className={`relative z-20 w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl sm:rounded-3xl border shadow-2xl glass-panel custom-scrollbar ${theme.borderStyle} ${theme.glowShadow} bg-white/95 dark:bg-gradient-to-b dark:from-slate-950/95 dark:via-card/95 dark:to-slate-950/95`}
           >
             {/* Animated Rotating Gradient Mesh Orbs behind modal */}
             <motion.div
@@ -314,7 +314,7 @@ export function BroadcastNotificationPopup() {
             />
 
             {/* Top Bar Header */}
-            <div className="relative z-10 px-6 py-4 border-b border-slate-200 dark:border-border/80 flex items-center justify-between backdrop-blur-md bg-white/60 dark:bg-card/40">
+            <div className="relative z-10 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-border/80 flex items-center justify-between backdrop-blur-md bg-white/60 dark:bg-card/40">
               <div className="flex items-center gap-2">
                 <Badge
                   variant="brand"
@@ -341,7 +341,7 @@ export function BroadcastNotificationPopup() {
             </div>
 
             {/* Main Modal Body */}
-            <div className="relative z-10 p-6 space-y-6 text-center">
+            <div className="relative z-10 p-4 sm:p-6 space-y-4 sm:space-y-6 text-center">
               {/* Creative 3D Centerpiece with Radiating Pulse Rings */}
               <div className="relative flex items-center justify-center my-1">
                 {/* Radiating Expanding Pulse Wave */}
@@ -486,12 +486,12 @@ export function BroadcastNotificationPopup() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-3 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 pt-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={closeBroadcast}
-                  className="flex-1 text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/50"
+                  className="flex-1 text-xs font-semibold h-9 rounded-xl border-border/80 hover:bg-muted/50 w-full sm:w-auto"
                 >
                   Dismiss
                 </Button>
@@ -499,7 +499,7 @@ export function BroadcastNotificationPopup() {
                 <Link
                   href={activeBroadcast.linkUrl || "/announcements"}
                   onClick={closeBroadcast}
-                  className="flex-1"
+                  className="flex-1 w-full sm:w-auto"
                 >
                   <Button
                     variant="brand"

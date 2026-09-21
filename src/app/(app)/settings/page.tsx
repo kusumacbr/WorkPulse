@@ -125,7 +125,7 @@ export default function SettingsPage() {
         )}
 
         {/* Header with Save Button */}
-        <div className="p-6 rounded-2xl border border-border/80 bg-card/70 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-4 sm:p-6 rounded-2xl border border-border/80 bg-card/70 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-foreground">Settings &amp; Preferences</h2>
@@ -143,7 +143,7 @@ export default function SettingsPage() {
             variant="brand"
             disabled={isSaving}
             onClick={handleSave}
-            className="text-xs font-bold h-8.5 px-4 gap-1.5 rounded-xl shrink-0 cursor-pointer self-start sm:self-center"
+            className="text-xs font-bold h-8.5 px-4 gap-1.5 rounded-xl shrink-0 cursor-pointer w-full sm:w-auto"
           >
             <Save className="h-3.5 w-3.5" />
             <span>{isSaving ? "Saving..." : "Save Changes"}</span>
@@ -151,7 +151,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 1. Theme & Appearance */}
-        <div className="p-5 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-3">
+        <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Laptop className="h-3.5 w-3.5 text-primary" />
@@ -164,7 +164,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 2. Notification Preferences */}
-        <div className="p-5 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-3">
+        <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-3">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Bell className="h-3.5 w-3.5 text-primary" />
             <span>Notification Preferences</span>
@@ -221,7 +221,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 3. Account & Access Summary */}
-        <div className="p-5 rounded-2xl border border-border/80 bg-card/40 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/40 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
               <User className="h-4 w-4" />

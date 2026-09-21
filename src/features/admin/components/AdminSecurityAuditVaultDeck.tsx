@@ -141,7 +141,7 @@ export function AdminSecurityAuditVaultDeck() {
       )}
 
       {/* Audit Vault Deck */}
-      <Interactive3DCard className="p-6 border border-rose-500/30 space-y-4">
+      <Interactive3DCard className="p-4 sm:p-6 border border-rose-500/30 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -153,8 +153,8 @@ export function AdminSecurityAuditVaultDeck() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative w-44">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative w-full sm:w-44">
               <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
               <Input
                 value={searchQuery}
@@ -167,7 +167,7 @@ export function AdminSecurityAuditVaultDeck() {
             <select
               value={filterEntity}
               onChange={(e) => setFilterEntity(e.target.value)}
-              className="h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+              className="w-full sm:w-auto h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
             >
               <option value="ALL">All Entities</option>
               <option value="UserRole">UserRole</option>
@@ -180,7 +180,7 @@ export function AdminSecurityAuditVaultDeck() {
             <select
               value={filterAction}
               onChange={(e) => setFilterAction(e.target.value)}
-              className="h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+              className="w-full sm:w-auto h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
             >
               <option value="ALL">All Actions</option>
               <option value="role_change">role_change</option>
@@ -195,7 +195,7 @@ export function AdminSecurityAuditVaultDeck() {
               variant="outline"
               size="sm"
               onClick={handleExportAuditJson}
-              className="text-xs h-8 px-3 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 gap-1"
+              className="w-full sm:w-auto text-xs font-bold h-8 px-3 border-rose-500/30 text-rose-300 hover:bg-rose-500/10 gap-1 justify-center"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export JSON</span>
@@ -205,7 +205,7 @@ export function AdminSecurityAuditVaultDeck() {
 
         {/* Audit Log Table */}
         <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/60">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[750px]">
             <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
               <tr>
                 <th className="p-3">Timestamp & ID</th>
@@ -272,8 +272,8 @@ export function AdminSecurityAuditVaultDeck() {
 
       {/* State Diff Modal Inspector */}
       {inspectEntry && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="bg-card border border-border w-full max-w-2xl rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -293,7 +293,7 @@ export function AdminSecurityAuditVaultDeck() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="p-3 rounded-xl bg-background/80 border border-border space-y-1">
                 <span className="text-[10px] font-bold uppercase text-muted-foreground block">Before State</span>
                 <pre className="text-[11px] font-mono text-amber-300 overflow-x-auto p-2 bg-black/40 rounded-lg">

@@ -8,8 +8,29 @@ export async function GET(req: NextRequest) {
   try {
     const { user, actor } = await getSessionActor(req);
     const { searchParams } = new URL(req.url);
+    const workDate = searchParams.get("workDate") || searchParams.get("date") || new Date().toISOString().split("T")[0]!;
+
+    // Return all workdays for the given date (used by shared store sync)
+    if (searchParams.get("all") === "true") {
+      try {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const supabaseAdmin = createAdminClient();
+        if (supabaseAdmin) {
+          const { data, error } = await supabaseAdmin
+            .from("workdays")
+            .select("*")
+            .eq("date", workDate);
+          if (!error && data) {
+            return apiSuccess({ workdays: data });
+          }
+        }
+      } catch (err) {
+        console.warn("Error fetching all workdays via admin:", err);
+      }
+      return apiSuccess({ workdays: [] });
+    }
+
     const employeeId = searchParams.get("employeeId") || actor.employeeId || user.id;
-    const workDate = searchParams.get("workDate") || new Date().toISOString().split("T")[0]!;
 
     let workday = await WorkdayService.getWorkday({
       employeeId,
@@ -125,7 +146,7 @@ export async function POST(req: NextRequest) {
       const workday = await WorkdayService.submitEOD({
         actor,
         input: {
-          workdayId: body.id || `wd-${employeeId}`,
+          workdayId: body.id || `wd-${employeeId}-${workDate}`,
           tasks: body.plannedTasks || body.tasks || [],
           dailySummary: {
             achievements: body.eodAchievements || body.achievements || body.dailySummary?.achievements || "Finished planned tasks",

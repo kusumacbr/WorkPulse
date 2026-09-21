@@ -20,10 +20,83 @@ export interface CurrentUser {
  * Falls back to store-based resolution for employee details.
  */
 export async function getCurrentUser(): Promise<CurrentUser> {
-  const supabase = await createClient();
   const cookieStore = await cookies();
   const devEmail = cookieStore.get("workpulse_dev_email")?.value;
 
+  // Fast-path: Instant in-memory resolution for dev session (0ms server latency)
+  if (devEmail) {
+    const userEmailLower = devEmail.toLowerCase();
+    const allEmployees = WorkpulseSharedStore.getAllEmployees();
+    const departments = WorkpulseSharedStore.getDepartments();
+
+    const isHR =
+      userEmailLower === "hr.test@xorstack.com" ||
+      userEmailLower === "rachel.hr@xorstack.com" ||
+      userEmailLower === "director.test@xorstack.com" ||
+      userEmailLower === "david.director@xorstack.com" ||
+      userEmailLower === "admin.test@xorstack.com" ||
+      userEmailLower === "admin@xorstack.com";
+
+    const isLead =
+      !isHR &&
+      (userEmailLower === "lead.test@xorstack.com" ||
+        userEmailLower === "alex.lead@xorstack.com" ||
+        userEmailLower === "lead.devops@xorstack.com" ||
+        userEmailLower === "marcus.vance@xorstack.com" ||
+        userEmailLower === "lead.data@xorstack.com" ||
+        userEmailLower === "vikram.rao@xorstack.com");
+
+    const effectivePrimaryRole: RoleType = isHR
+      ? "HR"
+      : isLead
+      ? "MANAGER"
+      : "EMPLOYEE";
+
+    const effectiveRoles: RoleType[] =
+      effectivePrimaryRole === "HR"
+        ? ["HR", "EMPLOYEE"]
+        : effectivePrimaryRole === "MANAGER"
+        ? ["MANAGER", "EMPLOYEE"]
+        : ["EMPLOYEE"];
+
+    const matchedEmployee = allEmployees.find(
+      (e) => e.email.toLowerCase() === userEmailLower || (e.id === "lead-alex" && isLead)
+    );
+
+    if (matchedEmployee) {
+      return {
+        id: matchedEmployee.id,
+        email: matchedEmployee.email,
+        name: matchedEmployee.name,
+        roles: effectiveRoles,
+        primaryRole: effectivePrimaryRole,
+        designation: matchedEmployee.designation,
+        department: matchedEmployee.departmentName,
+        team: `${matchedEmployee.departmentName} Team`,
+      };
+    }
+
+    const matchedLead = departments.find(
+      (d) =>
+        d.teamLead.email.toLowerCase() === userEmailLower ||
+        (userEmailLower === "lead.test@xorstack.com" && d.teamLead.id === "lead-alex")
+    );
+
+    if (matchedLead) {
+      return {
+        id: matchedLead.teamLead.id,
+        email: matchedLead.teamLead.email,
+        name: matchedLead.teamLead.name,
+        roles: effectiveRoles,
+        primaryRole: effectivePrimaryRole,
+        designation: "Team Lead",
+        department: matchedLead.name,
+        team: `${matchedLead.name} Team`,
+      };
+    }
+  }
+
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

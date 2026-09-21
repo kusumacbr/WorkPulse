@@ -528,7 +528,7 @@ export default function NotificationsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {unreadCount > 0 && (
               <Button
                 variant="outline"
@@ -727,14 +727,14 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* Modal: Broadcast Organization Announcement */}
+        {/* Send Broadcast Modal */}
         {showBroadcastModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
             onClick={() => setShowBroadcastModal(false)}
           >
             <div
-              className="w-full max-w-lg rounded-2xl bg-card border border-border shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150"
+              className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl bg-card border border-border p-4 sm:p-5 shadow-2xl space-y-4 animate-in zoom-in-95 custom-scrollbar"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-border/60">
@@ -795,13 +795,13 @@ export default function NotificationsPage() {
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-border/60">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setShowBroadcastModal(false)}
-                    className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                    className="text-xs h-8 px-3 rounded-lg border-border/70 text-muted-foreground hover:text-foreground font-medium cursor-pointer w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -810,7 +810,7 @@ export default function NotificationsPage() {
                     variant="brand"
                     size="sm"
                     disabled={isBroadcasting}
-                    className="text-xs h-8 px-4 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm cursor-pointer"
+                    className="text-xs h-8 px-4 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm cursor-pointer w-full sm:w-auto"
                   >
                     {isBroadcasting ? "Broadcasting..." : "Send Broadcast"}
                   </Button>

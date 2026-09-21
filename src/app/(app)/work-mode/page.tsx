@@ -52,36 +52,36 @@ export default function WorkModePage() {
     if (!reason.trim()) return;
 
     setLoading(true);
+    const reqId = `wfh-req-v2-${Date.now()}`;
+    const wfhPayload = {
+      id: reqId,
+      startDate,
+      endDate,
+      reason,
+      plannedDeliverables: deliverables || "Sprint deliverables",
+      availabilityHours: "10:00 AM – 07:00 PM",
+      contactMethod: "Slack & Google Meet",
+    };
+
+    // 1. Instant optimistic update to local shared store so UI renders without refresh
+    addWfhRequest(wfhPayload);
+    setSubmitted(true);
+
     try {
-      // 1. Submit via API
-      const res = await fetch("/api/v1/leave/wfh", {
+      const emailHeader = typeof window !== "undefined" ? sessionStorage.getItem("workpulse_session_email") || user.userEmail || "" : "";
+      await fetch("/api/v1/leave/wfh", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startDate,
-          endDate,
-          reason,
-          plannedDeliverables: deliverables || "Sprint deliverables",
-          availabilityHours: "10:00 AM – 07:00 PM",
-          contactMethod: "Slack & Google Meet",
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(emailHeader ? { "x-user-email": emailHeader } : {}),
+        },
+        body: JSON.stringify(wfhPayload),
       });
 
-      if (res.ok) {
-        setSubmitted(true);
-        setReason("");
-        setDeliverables("");
-      }
+      setReason("");
+      setDeliverables("");
     } catch (e) {
       console.warn("Failed to submit WFH via API:", e);
-      // Fallback to store
-      addWfhRequest({
-        startDate,
-        endDate,
-        reason,
-        plannedDeliverables: deliverables || "Sprint deliverables",
-      });
-      setSubmitted(true);
     } finally {
       setLoading(false);
     }
@@ -90,16 +90,16 @@ export default function WorkModePage() {
   return (
     <PageTransition>
       <div className="space-y-6 max-w-4xl mx-auto">
-        <Interactive3DCard className="p-6 md:p-8 border border-teal-500/30 bg-gradient-to-r from-card/90 via-card/70 to-teal-500/10 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 md:p-8 border border-teal-500/30 bg-gradient-to-r from-card/90 via-card/70 to-teal-500/10 space-y-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="brand" className="bg-teal-500/15 border-teal-500/30 text-teal-300 text-[10px] font-bold uppercase">
                 <Laptop className="h-3 w-3 mr-1 text-teal-400" />
-                Work Mode & Remote Policy
+                Work Mode &amp; Remote Policy
               </Badge>
-              <span className="text-xs text-muted-foreground font-mono">2-Stage Lead & HR Approval</span>
+              <span className="text-xs text-muted-foreground font-mono">2-Stage Lead &amp; HR Approval</span>
             </div>
-            <h2 className="text-2xl font-black text-foreground">Work-From-Home & Remote Mode Portal</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-foreground">Work-From-Home &amp; Remote Mode Portal</h2>
             <p className="text-xs text-muted-foreground">
               Request WFH, Hybrid schedule, or client-site remote days. Upon final approval, your workday status automatically updates without attendance penalties.
             </p>
@@ -107,7 +107,7 @@ export default function WorkModePage() {
         </Interactive3DCard>
 
         {/* Application Form */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-card/60 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-border/80 bg-card/60 space-y-4">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Home className="h-4 w-4 text-teal-400" />
             <span>Submit Work Mode Application</span>
@@ -163,7 +163,7 @@ export default function WorkModePage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-semibold text-muted-foreground">Planned Deliverables & Availability</label>
+                <label className="font-semibold text-muted-foreground">Planned Deliverables &amp; Availability</label>
                 <textarea
                   value={deliverables}
                   onChange={(e) => setDeliverables(e.target.value)}
@@ -182,7 +182,7 @@ export default function WorkModePage() {
         </Interactive3DCard>
 
         {/* Requests History */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-card/60 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-border/80 bg-card/60 space-y-4">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Clock className="h-4 w-4 text-cyan-400" />
             <span>Remote Work Mode History</span>
@@ -197,7 +197,7 @@ export default function WorkModePage() {
               myWfhRequests.map((req) => (
                 <div key={req.id} className="p-3.5 rounded-xl bg-card border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <strong className="text-foreground font-mono">
                         {req.startDate} {req.startDate !== req.endDate ? `to ${req.endDate}` : ""}
                       </strong>

@@ -22,7 +22,7 @@ async function request<T>(
     };
 
     if (typeof window !== "undefined") {
-      const sessionEmail = sessionStorage.getItem("workpulse_session_email");
+      const sessionEmail = sessionStorage.getItem("workpulse_session_email") || sessionStorage.getItem("workpulse_user_email");
       if (sessionEmail && !headers["x-user-email"]) {
         headers["x-user-email"] = sessionEmail;
       }

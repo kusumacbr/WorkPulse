@@ -7,7 +7,8 @@ export async function POST(req: NextRequest) {
     const { user, actor } = await getSessionActor(req);
     const body = await req.json().catch(() => ({}));
     const employeeId = body.employeeId || actor.employeeId || user.id;
-    const workdayId = body.workdayId || `wd-${employeeId}`;
+    const workDate = body.workDate || new Date().toISOString().split("T")[0]!;
+    const workdayId = body.workdayId || `wd-${employeeId}-${workDate}`;
 
     const workday = await WorkdayService.submitEOD({
       actor,

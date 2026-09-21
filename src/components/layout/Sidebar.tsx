@@ -127,6 +127,9 @@ export function Sidebar({ userRoles: propUserRoles }: SidebarProps) {
                   key={item.href}
                   href={item.href}
                   prefetch={true}
+                  onClick={(e) => {
+                    if (isActive) e.preventDefault();
+                  }}
                   onMouseEnter={() => {
                     try {
                       router.prefetch(item.href);

@@ -96,7 +96,7 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
         <Button
           variant="brand"
           size="sm"
-          className="text-xs font-semibold gap-1.5 h-8"
+          className="w-full sm:w-auto text-xs font-semibold gap-1.5 h-8 shrink-0 justify-center"
           onClick={() => setShowCreateModal(true)}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -112,10 +112,10 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
 
           return (
             <Card key={ann.id} className="border-border hover:border-border/80 transition-all">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-3">
+              <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="brand" className="text-[10px] uppercase font-bold">
                         {ann.category}
                       </Badge>
@@ -149,14 +149,13 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
                 </div>
               </CardHeader>
 
-              <CardContent className="text-xs text-muted-foreground space-y-2">
-                <p className="line-clamp-2">{ann.body}</p>
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-3 text-xs">
+                <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed">{ann.body}</p>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border text-[11px]">
+                <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] flex-wrap gap-1">
                   <span className="flex items-center gap-1 text-muted-foreground">
                     <Users className="h-3 w-3" /> Audience: {ann.audienceType}
                   </span>
-
                   <span className="flex items-center gap-1 text-muted-foreground">
                     <Bell className="h-3 w-3" /> Channels: {ann.channels.join(", ")}
                   </span>
@@ -169,8 +168,8 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
 
       {/* Publish Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-border shadow-2xl bg-card">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-md border-border shadow-2xl bg-card max-h-[92vh] overflow-y-auto custom-scrollbar">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Megaphone className="h-4 w-4 text-[var(--brand-primary)]" />
@@ -181,7 +180,7 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
               </Button>
             </CardHeader>
 
-            <CardContent className="p-6 space-y-4 text-xs">
+            <CardContent className="p-4 sm:p-6 space-y-4 text-xs">
               <div>
                 <label className="font-semibold block mb-1">Title *</label>
                 <Input
@@ -192,7 +191,7 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="font-semibold block mb-1">Category</label>
                   <select
@@ -244,11 +243,11 @@ export function AnnouncementComposer({ initialAnnouncements }: AnnouncementCompo
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 border-t border-border">
+                <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button variant="brand" size="sm" onClick={handlePublish}>
+                <Button variant="brand" size="sm" onClick={handlePublish} className="w-full sm:w-auto">
                   Publish & Broadcast
                 </Button>
               </div>

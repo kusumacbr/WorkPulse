@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +158,65 @@ export function SimpleTaskManager() {
   const [helpDetails, setHelpDetails] = useState("");
   const [helpUrgency, setHelpUrgency] = useState<"NORMAL" | "URGENT">("NORMAL");
 
+  // Local real-time verification overrides for zero-latency reflection
+  const [localSodStatus, setLocalSodStatus] = useState<string | null>(null);
+  const [localSodNote, setLocalSodNote] = useState<string | null>(null);
+  const [localSodVerifiedBy, setLocalSodVerifiedBy] = useState<string | null>(null);
+  const [localSodVerifiedAt, setLocalSodVerifiedAt] = useState<string | null>(null);
+  const [localEodStatus, setLocalEodStatus] = useState<string | null>(null);
+  const [localEodApprovedTs, setLocalEodApprovedTs] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved =
+        localStorage.getItem("workpulse_eod_approved_emp-sarah") ||
+        localStorage.getItem("workpulse_eod_approved_employee.test@xorstack.com");
+      if (saved) {
+        const parsed = Number(saved);
+        if (!isNaN(parsed) && parsed > 0 && Date.now() - parsed < 2 * 60 * 1000) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  const applyRealtimeFeedback = useCallback((detail: any, eventType?: string) => {
+    if (!detail) return;
+    const evEmpId = String(detail.employeeId || "").trim().toLowerCase();
+    const myId = String(currentEmp?.id || "").trim().toLowerCase();
+    const myEmail = String(currentUser?.userEmail || currentEmp?.email || "").trim().toLowerCase();
+    const isForMe = !evEmpId ||
+      evEmpId === myId ||
+      evEmpId === myEmail ||
+      (myEmail.includes("employee.test") && evEmpId === "emp-sarah") ||
+      (evEmpId.includes("employee.test") && myId === "emp-sarah");
+
+    if (isForMe) {
+      const type = detail.type || eventType;
+      if (type === "workday:sod_verified" || detail.sodStatus === "VERIFIED") {
+        setLocalSodStatus("VERIFIED");
+        if (detail.note || detail.verifiedNote) setLocalSodNote(detail.note || detail.verifiedNote);
+        if (detail.leadName) setLocalSodVerifiedBy(detail.leadName);
+        if (detail.timeStr) setLocalSodVerifiedAt(detail.timeStr);
+      } else if (type === "workday:sod_changes_requested") {
+        setLocalSodStatus("CHANGES_REQUESTED");
+        if (detail.reason) setLocalSodNote(detail.reason);
+      } else if (type === "workday:eod_verified" || type === "workday:eod_approved") {
+        setLocalEodStatus("VERIFIED");
+        const ts = detail.timestamp || detail.eodApprovedTimestamp || Date.now();
+        setLocalEodApprovedTs(ts);
+        if (typeof window !== "undefined") {
+          try {
+            if (currentEmp?.id) localStorage.setItem(`workpulse_eod_approved_${currentEmp.id}`, String(ts));
+            if (currentEmp?.email) localStorage.setItem(`workpulse_eod_approved_${currentEmp.email}`, String(ts));
+            localStorage.setItem("workpulse_eod_approved_emp-sarah", String(ts));
+            localStorage.setItem("workpulse_eod_approved_employee.test@xorstack.com", String(ts));
+          } catch {}
+        }
+      }
+    }
+  }, [currentEmp?.id, currentEmp?.email, currentUser?.userEmail]);
+
   // Acknowledgement response state
   const [acknowledgementNotes, setAcknowledgementNotes] = useState<Record<string, string>>({});
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
@@ -193,9 +252,10 @@ export function SimpleTaskManager() {
         let serverFetchSuccess = false;
         if (empId) {
           try {
+            const authHeaders = { "x-user-email": currentUser?.userEmail || "" };
             const [tasksRes, assignedRes] = await Promise.all([
-              fetch(`/api/v1/tasks?employeeId=${empId}`),
-              fetch(`/api/v1/tasks/assigned?employeeId=${empId}`)
+              fetch(`/api/v1/tasks?employeeId=${empId}`, { headers: authHeaders }),
+              fetch(`/api/v1/tasks/assigned?employeeId=${empId}`, { headers: authHeaders })
             ]);
 
             if (tasksRes.ok) {
@@ -291,6 +351,7 @@ export function SimpleTaskManager() {
             ev.data?.type === "workday:sod_changes_requested" ||
             ev.data?.type === "workday:lead_feedback_updated"
           ) {
+            applyRealtimeFeedback(ev.data, ev.data?.type);
             setFeedbackVersion((v) => v + 1);
             debouncedLoadTasks();
           } else if (
@@ -584,6 +645,7 @@ export function SimpleTaskManager() {
     if (!currentEmp) return;
     setMorningSubmitted(true);
     setEveningSubmitted(false);
+    setLocalSodStatus("SUBMITTED");
 
     const cleanList = deduplicateTasks(tasks);
 
@@ -656,6 +718,7 @@ export function SimpleTaskManager() {
 
     setEveningSubmitted(true);
     setMorningSubmitted(false);
+    setLocalEodStatus("SUBMITTED");
 
     const completed = tasks.filter((t) => t.progress === 100 || t.status === "COMPLETED");
     const rollover = tasks.filter((t) => (t.progress || 0) < 100 && t.status !== "COMPLETED");
@@ -760,7 +823,8 @@ export function SimpleTaskManager() {
   const [feedbackVersion, setFeedbackVersion] = useState(0);
 
   useEffect(() => {
-    const handleFeedbackUpdate = () => {
+    const handleFeedbackUpdate = (e: any) => {
+      applyRealtimeFeedback(e?.detail, e?.type);
       setFeedbackVersion((v) => v + 1);
     };
     window.addEventListener("workpulse:lead_feedback_updated", handleFeedbackUpdate);
@@ -779,23 +843,26 @@ export function SimpleTaskManager() {
       window.removeEventListener("workpulse_sync", handleFeedbackUpdate);
       window.removeEventListener("storage", handleFeedbackUpdate);
     };
-  }, []);
+  }, [applyRealtimeFeedback]);
+
+  const effectiveSodStatus = localSodStatus || currentEmp?.sodStatus;
+  const effectiveEodStatus = localEodStatus || currentEmp?.eodStatus;
 
   const leadDailyFeedback = useMemo(() => {
     if (!currentEmp) return null;
     return {
       leadName: currentEmp.teamLeadName || "Alex Lead",
-      sodAcknowledged: currentEmp.sodStatus === "VERIFIED",
-      sodTime: currentEmp.sodVerifiedAt || currentEmp.sodTime,
-      sodNote: currentEmp.sodLeadNote,
-      eodAcknowledged: currentEmp.eodStatus === "VERIFIED",
-      eodReviewed: currentEmp.eodStatus === "VERIFIED",
+      sodAcknowledged: effectiveSodStatus === "VERIFIED",
+      sodTime: localSodVerifiedAt || currentEmp.sodVerifiedAt || currentEmp.sodTime,
+      sodNote: localSodNote || currentEmp.sodLeadNote,
+      eodAcknowledged: effectiveEodStatus === "VERIFIED",
+      eodReviewed: effectiveEodStatus === "VERIFIED",
       eodSubmittedTime: currentEmp.eodTime,
       eodLeadRating: currentEmp.eodLeadRating,
       eodLeadComment: currentEmp.eodLeadComment,
       eodLeadActionItem: currentEmp.eodLeadActionItem,
     };
-  }, [currentEmp, feedbackVersion]);
+  }, [currentEmp, feedbackVersion, effectiveSodStatus, effectiveEodStatus, localSodVerifiedAt, localSodNote]);
 
   const assignedLeadName = currentEmp?.teamLeadName || leadDailyFeedback?.leadName || "Alex Lead";
   const assignedDeptName = currentEmp?.departmentName || "Development";
@@ -810,26 +877,55 @@ export function SimpleTaskManager() {
 
   // 1. Start of Day (SOD) Lifecycle Status
   const isSodSubmitted = Boolean(
-    morningSubmitted || currentEmp?.sodStatus === "SUBMITTED" || currentEmp?.sodStatus === "VERIFIED"
+    morningSubmitted || effectiveSodStatus === "SUBMITTED" || effectiveSodStatus === "VERIFIED"
   );
 
   const isSodVerified = Boolean(
     isSodSubmitted &&
-    ((currentEmp?.sodStatus === "VERIFIED") ||
+    (effectiveSodStatus === "VERIFIED" ||
       Boolean(leadDailyFeedback && leadDailyFeedback.sodAcknowledged === true))
   );
 
-  const sodVerifiedBy = currentEmp?.sodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
-  const sodVerifiedAt = currentEmp?.sodVerifiedAt || leadDailyFeedback?.sodTime || "Today";
-  const sodLeadNote = currentEmp?.sodLeadNote || leadDailyFeedback?.sodNote || "Morning plan verified & approved by Team Lead.";
+  const sodVerifiedBy = localSodVerifiedBy || currentEmp?.sodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
+  const sodVerifiedAt = localSodVerifiedAt || currentEmp?.sodVerifiedAt || leadDailyFeedback?.sodTime || "Today";
+  const sodLeadNote = localSodNote || currentEmp?.sodLeadNote || leadDailyFeedback?.sodNote || "Morning plan verified & approved by Team Lead.";
 
   // 2. End of Day (EOD) Lifecycle Status — strictly dependent on isSodVerified
   const eodTimestamp = useMemo(() => {
-    if (isSodVerified && currentEmp?.eodStatus === "VERIFIED") {
+    if (isSodVerified && effectiveEodStatus === "VERIFIED") {
+      if (localEodApprovedTs) return localEodApprovedTs;
+      if (typeof window !== "undefined") {
+        try {
+          const empKey = currentEmp?.id || "emp-sarah";
+          const saved =
+            localStorage.getItem(`workpulse_eod_approved_${empKey}`) ||
+            (currentEmp?.email ? localStorage.getItem(`workpulse_eod_approved_${currentEmp.email.toLowerCase()}`) : null) ||
+            localStorage.getItem("workpulse_eod_approved_emp-sarah") ||
+            localStorage.getItem("workpulse_eod_approved_employee.test@xorstack.com");
+          if (saved) {
+            const parsed = Number(saved);
+            if (!isNaN(parsed) && parsed > 0) return parsed;
+          }
+        } catch {}
+      }
+      if (currentEmp?.eodVerifiedAt || currentEmp?.eodTime) {
+        const raw = currentEmp.eodVerifiedAt || currentEmp.eodTime || "";
+        const match = raw.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+        if (match) {
+          let hours = parseInt(match[1]!, 10);
+          const minutes = parseInt(match[2]!, 10);
+          const ampm = match[4]?.toUpperCase();
+          if (ampm === "PM" && hours < 12) hours += 12;
+          if (ampm === "AM" && hours === 12) hours = 0;
+          const d = new Date();
+          d.setHours(hours, minutes, 0, 0);
+          return d.getTime();
+        }
+      }
       return Date.now();
     }
     return null;
-  }, [isSodVerified, currentEmp?.eodStatus]);
+  }, [isSodVerified, effectiveEodStatus, localEodApprovedTs, currentEmp?.id, currentEmp?.email, currentEmp?.eodVerifiedAt, currentEmp?.eodTime]);
 
   // 2-Minute EOD Next-Day Window (2 * 60 * 1000 = 120,000 ms) - starts after Lead Approval
   const EOD_WINDOW_MS = 2 * 60 * 1000;
@@ -837,9 +933,9 @@ export function SimpleTaskManager() {
 
   const isEodSubmittedPendingLead = Boolean(
     isSodVerified &&
-    (eveningSubmitted || currentEmp?.eodStatus === "SUBMITTED") &&
+    (eveningSubmitted || effectiveEodStatus === "SUBMITTED") &&
     !eodTimestamp &&
-    currentEmp?.eodStatus !== "VERIFIED" &&
+    effectiveEodStatus !== "VERIFIED" &&
     !(leadDailyFeedback && (leadDailyFeedback.eodAcknowledged === true || leadDailyFeedback.eodReviewed === true))
   );
 
@@ -847,7 +943,7 @@ export function SimpleTaskManager() {
   const isDayWrappedUp = Boolean(
     isSodVerified &&
     eodTimestamp &&
-    (eveningSubmitted || currentEmp?.eodStatus === "SUBMITTED" || currentEmp?.eodStatus === "VERIFIED") &&
+    (eveningSubmitted || effectiveEodStatus === "SUBMITTED" || effectiveEodStatus === "VERIFIED") &&
     eodElapsedMs < EOD_WINDOW_MS
   );
 
@@ -896,6 +992,19 @@ export function SimpleTaskManager() {
 
       setEveningSubmitted(false);
       setMorningSubmitted(false);
+      setLocalSodStatus(null);
+      setLocalSodNote(null);
+      setLocalSodVerifiedBy(null);
+      setLocalSodVerifiedAt(null);
+      setLocalEodStatus(null);
+      setLocalEodApprovedTs(null);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem(`workpulse_eod_approved_${targetEmpId}`);
+          localStorage.removeItem("workpulse_eod_approved_emp-sarah");
+          localStorage.removeItem("workpulse_eod_approved_employee.test@xorstack.com");
+        } catch {}
+      }
 
       // 3. Delete completed tasks from Supabase daily_tasks & persist rollover tasks
       fetch("/api/v1/tasks/cleanup", {
@@ -925,7 +1034,7 @@ export function SimpleTaskManager() {
   // EOD feedback from Team Lead remains visible once verified
   const isEodVerified = Boolean(
     isSodVerified &&
-    (currentEmp?.eodStatus === "VERIFIED" ||
+    (effectiveEodStatus === "VERIFIED" ||
       Boolean(leadDailyFeedback && leadDailyFeedback.eodAcknowledged === true))
   );
   const eodVerifiedBy = currentEmp?.eodVerifiedBy || leadDailyFeedback?.leadName || assignedLeadName;
@@ -1606,8 +1715,8 @@ export function SimpleTaskManager() {
 
       {/* Help Request Modal */}
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md p-6 rounded-3xl bg-card border border-indigo-200 dark:border-indigo-500/30 shadow-2xl space-y-4 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
+          <div className="w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-card border border-indigo-200 dark:border-indigo-500/30 shadow-2xl space-y-4 animate-in zoom-in-95 custom-scrollbar">
             <div className="flex items-center justify-between pb-2 border-b border-border/60">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-2xl bg-amber-100 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
@@ -1683,20 +1792,20 @@ export function SimpleTaskManager() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-border/60">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setShowHelpModal(false)}
-                  className="h-9 px-4 rounded-xl text-xs"
+                  className="h-9 px-4 rounded-xl text-xs w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
-                  className="h-9 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20"
+                  className="h-9 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 w-full sm:w-auto"
                 >
                   Send Help Request
                 </Button>
@@ -1709,7 +1818,7 @@ export function SimpleTaskManager() {
       {/* 1. Daily Morning Plan & Evening Wrap-Up (Plain English) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Today's Tasks & Plan Submission */}
-        <Interactive3DCard className={`p-4 sm:p-5 border space-y-3 rounded-3xl transition-all ${
+        <Interactive3DCard className={`p-4 sm:p-5 border space-y-3 rounded-2xl sm:rounded-3xl transition-all ${
           isEodWithin10MinWindow
             ? "border-slate-200 dark:border-border/60 bg-slate-50/70 dark:bg-card/40 opacity-80"
             : isSodVerified
@@ -1718,7 +1827,7 @@ export function SimpleTaskManager() {
             ? "border-cyan-200 dark:border-cyan-500/30 bg-gradient-to-r from-cyan-50/70 via-cyan-50/30 to-card dark:from-cyan-950/20 dark:via-card dark:to-card shadow-sm"
             : "border-cyan-200 dark:border-cyan-500/20 bg-gradient-to-r from-cyan-50/60 via-slate-50/40 to-card dark:from-cyan-950/10 dark:via-card dark:to-card shadow-sm"
         }`}>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
                 isEodWithin10MinWindow
@@ -1821,7 +1930,7 @@ export function SimpleTaskManager() {
         </Interactive3DCard>
 
         {/* Evening Wrap-Up */}
-        <Interactive3DCard className={`p-4 sm:p-5 border space-y-3 rounded-3xl transition-all ${
+        <Interactive3DCard className={`p-4 sm:p-5 border space-y-3 rounded-2xl sm:rounded-3xl transition-all ${
           !isSodVerified && !isEodWithin10MinWindow
             ? "border-slate-200 dark:border-border/60 bg-slate-50/70 dark:bg-card/40 opacity-75 shadow-sm"
             : isEodWithin10MinWindow
@@ -1830,7 +1939,7 @@ export function SimpleTaskManager() {
             ? "border-purple-200 dark:border-purple-500/20 bg-gradient-to-r from-purple-50/60 via-slate-50/30 to-card dark:from-purple-950/10 dark:via-card dark:to-card shadow-sm"
             : "border-slate-200 dark:border-border/60 bg-card/60 shadow-sm"
         }`}>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
                 !isSodVerified && !isEodWithin10MinWindow

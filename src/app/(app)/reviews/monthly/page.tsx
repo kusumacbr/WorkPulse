@@ -34,17 +34,17 @@ export default function MonthlyReviewsPage() {
         </Link>
 
         {/* Hero Header */}
-        <Interactive3DCard className="p-6 md:p-8 border border-purple-500/30 bg-gradient-to-r from-card/90 via-card/70 to-purple-500/10 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 md:p-8 border border-purple-500/30 bg-gradient-to-r from-card/90 via-card/70 to-purple-500/10 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="brand" className="bg-purple-500/15 border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase">
                   <Scale className="h-3 w-3 mr-1 text-purple-400" />
                   Monthly Performance Review (Section 5 Specification)
                 </Badge>
                 <span className="text-xs text-muted-foreground font-mono">August 2026 Appraisal</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground">
                 6-Criterion Weighted Performance Evaluation
               </h2>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -52,7 +52,7 @@ export default function MonthlyReviewsPage() {
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-background/50 border border-purple-500/30 text-right shrink-0 space-y-1">
+            <div className="p-4 rounded-xl bg-background/50 border border-purple-500/30 text-left sm:text-right shrink-0 space-y-1">
               <span className="text-[10px] text-muted-foreground uppercase font-bold">Overall Monthly Score</span>
               <div className="text-3xl font-black text-purple-400 font-mono">95.0%</div>
               <Badge variant="brand" className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
@@ -63,14 +63,14 @@ export default function MonthlyReviewsPage() {
         </Interactive3DCard>
 
         {/* 6 Criteria Breakdown Table */}
-        <Interactive3DCard className="p-6 border border-border/80 bg-card/60 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-border/80 bg-card/60 space-y-4">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <FileCheck2 className="h-4 w-4 text-purple-400" />
             <span>Monthly Performance Criteria & Normalization Matrix</span>
           </h3>
 
           <div className="overflow-x-auto rounded-xl border border-border/60">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[550px]">
               <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
                 <tr>
                   <th className="p-3">Criterion</th>

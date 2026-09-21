@@ -144,6 +144,13 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
   );
   const totalPending = pendingLeaves.length + pendingWfhs.length;
 
+  const getHrAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-email": typeof window !== "undefined"
+      ? sessionStorage.getItem("workpulse_session_email") || sessionStorage.getItem("workpulse_user_email") || "hr.test@xorstack.com"
+      : "hr.test@xorstack.com",
+  });
+
   const handleApproveLeave = async (id: string, name: string) => {
     const comment = hrRemarks[id] || "Authorized by HR People Operations with standard balance deduction.";
     hrApproveLeave(id, comment);
@@ -151,8 +158,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
     try {
       await fetch(`/api/v1/leave/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR leave approval to API:", e);
@@ -166,8 +173,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
     try {
       await fetch(`/api/v1/leave/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ reason: comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR leave rejection to API:", e);
@@ -181,8 +188,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
     try {
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH approval to API:", e);
@@ -196,8 +203,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
     try {
       await fetch(`/api/v1/leave/wfh/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ reason: comment, stage: "STAGE_2" }),
       });
     } catch (e) {
       console.warn("Failed to persist HR WFH rejection to API:", e);
@@ -245,11 +252,11 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       )}
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto gap-1 text-xs">
+      <div className="flex items-center p-1.5 rounded-xl bg-card/60 border border-border/80 overflow-x-auto custom-scrollbar whitespace-nowrap gap-1 text-xs">
         <button
           type="button"
           onClick={() => setActiveTab("queue")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             activeTab === "queue"
               ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -267,7 +274,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
         <button
           type="button"
           onClick={() => setActiveTab("ledger")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             activeTab === "ledger"
               ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -280,7 +287,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
         <button
           type="button"
           onClick={() => setActiveTab("anomalies")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             activeTab === "anomalies"
               ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -293,7 +300,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
         <button
           type="button"
           onClick={() => setActiveTab("wfh_patterns")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             activeTab === "wfh_patterns"
               ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -306,7 +313,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
         <button
           type="button"
           onClick={() => setActiveTab("forecaster")}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
+          className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all ${
             activeTab === "forecaster"
               ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -321,7 +328,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       {/* 1. STAGE-2 HR FINAL APPROVAL QUEUE                              */}
       {/* ============================================================== */}
       {activeTab === "queue" && (
-        <Interactive3DCard className="p-6 border border-pink-500/30 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-pink-500/30 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -390,21 +397,22 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                       className="h-8 text-xs flex-1"
                     />
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                       <Button
                         variant="brand"
                         size="sm"
                         onClick={() => handleApproveLeave(req.id, req.employeeName)}
-                        className="text-xs font-bold h-8 bg-gradient-to-r from-pink-500 to-rose-600 text-white gap-1"
+                        className="w-full sm:w-auto text-xs font-bold h-8 bg-gradient-to-r from-pink-500 to-rose-600 text-white gap-1 justify-center"
                       >
                         <Check className="h-3.5 w-3.5" />
                         <span>Authorize Leave</span>
                       </Button>
+
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleRejectLeave(req.id, req.employeeName)}
-                        className="text-xs font-bold h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1"
+                        className="w-full sm:w-auto text-xs font-bold h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1 justify-center"
                       >
                         <X className="h-3.5 w-3.5" />
                         <span>Reject</span>
@@ -422,7 +430,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-foreground text-sm">{req.employeeName}</span>
                         <span className="text-[11px] text-muted-foreground">({req.departmentName})</span>
                         <Badge variant="brand" className="text-[9px] bg-cyan-500/15 text-cyan-300 border-cyan-500/30">
@@ -442,7 +450,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                       </div>
                     </div>
 
-                    <div className="text-right text-[11px] text-muted-foreground shrink-0 font-mono">
+                    <div className="text-left md:text-right text-[11px] text-muted-foreground shrink-0 font-mono">
                       <span>Shift Hours:</span> <strong className="text-foreground">10:00 AM – 07:00 PM</strong>
                     </div>
                   </div>
@@ -455,21 +463,22 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                       className="h-8 text-xs flex-1"
                     />
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                       <Button
                         variant="brand"
                         size="sm"
                         onClick={() => handleApproveWfh(req.id, req.employeeName)}
-                        className="text-xs font-bold h-8 bg-gradient-to-r from-cyan-500 to-blue-600 text-white gap-1"
+                        className="w-full sm:w-auto text-xs font-bold h-8 bg-gradient-to-r from-cyan-500 to-blue-600 text-white gap-1 justify-center"
                       >
                         <Check className="h-3.5 w-3.5" />
                         <span>Authorize WFH</span>
                       </Button>
+
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleRejectWfh(req.id, req.employeeName)}
-                        className="text-xs font-bold h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1"
+                        className="w-full sm:w-auto text-xs font-bold h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1 justify-center"
                       >
                         <X className="h-3.5 w-3.5" />
                         <span>Reject</span>
@@ -487,7 +496,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       {/* 2. LEAVE BALANCE OVERVIEW TABLE                                */}
       {/* ============================================================== */}
       {activeTab === "ledger" && (
-        <Interactive3DCard className="p-6 border border-cyan-500/30 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-cyan-500/30 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -499,8 +508,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative w-40">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative w-full sm:w-40">
                 <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <Input
                   value={ledgerSearch}
@@ -513,7 +522,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
               <select
                 value={sortField}
                 onChange={(e) => setSortField(e.target.value as any)}
-                className="h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
+                className="w-full sm:w-auto h-8 px-2 rounded-md border border-input bg-card text-xs font-semibold text-foreground focus:outline-none"
               >
                 <option value="remaining">Sort: Remaining</option>
                 <option value="used">Sort: Used YTD</option>
@@ -526,7 +535,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                 onClick={() => {
                   setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                 }}
-                className="text-xs h-8 px-2.5 gap-1"
+                className="w-full sm:w-auto text-xs h-8 px-2.5 gap-1 justify-center"
               >
                 <ArrowUpDown className="h-3.5 w-3.5" />
                 <span>{sortOrder.toUpperCase()}</span>
@@ -535,7 +544,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/60">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[650px]">
               <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
                 <tr>
                   <th className="p-3">Employee</th>
@@ -581,7 +590,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       {/* 3. ATTENDANCE ANOMALY RADAR                                    */}
       {/* ============================================================== */}
       {activeTab === "anomalies" && (
-        <Interactive3DCard className="p-6 border border-amber-500/30 space-y-4">
+        <Interactive3DCard className="p-4 sm:p-6 border border-amber-500/30 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -604,7 +613,7 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                 className="p-4 rounded-xl bg-card/60 border border-border/80 flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-foreground text-sm">{anom.employeeName}</span>
                     <Badge variant="outline" className="text-[9px] text-cyan-300 border-cyan-500/30">
                       {anom.department}
@@ -612,14 +621,14 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                     <span className="text-[11px] text-muted-foreground">{anom.designation}</span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-wrap text-[11px] text-muted-foreground font-mono">
                     <span>Late Arrivals (&gt;10:15 AM): <strong className="text-amber-400">{anom.lateArrivalsCount}x</strong></span>
                     <span>Missing Punches: <strong className="text-rose-400">{anom.missingPunchesCount}</strong></span>
                     <span>Last Anomaly: {anom.lastAnomalyDate}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-3 shrink-0 flex-wrap">
                   <Badge
                     variant="brand"
                     className={`text-[9px] font-bold ${
@@ -651,8 +660,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       {/* 4. WFH PATTERN OVERVIEW                                         */}
       {/* ============================================================== */}
       {activeTab === "wfh_patterns" && (
-        <Interactive3DCard className="p-6 border border-purple-500/30 space-y-4">
-          <div className="flex items-center justify-between">
+        <Interactive3DCard className="p-4 sm:p-6 border border-purple-500/30 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <Laptop className="h-4 w-4 text-purple-400" />
@@ -673,8 +682,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
                 key={pat.id}
                 className="p-4 rounded-xl bg-card/60 border border-border/80 space-y-2"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-foreground text-sm">{pat.employeeName}</span>
                     <span className="text-[11px] text-muted-foreground">({pat.department} · {pat.designation})</span>
                   </div>
@@ -700,8 +709,8 @@ export function HRAttendanceLeaveOversightDeck({ defaultSubTab = "queue" }: { de
       {/* 5. TEAM STAFFING & CAPACITY FORECASTER                          */}
       {/* ============================================================== */}
       {activeTab === "forecaster" && (
-        <Interactive3DCard className="p-6 border border-emerald-500/30 space-y-4">
-          <div className="flex items-center justify-between">
+        <Interactive3DCard className="p-4 sm:p-6 border border-emerald-500/30 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <Users className="h-4 w-4 text-emerald-400" />

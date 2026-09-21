@@ -182,7 +182,7 @@ export function MorningPlanLoginModal() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-2xl bg-card/95 border border-cyan-500/30 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.5)] backdrop-blur-2xl overflow-hidden z-10 p-6 sm:p-8 space-y-6"
+            className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-card/95 border border-cyan-500/30 rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.5)] backdrop-blur-2xl z-10 p-4 sm:p-8 space-y-4 sm:space-y-6 custom-scrollbar"
           >
             {/* Header Ambient Halo */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-cyan-500/20 via-blue-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
@@ -378,29 +378,29 @@ export function MorningPlanLoginModal() {
                 </div>
 
                 {/* Lead Recipient Info Card */}
-                <div className="p-3.5 rounded-2xl bg-cyan-500/[0.06] border border-cyan-500/20 flex items-center justify-between gap-3 text-xs shadow-sm">
+                <div className="p-3 sm:p-3.5 rounded-2xl bg-cyan-500/[0.06] border border-cyan-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-sm">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-xl bg-cyan-500/20 text-cyan-400 font-black flex items-center justify-center text-xs">
+                    <div className="h-8 w-8 rounded-xl bg-cyan-500/20 text-cyan-400 font-black flex items-center justify-center text-xs shrink-0">
                       {leadName.slice(0, 2).toUpperCase()}
                     </div>
-                    <div>
-                      <span className="font-bold text-foreground block">{leadName}</span>
-                      <span className="text-[11px] text-muted-foreground">
+                    <div className="min-w-0">
+                      <span className="font-bold text-foreground block truncate">{leadName}</span>
+                      <span className="text-[11px] text-muted-foreground block truncate">
                         Your Team Lead · Will verify your plan upon receipt
                       </span>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
+                  <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30 self-start sm:self-auto shrink-0">
                     Lead Verification
                   </Badge>
                 </div>
 
                 {/* Modal Footer Actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                    className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors text-center sm:text-left py-1"
                   >
                     Review in My Tasks Later
                   </button>
@@ -409,7 +409,7 @@ export function MorningPlanLoginModal() {
                     onClick={handleSendToLead}
                     disabled={isSubmitting || tasks.length === 0}
                     variant="brand"
-                    className="text-xs font-extrabold gap-2 px-6 h-10 rounded-2xl shadow-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white cursor-pointer"
+                    className="text-xs font-extrabold gap-2 px-4 sm:px-6 h-10 rounded-xl sm:rounded-2xl shadow-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white cursor-pointer w-full sm:w-auto"
                   >
                     <Send className="h-4 w-4" />
                     <span>Send Morning Plan to {leadName}</span>

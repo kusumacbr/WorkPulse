@@ -161,9 +161,9 @@ export function HREnterpriseAttendanceOversight() {
 
       {/* Main Container: Biometric Attendance Muster Roll (Full Width) */}
       <div className="w-full space-y-4">
-        <div className="p-5 sm:p-6 rounded-3xl bg-card/80 border border-border/70 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+        <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-card/80 border border-border/70 space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <Clock className="h-4 w-4 text-cyan-400" />
                 <span>Daily Attendance</span>
@@ -174,11 +174,11 @@ export function HREnterpriseAttendanceOversight() {
               </Badge>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Button
                 onClick={() => setShowUploadModal(true)}
                 size="sm"
-                className="text-xs font-bold gap-1.5 h-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl shadow-sm cursor-pointer"
+                className="w-full sm:w-auto text-xs font-bold gap-1.5 h-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl shadow-sm cursor-pointer justify-center"
               >
                 <Upload className="h-3.5 w-3.5" />
                 <span>Upload Biometric File</span>
@@ -245,7 +245,7 @@ export function HREnterpriseAttendanceOversight() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1.5 sm:pt-0 border-t border-border/30 sm:border-0">
                   <Badge
                     variant="outline"
                     className={`text-[9px] font-bold ${

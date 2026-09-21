@@ -19,3 +19,5 @@ public/WorkPulse_Member_Credentials_2026.md
 .vscode/
 .vercel/
 *.log
+
+.vercel

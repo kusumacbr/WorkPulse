@@ -143,19 +143,19 @@ export default function ProfilePage() {
         )}
 
         {/* Main Profile Header Card */}
-        <div className="p-6 rounded-2xl border border-border/80 bg-card/70 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white text-lg font-black shadow-md shrink-0">
+        <div className="p-4 sm:p-6 rounded-2xl border border-border/80 bg-card/70 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 sm:gap-4">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white text-base sm:text-lg font-black shadow-md shrink-0">
               {displayName.slice(0, 2).toUpperCase()}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-foreground">{displayName}</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-foreground truncate">{displayName}</h2>
                 <Badge variant={isHR ? "purple" : isLead ? "cyan" : "brand"} className="text-[10px] font-bold">
                   {isHR ? "HR Operations" : isLead ? "Team Lead" : "Core Member"}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate">
                 {displayDesignation} · {displayDept}
               </p>
             </div>
@@ -165,7 +165,7 @@ export default function ProfilePage() {
             size="sm"
             variant="outline"
             onClick={() => setShowQueryModal(true)}
-            className="text-xs font-bold h-8.5 px-3.5 gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer shrink-0 self-start sm:self-center"
+            className="text-xs font-bold h-8.5 px-3.5 gap-1.5 rounded-xl border-primary/30 hover:bg-primary/10 text-primary cursor-pointer shrink-0 self-stretch sm:self-center justify-center"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             <span>Request Change</span>
@@ -173,7 +173,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Simplified Info Grid */}
-        <div className="p-6 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-4">
+        <div className="p-4 sm:p-6 rounded-2xl border border-border/80 bg-card/50 shadow-sm space-y-4">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Briefcase className="h-3.5 w-3.5 text-primary" />
             <span>Employment &amp; Contact Information</span>
@@ -185,7 +185,7 @@ export default function ProfilePage() {
                 <Mail className="h-3 w-3 text-cyan-400" />
                 Work Email
               </span>
-              <p className="font-mono font-semibold text-foreground">{user.userEmail}</p>
+              <p className="font-mono font-semibold text-foreground break-all">{user.userEmail}</p>
             </div>
 
             <div className="space-y-1">
@@ -232,7 +232,7 @@ export default function ProfilePage() {
 
         {/* Change Requests Section (Compact) */}
         {myQueries.length > 0 && (
-          <div className="p-5 rounded-2xl border border-border/80 bg-card/40 shadow-sm space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/40 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-cyan-400" />
@@ -244,19 +244,19 @@ export default function ProfilePage() {
               {myQueries.map((qry) => (
                 <div
                   key={qry.id}
-                  className="p-3 rounded-xl bg-card border border-border/60 flex items-center justify-between gap-3 text-xs"
+                  className="p-3 rounded-xl bg-card border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 text-xs"
                 >
                   <div className="space-y-0.5 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-bold text-primary">{qry.ticketNumber}</span>
-                      <span className="text-muted-foreground">· {qry.category}</span>
+                      <span className="text-muted-foreground truncate">· {qry.category}</span>
                     </div>
                     <p className="text-foreground truncate font-medium">{qry.requestedChange}</p>
                   </div>
 
                   <Badge
                     variant={qry.status === "APPROVED" ? "success" : qry.status === "REJECTED" ? "destructive" : "cyan"}
-                    className="text-[10px] font-bold shrink-0"
+                    className="text-[10px] font-bold shrink-0 self-start sm:self-center"
                   >
                     {qry.status === "APPROVED" ? "✓ Approved" : qry.status === "REJECTED" ? "Declined" : "Under Review"}
                   </Badge>
@@ -268,8 +268,8 @@ export default function ProfilePage() {
 
         {/* Modal: Request Change */}
         {showQueryModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
-            <div className="w-full max-w-md rounded-2xl bg-card border border-border/80 shadow-2xl p-5 space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full max-w-md rounded-2xl bg-card border border-border/80 shadow-2xl p-4 sm:p-5 space-y-4 animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
               <div className="flex items-center justify-between pb-2 border-b border-border/60">
                 <h3 className="text-sm font-bold text-foreground">Request Profile Update</h3>
                 <button
@@ -287,7 +287,7 @@ export default function ProfilePage() {
                   <select
                     value={queryCategory}
                     onChange={(e) => setQueryCategory(e.target.value)}
-                    className="w-full h-8.5 px-2.5 rounded-xl border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:border-primary"
+                    className="w-full h-9 sm:h-8.5 px-2.5 rounded-xl border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:border-primary"
                   >
                     <option value="Personal Contact Details (Phone, Mobile)">Phone / Contact Details</option>
                     <option value="Emergency Contact Information">Emergency Contact</option>
@@ -305,7 +305,7 @@ export default function ProfilePage() {
                     value={requestedChange}
                     onChange={(e) => setRequestedChange(e.target.value)}
                     placeholder="e.g. Update phone to +91 98450 12345"
-                    className="h-8.5 text-xs"
+                    className="h-9 sm:h-8.5 text-xs"
                     required
                   />
                 </div>
@@ -316,17 +316,17 @@ export default function ProfilePage() {
                     value={queryReason}
                     onChange={(e) => setQueryReason(e.target.value)}
                     placeholder="Brief reason for update"
-                    className="h-8.5 text-xs"
+                    className="h-9 sm:h-8.5 text-xs"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowQueryModal(false)}
-                    className="text-xs h-8 px-3"
+                    className="text-xs h-9 sm:h-8 px-3"
                   >
                     Cancel
                   </Button>
@@ -334,7 +334,7 @@ export default function ProfilePage() {
                     type="submit"
                     variant="brand"
                     size="sm"
-                    className="text-xs h-8 px-3.5 font-bold gap-1 rounded-xl"
+                    className="text-xs h-9 sm:h-8 px-3.5 font-bold gap-1 rounded-xl"
                   >
                     <Send className="h-3 w-3" />
                     <span>Submit</span>

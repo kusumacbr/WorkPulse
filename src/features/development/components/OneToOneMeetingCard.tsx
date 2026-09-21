@@ -44,11 +44,11 @@ export function OneToOneMeetingCard() {
             </CardTitle>
           </div>
 
-          <div className="flex items-center p-1 rounded-xl bg-muted border border-border">
+          <div className="flex items-center p-1 rounded-xl bg-muted border border-border overflow-x-auto custom-scrollbar whitespace-nowrap max-w-full">
             <button
               type="button"
               onClick={() => setActiveTab("shared")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 activeTab === "shared"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -60,7 +60,7 @@ export function OneToOneMeetingCard() {
             <button
               type="button"
               onClick={() => setActiveTab("actions")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 activeTab === "actions"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -72,7 +72,7 @@ export function OneToOneMeetingCard() {
             <button
               type="button"
               onClick={() => setActiveTab("private")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 activeTab === "private"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -89,7 +89,7 @@ export function OneToOneMeetingCard() {
         {activeTab === "shared" && (
           <div className="space-y-3">
             <div>
-              <label className="font-semibold block mb-1">Shared Discussion Notes & Goals</label>
+              <label className="font-semibold block mb-1">Shared Discussion Notes &amp; Goals</label>
               <Textarea
                 value={sharedNotes}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSharedNotes(e.target.value)}
@@ -97,20 +97,20 @@ export function OneToOneMeetingCard() {
               />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
               <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                Both employee and manager can review and acknowledge shared notes.
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                <span>Both employee and manager can review and acknowledge shared notes.</span>
               </span>
 
               <Button
                 variant={acknowledged ? "secondary" : "brand"}
                 size="sm"
-                className="text-xs h-7 gap-1"
+                className="text-xs h-8 sm:h-7 gap-1 w-full sm:w-auto"
                 onClick={() => setAcknowledged(true)}
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {acknowledged ? "Acknowledged" : "Acknowledge Notes"}
+                <span>{acknowledged ? "Acknowledged" : "Acknowledge Notes"}</span>
               </Button>
             </div>
           </div>

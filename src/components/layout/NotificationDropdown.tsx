@@ -399,7 +399,7 @@ export function NotificationDropdown() {
 
       {isOpen && (
         <>
-          <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-border bg-card shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed inset-x-2 top-[4.5rem] sm:inset-x-auto sm:absolute sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-96 rounded-xl border border-border bg-card shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-3.5 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-foreground">Notifications &amp; Broadcasts</span>

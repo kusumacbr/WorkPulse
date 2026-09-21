@@ -47,6 +47,13 @@ export function Stage2LeaveApprovalQueue() {
   );
   const completedWfhQueue = wfhRequests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED");
 
+  const getHrAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    "x-user-email": typeof window !== "undefined"
+      ? sessionStorage.getItem("workpulse_session_email") || sessionStorage.getItem("workpulse_user_email") || "hr.test@xorstack.com"
+      : "hr.test@xorstack.com",
+  });
+
   const handleApproveLeave = async (id: string, name: string) => {
     const comment = hrCommentInputs[id] || "Final HR sign-off granted by Rachel HR.";
     hrApproveLeave(id, comment);
@@ -54,14 +61,14 @@ export function Stage2LeaveApprovalQueue() {
     try {
       await fetch(`/api/v1/leave/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
-        event: "leave:updated",
-        payload: { id, status: "APPROVED" },
+        event: "leave:status_updated",
+        payload: { id, status: "APPROVED", stage: "STAGE_2" },
       });
     } catch {}
     setTimeout(() => setToastMsg(null), 3500);
@@ -74,14 +81,14 @@ export function Stage2LeaveApprovalQueue() {
     try {
       await fetch(`/api/v1/leave/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_2" }),
       });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
-        event: "leave:updated",
-        payload: { id, status: "REJECTED" },
+        event: "leave:status_updated",
+        payload: { id, status: "REJECTED", stage: "STAGE_2" },
       });
     } catch {}
     setTimeout(() => setToastMsg(null), 3500);
@@ -94,14 +101,14 @@ export function Stage2LeaveApprovalQueue() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ comment, stage: "STAGE_2" }),
       });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
-        event: "wfh:updated",
-        payload: { id, status: "APPROVED" },
+        event: "wfh:status_updated",
+        payload: { id, status: "APPROVED", stage: "STAGE_2" },
       });
     } catch {}
     setTimeout(() => setToastMsg(null), 3500);
@@ -114,14 +121,14 @@ export function Stage2LeaveApprovalQueue() {
     try {
       await fetch(`/api/v1/leave/wfh/${id}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        headers: getHrAuthHeaders(),
+        body: JSON.stringify({ reason, stage: "STAGE_2" }),
       });
       const supabase = createClient();
       supabase.channel("workpulse-supabase-live-channel").send({
         type: "broadcast",
-        event: "wfh:updated",
-        payload: { id, status: "REJECTED" },
+        event: "wfh:status_updated",
+        payload: { id, status: "REJECTED", stage: "STAGE_2" },
       });
     } catch {}
     setTimeout(() => setToastMsg(null), 3500);

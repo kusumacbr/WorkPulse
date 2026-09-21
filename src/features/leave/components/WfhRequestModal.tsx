@@ -176,7 +176,7 @@ export function WfhRequestModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-muted-foreground block mb-1">Start Date</label>
                 <Input type="date" {...form.register("startDate")} className="h-8 text-xs" />
@@ -187,7 +187,7 @@ export function WfhRequestModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-muted-foreground block mb-1">
                   Availability Hours
@@ -222,11 +222,11 @@ export function WfhRequestModal({
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-              <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-border">
+              <Button type="button" variant="ghost" size="sm" onClick={onClose} className="w-full sm:w-auto">
                 Cancel
               </Button>
-              <Button type="submit" variant="brand" size="sm" disabled={isSubmitting}>
+              <Button type="submit" variant="brand" size="sm" disabled={isSubmitting} className="w-full sm:w-auto">
                 {isSubmitting
                   ? "Submitting..."
                   : isSelfMarked

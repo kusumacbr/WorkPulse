@@ -13,10 +13,17 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const reason = body.reason || "Application rejected";
     const isHr = actor.roles.includes("HR");
+    const existingReq = WorkpulseSharedStore.getLeaveRequests().find((r) => r.id === id);
+    const isStage2 =
+      isHr ||
+      body.stage === "STAGE_2" ||
+      existingReq?.status === "FORWARDED_TO_HR" ||
+      (existingReq?.status as string) === "PENDING_HR" ||
+      (existingReq?.status as string) === "STAGE_2";
 
     const supabaseAdmin = createAdminClient();
 
-    if (isHr) {
+    if (isStage2) {
       WorkpulseSharedStore.hrRejectLeave(id, reason);
 
       if (supabaseAdmin) {
